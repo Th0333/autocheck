@@ -79,9 +79,12 @@ public sealed partial class KanbanCard : ObservableObject
     /// <summary>▶ avança a etapa (só os avanços "puros" via /kanban/avancar).</summary>
     public bool PodeAvancarSeta => Etapa is "em_andamento" or "aguardando_componente";
 
-    /// <summary>◀ retrocede a etapa (endpoint proposto); não há etapa antes do check de entrada.</summary>
+    /// <summary>
+    /// ◀ retrocede a etapa. O ERP só volta a partir destas quatro (check_entrada
+    /// não tem etapa anterior; concluído não retrocede).
+    /// </summary>
     public bool PodeRetroceder => Etapa is "aguardando_tecnico" or "em_andamento"
-        or "aguardando_componente" or "aguardando_aprovacao" or "concluido";
+        or "aguardando_componente" or "aguardando_aprovacao";
 
     public string AvancarSetaToolTip => Etapa switch
     {
@@ -362,10 +365,11 @@ public sealed partial class KanbanViewModel : ObservableObject
 
         IsBusy = true;
         StatusMessage = $"Retrocedendo {card.NtbDisplay}…";
+        ErpKanbanRetrocederResponse resp;
         try
         {
             using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(40));
-            await _erp.RetrocederKanbanAsync(new ErpKanbanRetrocederRequest
+            resp = await _erp.RetrocederKanbanAsync(new ErpKanbanRetrocederRequest
             {
                 AssetId = card.Maquina.AssetId,
                 EtapaAtual = string.IsNullOrWhiteSpace(card.RawEtapa) ? card.Etapa : card.RawEtapa,
@@ -387,6 +391,13 @@ public sealed partial class KanbanViewModel : ObservableObject
             IsBusy = false;
             return;
         }
+
+        // Voltou para fila/check: o ERP limpa o assumido_por — limpa o cache
+        // local também para não ressuscitar o técnico antigo na exibição.
+        var nova = NormalizeEtapa(resp.EtapaNova);
+        if (nova is "check_entrada" or "aguardando_tecnico")
+            _assumidos.Forget(card.Maquina.AssetId);
+
         IsBusy = false;
         await RefreshAsync().ConfigureAwait(true);
         StatusMessage = $"{card.NtbDisplay} voltou uma etapa.";

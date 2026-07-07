@@ -209,8 +209,8 @@ public sealed class ErpClient
     }
 
     /// <summary>
-    /// Volta a máquina uma etapa no kanban (endpoint PROPOSTO — responde 404 até
-    /// o ERP implementar; ver docs/relatorio-para-erp-kanban.md §4).
+    /// Volta a máquina uma etapa no kanban. Ao voltar para fila/check o ERP
+    /// limpa o assumido_por (o chamador limpa o cache local de técnico também).
     /// </summary>
     public async Task<ErpKanbanRetrocederResponse> RetrocederKanbanAsync(
         ErpKanbanRetrocederRequest req, string idempotencyKey, CancellationToken ct)

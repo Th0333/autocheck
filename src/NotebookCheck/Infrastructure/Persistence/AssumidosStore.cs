@@ -100,4 +100,27 @@ public sealed class AssumidosStore
             }
         }
     }
+
+    /// <summary>
+    /// Esquece o técnico de uma máquina — usado quando ela retrocede para a fila
+    /// (aguardando_tecnico) ou o check de entrada, onde o ERP limpa o
+    /// <c>assumido_por</c>; sem isso o cache local ressuscitaria o nome antigo.
+    /// </summary>
+    public void Forget(string? assetId)
+    {
+        if (string.IsNullOrWhiteSpace(assetId)) return;
+        var map = Map();
+        lock (_gate)
+        {
+            if (!map.Remove(assetId!.Trim())) return;
+            try
+            {
+                File.WriteAllText(_path, JsonSerializer.Serialize(map, new JsonSerializerOptions { WriteIndented = true }));
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Falha gravando assumidos.json");
+            }
+        }
+    }
 }

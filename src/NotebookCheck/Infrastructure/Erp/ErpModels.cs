@@ -222,9 +222,9 @@ public sealed class ErpKanbanAvancarResponse
 }
 
 /// <summary>
-/// Corpo do POST /api/integracao/kanban/retroceder (PROPOSTO — ver
-/// docs/relatorio-para-erp-kanban.md §4): volta a máquina UMA etapa no kanban.
-/// O ERP ainda não expõe; a chamada responde 404 até ser implementada.
+/// Corpo do POST /api/integracao/kanban/retroceder: volta a máquina UMA etapa
+/// no kanban (aguardando_tecnico→check_entrada, em_andamento→aguardando_tecnico,
+/// aguardando_componente→em_andamento, aguardando_aprovacao→em_andamento).
 /// </summary>
 public sealed class ErpKanbanRetrocederRequest
 {

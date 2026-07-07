@@ -137,3 +137,12 @@ CHECKLIST_*.json
 CHECKLIST_*.pdf
 RETESTE_*.json
 RETESTE_*.pdf
+
+# -----------------------------------------------------------------------------
+# Saída de ferramentas / publishes de teste / dados de sessão (NÃO versionar)
+# -----------------------------------------------------------------------------
+graphify-out/
+publish-test/
+publish-test2/
+.claude/
+.impeccable/
