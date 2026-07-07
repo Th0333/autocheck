@@ -1,0 +1,1320 @@
+<Window x:Class="NotebookCheck.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
+        xmlns:p="clr-namespace:NotebookCheck.Presentation"
+        xmlns:sys="clr-namespace:System;assembly=mscorlib"
+        Title="Notelet — Checklist técnico"
+        Height="780" Width="1180"
+        MinHeight="640" MinWidth="980"
+        WindowStartupLocation="CenterScreen"
+        Background="{StaticResource Ink50Brush}"
+        TextOptions.TextFormattingMode="Ideal"
+        UseLayoutRounding="True"
+        WindowStyle="None"
+        ResizeMode="CanResize"
+        AllowsTransparency="False">
+    <shell:WindowChrome.WindowChrome>
+        <shell:WindowChrome
+            CaptionHeight="36"
+            ResizeBorderThickness="6"
+            CornerRadius="0"
+            GlassFrameThickness="0"
+            UseAeroCaptionButtons="False"/>
+    </shell:WindowChrome.WindowChrome>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <!-- ============================ Title bar custom ============================ -->
+        <Border Grid.Row="0" Background="{StaticResource Ink900Brush}" Height="36"
+                shell:WindowChrome.IsHitTestVisibleInChrome="False">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center" Margin="14,0,0,0">
+                    <Image Source="/Assets/notelet-logo.png" Height="22" Stretch="Uniform"
+                           RenderOptions.BitmapScalingMode="HighQuality" VerticalAlignment="Center"/>
+                    <TextBlock Text="Notelet" Margin="10,0,0,0" Foreground="White"
+                               FontSize="13" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                    <TextBlock Foreground="#5F6779" Margin="6,0,0,0" FontSize="11" VerticalAlignment="Center">
+                        <Run Text="v"/>
+                        <Run Text="{Binding Version, Mode=OneWay}"/>
+                    </TextBlock>
+                    <TextBlock Text="•" Margin="10,0,10,0" Foreground="#5F6779" VerticalAlignment="Center"/>
+                    <TextBlock Text="{Binding CurrentStep, Converter={StaticResource StepTitleConv}}"
+                               Foreground="#9099AD" FontSize="12" VerticalAlignment="Center"/>
+                </StackPanel>
+
+                <!-- Window control buttons -->
+                <StackPanel Grid.Column="2" Orientation="Horizontal"
+                            shell:WindowChrome.IsHitTestVisibleInChrome="True">
+                    <Button x:Name="MinBtn" Click="OnMinimize" Style="{StaticResource WinCtrlBtn}" ToolTip="Minimizar">
+                        <Path Data="M 0,4 H 10" Stroke="White" StrokeThickness="1"/>
+                    </Button>
+                    <Button x:Name="MaxBtn" Click="OnMaximize" Style="{StaticResource WinCtrlBtn}" ToolTip="Maximizar">
+                        <Path Data="M 0,0 H 10 V 10 H 0 Z" Stroke="White" StrokeThickness="1" Fill="Transparent"/>
+                    </Button>
+                    <Button x:Name="CloseBtn" Click="OnClose" Style="{StaticResource WinCtrlClose}" ToolTip="Fechar">
+                        <Path Data="M 0,0 L 10,10 M 10,0 L 0,10" Stroke="White" StrokeThickness="1.2"/>
+                    </Button>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- ============================ Conteúdo original ============================ -->
+        <Grid Grid.Row="1">
+            <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="280"/>
+            <ColumnDefinition Width="*"/>
+        </Grid.ColumnDefinitions>
+
+        <!-- ============================ Sidebar ============================ -->
+        <Border Grid.Column="0" Background="White" BorderBrush="{StaticResource Ink200Brush}" BorderThickness="0,0,1,0">
+            <DockPanel LastChildFill="True">
+                <!-- Pendentes (rodapé) -->
+                <Border DockPanel.Dock="Bottom" Padding="22,16" BorderBrush="{StaticResource Ink100Brush}" BorderThickness="0,1,0,0">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <StackPanel>
+                            <TextBlock Text="Fila offline" Style="{StaticResource Label}"/>
+                            <TextBlock Style="{StaticResource Subtle}" Margin="0,2,0,0">
+                                <Run Text="{Binding PendingCount}"/>
+                                <Run Text="pendentes"/>
+                            </TextBlock>
+                        </StackPanel>
+                        <Border Grid.Column="1" CornerRadius="999" Padding="10,3"
+                                Background="{StaticResource Ink100Brush}"
+                                Visibility="{Binding PendingCount, Converter={StaticResource CountVisConv}}">
+                            <TextBlock Text="{Binding PendingCount}" FontWeight="SemiBold" FontSize="12" Foreground="{StaticResource Ink700Brush}"/>
+                        </Border>
+                    </Grid>
+                </Border>
+
+                <!-- Trilha de etapas -->
+                <StackPanel Margin="22,18,22,18">
+                    <TextBlock Text="Progresso" Style="{StaticResource Label}" Margin="0,0,0,12"/>
+                    <p:StepRail x:Name="rail"
+                                CurrentStep="{Binding CurrentStep}"
+                                HighWaterMark="{Binding HighWaterMark}"
+                                StepClickedCommand="{Binding GoToStepCommand}"/>
+                </StackPanel>
+            </DockPanel>
+        </Border>
+
+        <!-- ============================ Área principal ============================ -->
+        <DockPanel Grid.Column="1" LastChildFill="True">
+            <!-- Header -->
+            <Border DockPanel.Dock="Top" Background="White" BorderBrush="{StaticResource Ink200Brush}" BorderThickness="0,0,0,1" Padding="32,20">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <StackPanel>
+                        <TextBlock Style="{StaticResource H1}" Text="{Binding CurrentStep, Converter={StaticResource StepTitleConv}}"/>
+                        <TextBlock Style="{StaticResource Subtle}" Margin="0,4,0,0"
+                                   Text="{Binding DeviceHeadline, FallbackValue=''}"
+                                   Visibility="{Binding DeviceHeadline, Converter={StaticResource NotEmptyVisConv}}"/>
+                    </StackPanel>
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                        <Button Content="📋 Kanban" Style="{StaticResource BtnGhost}" Command="{Binding OpenKanbanCommand}"
+                                ToolTip="Máquinas dos pedidos de compra por etapa"/>
+                        <Button Content="📁 Relatórios" Style="{StaticResource BtnGhost}" Command="{Binding OpenReportsCommand}"
+                                ToolTip="Ver relatórios offline e do painel"/>
+                        <Button Content="Voltar" Style="{StaticResource BtnGhost}" Command="{Binding GoBackCommand}"
+                                Visibility="{Binding CurrentStep, Converter={StaticResource StepConv}, ConverterParameter=Start}"/>
+                    </StackPanel>
+                </Grid>
+            </Border>
+
+            <!-- Status bar -->
+            <Border DockPanel.Dock="Bottom" Background="White" BorderBrush="{StaticResource Ink200Brush}" BorderThickness="0,1,0,0" Padding="32,12">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Text="{Binding StatusMessage}" TextWrapping="Wrap" Foreground="{StaticResource Ink600Brush}"/>
+                    <ProgressBar Grid.Column="1" Width="120" Height="4" IsIndeterminate="True"
+                                 Background="Transparent" Foreground="{StaticResource BrandBrush}" BorderThickness="0"
+                                 Visibility="{Binding IsBusy, Converter={StaticResource BoolVisConv}}"/>
+                </Grid>
+            </Border>
+
+            <!-- Conteúdo -->
+            <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                <Grid Margin="32,28">
+
+                    <!-- ============================ START ============================ -->
+                    <Border Style="{StaticResource Card}"
+                            Visibility="{Binding CurrentStep, Converter={StaticResource StepConv}, ConverterParameter=Start}"
+                            HorizontalAlignment="Center" Width="640" Padding="40">
+                        <StackPanel HorizontalAlignment="Center">
+                            <Border Width="56" Height="56" CornerRadius="14" Background="{StaticResource BrandBrush}" Margin="0,0,0,20">
+                                <TextBlock Text="✓" Foreground="White" FontSize="28" FontWeight="Bold"
+                                           HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            </Border>
+                            <TextBlock Style="{StaticResource H1}" Text="Checklist técnico de notebooks" HorizontalAlignment="Center"/>
+                            <TextBlock Style="{StaticResource Subtle}" TextWrapping="Wrap" TextAlignment="Center"
+                                       Margin="0,8,0,28" MaxWidth="480"
+                                       Text="Identifique o equipamento, colete dados de hardware e execute os testes. O relatório é salvo localmente e enviado ao painel."/>
+                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                                <Button Content="Iniciar checklist" Style="{StaticResource BtnPrimary}" Command="{Binding StartChecklistCommand}"/>
+                                <Button Content="Reteste de componente" Style="{StaticResource BtnBase}" Command="{Binding StartRetestCommand}"/>
+                            </StackPanel>
+
+                            <!-- Novidades / changelog da versão mais recente -->
+                            <Border Margin="0,28,0,0" Padding="18" CornerRadius="12"
+                                    Background="{StaticResource Ink50Brush}" BorderBrush="{StaticResource Ink200Brush}" BorderThickness="1"
+                                    Visibility="{Binding HasChangelog, Converter={StaticResource BoolVisConv}}">
+                                <StackPanel>
+                                    <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+                                        <TextBlock Text="✨" FontSize="16" VerticalAlignment="Center"/>
+                                        <TextBlock Text="Novidades desta versão" FontWeight="SemiBold" FontSize="14"
+                                                   Foreground="{StaticResource Ink900Brush}" Margin="8,0,0,0" VerticalAlignment="Center"/>
+                                        <TextBlock Text="{Binding Version, StringFormat=v{0}}" FontSize="12"
+                                                   Foreground="{StaticResource Ink500Brush}" Margin="8,0,0,0" VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                    <ItemsControl ItemsSource="{Binding Changelog}">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <StackPanel Orientation="Horizontal" Margin="0,2">
+                                                    <TextBlock Text="•" Foreground="{StaticResource BrandBrush}" Margin="0,0,8,0" VerticalAlignment="Top"/>
+                                                    <TextBlock Text="{Binding}" TextWrapping="Wrap"
+                                                               Foreground="{StaticResource Ink600Brush}" MaxWidth="520"/>
+                                                </StackPanel>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </StackPanel>
+                            </Border>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- ============================ MODE SELECT ============================ -->
+                    <Border Style="{StaticResource Card}"
+                            Visibility="{Binding CurrentStep, Converter={StaticResource StepConv}, ConverterParameter=ModeSelect}"
+                            HorizontalAlignment="Center" Width="780" Padding="32">
+                        <StackPanel>
+                            <TextBlock Style="{StaticResource H2}" Text="Escolha o modo do checklist"/>
+                            <TextBlock Margin="0,4,0,20" TextWrapping="Wrap">
+                                <Run Text="O modo determina quais testes adicionais serão executados depois dos testes essenciais."
+                                     FontSize="13" Foreground="{StaticResource Ink500Brush}"/>
+                                <LineBreak/>
+                                <Run Text="● Seleção obrigatória — clique em um dos modos para continuar."
+                                     FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource BadBrush}"/>
+                            </TextBlock>
+
+                            <UniformGrid Columns="2" Rows="2">
+                                <UniformGrid.Resources>
+                                    <Style TargetType="Button" BasedOn="{StaticResource BtnBase}">
+                                        <Setter Property="Padding" Value="0"/>
+                                        <Setter Property="Height" Value="150"/>
+                                        <Setter Property="Margin" Value="0,0,12,12"/>
+                                    </Style>
+                                </UniformGrid.Resources>
+
+                                <!-- Básico -->
+                                <Button Command="{Binding SelectModeAndContinueCommand}" CommandParameter="basico">
+                                    <StackPanel Margin="16" HorizontalAlignment="Center">
+                                        <TextBlock Text="🟢" FontSize="28" HorizontalAlignment="Center"/>
+                                        <TextBlock Style="{StaticResource H2}" HorizontalAlignment="Center" Text="Básico" Margin="0,6,0,4"/>
+                                        <TextBlock Style="{StaticResource Subtle}" HorizontalAlignment="Center" TextWrapping="Wrap" TextAlignment="Center"
+                                                   Text="Notebook — só os testes essenciais. Mais rápido."/>
+                                    </StackPanel>
+                                </Button>
+
+                                <!-- Padrão -->
+                                <Button Style="{StaticResource BtnPrimary}" Padding="0" Height="150" Margin="0,0,0,12"
+                                        Command="{Binding SelectModeAndContinueCommand}" CommandParameter="padrao">
+                                    <StackPanel Margin="16" HorizontalAlignment="Center">
+                                        <TextBlock Text="🔵" FontSize="28" HorizontalAlignment="Center"/>
+                                        <TextBlock HorizontalAlignment="Center" Foreground="White" FontSize="17" FontWeight="SemiBold" Text="Padrão" Margin="0,6,0,4"/>
+                                        <TextBlock HorizontalAlignment="Center" Foreground="#D9E8FF" TextWrapping="Wrap" TextAlignment="Center"
+                                                   Text="Notebook — essenciais + humanização de 12h. Recomendado."/>
+                                    </StackPanel>
+                                </Button>
+
+                                <!-- Detalhado -->
+                                <Button Command="{Binding SelectModeAndContinueCommand}" CommandParameter="detalhado">
+                                    <StackPanel Margin="16" HorizontalAlignment="Center">
+                                        <TextBlock Text="🟣" FontSize="28" HorizontalAlignment="Center"/>
+                                        <TextBlock Style="{StaticResource H2}" HorizontalAlignment="Center" Text="Detalhado" Margin="0,6,0,4"/>
+                                        <TextBlock Style="{StaticResource Subtle}" HorizontalAlignment="Center" TextWrapping="Wrap" TextAlignment="Center"
+                                                   Text="Notebook — tudo do Padrão + stress test com pontuação."/>
+                                    </StackPanel>
+                                </Button>
+
+                                <!-- Desktop -->
+                                <Button Margin="0,0,0,12"
+                                        Command="{Binding SelectModeAndContinueCommand}" CommandParameter="desktop">
+                                    <StackPanel Margin="16" HorizontalAlignment="Center">
+                                        <TextBlock Text="🖥" FontSize="28" HorizontalAlignment="Center"/>
+                                        <TextBlock Style="{StaticResource H2}" HorizontalAlignment="Center" Text="Desktop" Margin="0,6,0,4"/>
+                                        <TextBlock Style="{StaticResource Subtle}" HorizontalAlignment="Center" TextWrapping="Wrap" TextAlignment="Center"
+                                                   Text="Sem bateria. Som, internet e USB. Inspeção da carcaça + interna."/>
+                                    </StackPanel>
+                                </Button>
+                            </UniformGrid>
+
+                            <!-- Fluxo separado: cadastro no ERP de estoque (não é um checklist) -->
+                            <Border CornerRadius="10" Margin="0,6,0,0" Padding="2"
+                                    BorderBrush="{StaticResource Ink200Brush}" BorderThickness="1">
+                                <Button Background="Transparent" BorderThickness="0" Padding="16" Cursor="Hand"
+                                        HorizontalContentAlignment="Stretch"
+                                        Command="{Binding OpenCadastroCommand}">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Text="📦" FontSize="26" VerticalAlignment="Center" Margin="0,0,14,0"/>
+                                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                            <TextBlock Style="{StaticResource H2}" Text="Cadastro no estoque (ERP)"/>
+                                            <TextBlock Style="{StaticResource Subtle}" TextWrapping="Wrap"
+                                                       Text="Sem testes — só registra a máquina no estoque: origem, identificação, condição e destino. Cria uma aprovação pendente."/>
+                                        </StackPanel>
+                                        <TextBlock Grid.Column="2" Text="→" FontSize="22" VerticalAlignment="Center"
+                                                   Foreground="{StaticResource Ink400Brush}" Margin="12,0,4,0"/>
+                                    </Grid>
+                                </Button>
+                            </Border>
+
+                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,20,0,0">
+                                <Button Content="Voltar" Style="{StaticResource BtnGhost}" Command="{Binding GoBackCommand}"/>
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- ============================ IDENTIFICATION (NTB + Localização) ============================ -->
+                    <StackPanel Visibility="{Binding CurrentStep, Converter={StaticResource StepConv}, ConverterParameter=Identification}"
+                                MaxWidth="780" HorizontalAlignment="Stretch">
+                        <Border Style="{StaticResource Card}">
+                            <StackPanel>
+                                <TextBlock Style="{StaticResource H2}" Text="Identifique o equipamento"/>
+                                <TextBlock Style="{StaticResource Subtle}" Margin="0,4,0,20" TextWrapping="Wrap"
+                                           Text="Atribua um apelido/número de estoque, informe a localização onde o notebook ficará após a inspeção e identifique-se como técnico responsável."/>
+
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="20"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition/>
+                                        <RowDefinition Height="14"/>
+                                        <RowDefinition/>
+                                        <RowDefinition Height="14"/>
+                                        <RowDefinition/>
+                                    </Grid.RowDefinitions>
+
+                                    <!-- NTB -->
+                                    <StackPanel Grid.Row="0" Grid.Column="0">
+                                        <TextBlock>
+                                            <Run Text="Apelido / código NTB" FontWeight="SemiBold" Foreground="{StaticResource Ink700Brush}"/>
+                                            <Run Text=" *" Foreground="{StaticResource BadBrush}" FontWeight="Bold"/>
+                                            <Run Text=" obrigatório" FontSize="11" Foreground="{StaticResource Ink500Brush}"/>
+                                        </TextBlock>
+                                        <TextBox Margin="0,6,0,0" MaxLength="50"
+                                                 Text="{Binding NtbCode, UpdateSourceTrigger=PropertyChanged}"
+                                                 ToolTip="Digite só o número (ex.: 001) — o prefixo NTB é adicionado automaticamente. 'ntb001' e 'NTB-001' também valem (vira NTB001).">
+                                            <TextBox.Style>
+                                                <Style TargetType="TextBox" BasedOn="{StaticResource {x:Type TextBox}}">
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding NtbInvalid}" Value="True">
+                                                            <Setter Property="BorderBrush" Value="{StaticResource BadBrush}"/>
+                                                            <Setter Property="BorderThickness" Value="2"/>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </TextBox.Style>
+                                        </TextBox>
+                                    </StackPanel>
+                                    <!-- Asset tag -->
+                                    <StackPanel Grid.Row="0" Grid.Column="2">
+                                        <TextBlock Style="{StaticResource Label}" Text="Etiqueta de patrimônio (opcional)"/>
+                                        <TextBox Margin="0,6,0,0" MaxLength="100"
+                                                 Text="{Binding AssetTag, UpdateSourceTrigger=PropertyChanged}"
+                                                 ToolTip="Etiqueta interna, distinta do NTB e do serial."/>
+                                    </StackPanel>
+
+                                    <!-- Localização -->
+                                    <StackPanel Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="3">
+                                        <TextBlock Style="{StaticResource Label}" Text="Localização (opcional)"/>
+                                        <TextBox Margin="0,6,0,0" MaxLength="200"
+                                                 Text="{Binding LocationField, UpdateSourceTrigger=PropertyChanged}"
+                                                 ToolTip="Onde o equipamento ficará alocado após a inspeção (ex.: 'Vitrine Loja 1', 'Estoque – prateleira B')."/>
+                                    </StackPanel>
+
+                                    <!-- Técnico (obrigatório) -->
+                                    <StackPanel Grid.Row="4" Grid.Column="0">
+                                        <TextBlock>
+                                            <Run Text="Técnico responsável" FontWeight="SemiBold" Foreground="{StaticResource Ink700Brush}"/>
+                                            <Run Text=" *" Foreground="{StaticResource BadBrush}" FontWeight="Bold"/>
+                                            <Run Text=" obrigatório" FontSize="11" Foreground="{StaticResource Ink500Brush}"/>
+                                        </TextBlock>
+                                        <TextBox Margin="0,6,0,0" MaxLength="100"
+                                                 Text="{Binding TechnicianName, UpdateSourceTrigger=PropertyChanged}"
+                                                 ToolTip="Nome ou matrícula de quem está executando o checklist.">
+                                            <TextBox.Style>
+                                                <Style TargetType="TextBox" BasedOn="{StaticResource {x:Type TextBox}}">
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding TechnicianInvalid}" Value="True">
+                                                            <Setter Property="BorderBrush" Value="{StaticResource BadBrush}"/>
+                                                            <Setter Property="BorderThickness" Value="2"/>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </TextBox.Style>
+                                        </TextBox>
+                                    </StackPanel>
+                                </Grid>
+                            </StackPanel>
+                        </Border>
+
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,16,0,0">
+                            <Button Content="Cancelar" Style="{StaticResource BtnGhost}" Command="{Binding RestartFlowCommand}"/>
+                            <Button Content="Continuar para coleta" Style="{StaticResource BtnPrimary}"
+                                    Command="{Binding SubmitIdentificationCommand}"
+                                    IsEnabled="{Binding IsBusy, Converter={StaticResource InvBoolConv}}"/>
+                        </StackPanel>
+                    </StackPanel>
+
+                    <!-- ============================ HARDWARE COLLECTION ============================ -->
+                    <Grid Visibility="{Binding CurrentStep, Converter={StaticResource StepConv}, ConverterParameter=Hardware}"
+                          MaxWidth="1180" HorizontalAlignment="Stretch">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+
+                        <!-- Linha 1: Sistema | Segurança | Rede & Bluetooth -->
+                        <Grid Grid.Row="0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="16"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="16"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+
+                            <Border Grid.Column="0" Style="{StaticResource Card}">
+                                <StackPanel>
+                                    <TextBlock Style="{StaticResource Label}" Text="SISTEMA"/>
+                                    <TextBlock Style="{StaticResource H2}" Margin="0,4,0,12" Text="Equipamento"/>
+                                    <ItemsControl ItemsSource="{Binding SystemFields}">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <Grid Margin="0,0,0,10">
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="120"/>
+                                                        <ColumnDefinition Width="*"/>
+                                                    </Grid.ColumnDefinitions>
+                                                    <TextBlock Style="{StaticResource Label}" Text="{Binding Label}" VerticalAlignment="Top"/>
+                                                    <TextBlock Grid.Column="1" Text="{Binding Value}" TextWrapping="Wrap"
+                                                               Foreground="{StaticResource Ink900Brush}" FontWeight="Medium"/>
+                                                </Grid>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </StackPanel>
+                            </Border>
+
+                            <Border Grid.Column="2" Style="{StaticResource Card}">
+                                <StackPanel>
+                                    <TextBlock Style="{StaticResource Label}" Text="SEGURANÇA"/>
+                                    <TextBlock Style="{StaticResource H2}" Margin="0,4,0,12" Text="TPM, Secure Boot, Autopilot"/>
+                                    <ItemsControl ItemsSource="{Binding SecurityFields}">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <Grid Margin="0,0,0,10">
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="130"/>
+                                                        <ColumnDefinition Width="*"/>
+                                                    </Grid.ColumnDefinitions>
+                                                    <TextBlock Style="{StaticResource Label}" Text="{Binding Label}" VerticalAlignment="Top"/>
+                                                    <TextBlock Grid.Column="1" Text="{Binding Value}" TextWrapping="Wrap"
+                                                               Foreground="{StaticResource Ink900Brush}" FontWeight="Medium"/>
+                                                </Grid>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </StackPanel>
+                            </Border>
+
+                            <Border Grid.Column="4" Style="{StaticResource Card}">
+                                <StackPanel>
+                                    <TextBlock Style="{StaticResource Label}" Text="CONECTIVIDADE"/>
+                                    <TextBlock Style="{StaticResource H2}" Margin="0,4,0,12" Text="Rede e Bluetooth"/>
+                                    <ItemsControl ItemsSource="{Binding NetworkFields}">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <Grid Margin="0,0,0,10">
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="130"/>
+                                                        <ColumnDefinition Width="*"/>
+                                                    </Grid.ColumnDefinitions>
+                                                    <TextBlock Style="{StaticResource Label}" Text="{Binding Label}" VerticalAlignment="Top"/>
+                                                    <TextBlock Grid.Column="1" Text="{Binding Value}" TextWrapping="Wrap"
+                                                               Foreground="{StaticResource Ink900Brush}" FontWeight="Medium"/>
+                                                </Grid>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </StackPanel>
+                            </Border>
+                        </Grid>
+
+                        <!-- Linha 2: Vídeo | Storage | Bateria -->
+                        <Grid Grid.Row="1" Margin="0,16,0,0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="16"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="16"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+
+                            <Border Grid.Column="0" Style="{StaticResource Card}">
+                                <StackPanel>
+                                    <TextBlock Style="{StaticResource Label}" Text="DISPLAY"/>
+                                    <TextBlock Style="{StaticResource H2}" Margin="0,4,0,12" Text="Vídeo"/>
+                                    <ItemsControl ItemsSource="{Binding DisplayFields}">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <Grid Margin="0,0,0,10">
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="130"/>
+                                                        <ColumnDefinition Width="*"/>
+                                                    </Grid.ColumnDefinitions>
+                                                    <TextBlock Style="{StaticResource Label}" Text="{Binding Label}" VerticalAlignment="Top"/>
+                                                    <TextBlock Grid.Column="1" Text="{Binding Value}" TextWrapping="Wrap"
+                                                               Foreground="{StaticResource Ink900Brush}" FontWeight="Medium"/>
+                                                </Grid>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </StackPanel>
+                            </Border>
+
+                            <Border Grid.Column="2" Style="{StaticResource Card}">
+                                <StackPanel>
+                                    <TextBlock Style="{StaticResource Label}" Text="ARMAZENAMENTO"/>
+                                    <TextBlock Style="{StaticResource H2}" Margin="0,4,0,12" Text="Discos"/>
+                                    <ItemsControl ItemsSource="{Binding StorageFields}">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <StackPanel Margin="0,0,0,12">
+                                                    <TextBlock Text="{Binding Label}" TextWrapping="Wrap"
+                                                               Foreground="{StaticResource Ink900Brush}"
+                                                               FontWeight="SemiBold" FontSize="13"/>
+                                                    <TextBlock Text="{Binding Value}" TextWrapping="Wrap"
+                                                               Foreground="{StaticResource Ink500Brush}"
+                                                               FontSize="12" Margin="0,3,0,0"/>
+                                                </StackPanel>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                    <Button Content="🔍 Abrir CrystalDiskInfo"
+                                            Style="{StaticResource BtnGhost}"
+                                            HorizontalAlignment="Left" Margin="0,4,0,0"
+                                            Command="{Binding OpenCrystalDiskInfoCommand}"
+                                            ToolTip="Abre o CrystalDiskInfo oficial para inspeção detalhada da saúde dos discos"/>
+                                </StackPanel>
+                            </Border>
+
+                            <Border Grid.Column="4" Style="{StaticResource Card}"
+                                    Visibility="{Binding ShowBatteryCard, Converter={StaticResource BoolVisConv}}">
+                                <StackPanel>
+                                    <TextBlock Style="{StaticResource Label}" Text="BATERIA"/>
+                                    <TextBlock Style="{StaticResource H2}" Margin="0,4,0,4" Text="{Binding BatteryTitle}"
+                                               TextWrapping="Wrap"/>
+
+                                    <!-- Barra de carga atual -->
+                                    <Grid Margin="0,8,0,14"
+                                          Visibility="{Binding BatteryHasCharge, Converter={StaticResource BoolVisConv}}">
+                                        <Border Height="22" CornerRadius="11" Background="{StaticResource Ink100Brush}"/>
+                                        <Border Height="22" CornerRadius="11" HorizontalAlignment="Left"
+                                                Background="{StaticResource BrandBrush}">
+                                            <Border.Width>
+                                                <MultiBinding Converter="{StaticResource PercentWidthConv}">
+                                                    <Binding Path="BatteryChargePercent"/>
+                                                    <Binding RelativeSource="{RelativeSource AncestorType=Grid}" Path="ActualWidth"/>
+                                                </MultiBinding>
+                                            </Border.Width>
+                                        </Border>
+                                        <TextBlock Text="{Binding BatteryChargeText}" HorizontalAlignment="Center"
+                                                   VerticalAlignment="Center" FontSize="12" FontWeight="SemiBold"
+                                                   Foreground="{StaticResource Ink900Brush}"/>
+                                    </Grid>
+
+                                    <ItemsControl ItemsSource="{Binding BatteryFields}">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <Grid Margin="0,0,0,10">
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="120"/>
+                                                        <ColumnDefinition Width="*"/>
+                                                    </Grid.ColumnDefinitions>
+                                                    <TextBlock Style="{StaticResource Label}" Text="{Binding Label}" VerticalAlignment="Top"/>
+                                                    <TextBlock Grid.Column="1" Text="{Binding Value}" TextWrapping="Wrap"
+                                                               Foreground="{StaticResource Ink900Brush}" FontWeight="Medium"/>
+                                                </Grid>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </StackPanel>
+                            </Border>
+                        </Grid>
+
+                        <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,20,0,0">
+                            <Button Content="Voltar" Style="{StaticResource BtnGhost}" Command="{Binding GoBackCommand}"/>
+                            <Button Content="Confirmar e iniciar testes" Style="{StaticResource BtnPrimary}"
+                                    Command="{Binding ConfirmHardwareCommand}"
+                                    IsEnabled="{Binding IsBusy, Converter={StaticResource InvBoolConv}}"/>
+                        </StackPanel>
+                    </Grid>
+
+                    <!-- ============================ AUTO TESTS ============================ -->
+                    <Grid Visibility="{Binding CurrentStep, Converter={StaticResource StepConv}, ConverterParameter=AutoTests}"
+                          MaxWidth="980" HorizontalAlignment="Stretch">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+
+                        <Border Grid.Row="0" Style="{StaticResource Card}">
+                            <StackPanel>
+                                <Grid Margin="0,0,0,12">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel>
+                                        <TextBlock Style="{StaticResource H2}" Text="Resultados dos testes"/>
+                                        <TextBlock Style="{StaticResource Subtle}" Margin="0,4,0,0"
+                                                   Text="Clique no ＋ de um teste para trocar o resultado, comentar ou refazer do zero. Use ▶ Rodar todos para a bateria automática."/>
+                                    </StackPanel>
+                                    <Button Grid.Column="1" Content="▶  Rodar todos" Style="{StaticResource BtnPrimary}"
+                                            Command="{Binding RunAllTestsCommand}"
+                                            VerticalAlignment="Top" Margin="12,2,0,0"/>
+                                </Grid>
+
+                                <!-- Grid 2 colunas com POSIÇÃO FIXA: cada teste fica sempre no
+                                     mesmo lugar (a atualização é in-place no ViewModel). -->
+                                <ItemsControl ItemsSource="{Binding TestResults}">
+                                    <ItemsControl.ItemsPanel>
+                                        <ItemsPanelTemplate>
+                                            <UniformGrid Columns="2"/>
+                                        </ItemsPanelTemplate>
+                                    </ItemsControl.ItemsPanel>
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Border Margin="0,0,8,8" Padding="12,10" CornerRadius="8"
+                                                    Background="{StaticResource Ink50Brush}">
+                                                <Grid>
+                                                    <Grid.RowDefinitions>
+                                                        <RowDefinition Height="Auto"/>
+                                                        <RowDefinition Height="Auto"/>
+                                                        <RowDefinition Height="Auto"/>
+                                                    </Grid.RowDefinitions>
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="*"/>
+                                                        <ColumnDefinition Width="Auto"/>
+                                                    </Grid.ColumnDefinitions>
+
+                                                    <!-- Linha 0: badge de status + rótulo -->
+                                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                                        <Border CornerRadius="999" Padding="8,2" Margin="0,0,8,0"
+                                                                Background="{Binding Status, Converter={StaticResource StatusBgConv}}">
+                                                            <TextBlock Text="{Binding Status}" FontSize="11" FontWeight="SemiBold"
+                                                                       Foreground="{Binding Status, Converter={StaticResource StatusFgConv}}"/>
+                                                        </Border>
+                                                        <TextBlock Text="{Binding Label}" FontWeight="SemiBold" VerticalAlignment="Center"
+                                                                   Foreground="{StaticResource Ink900Brush}"/>
+                                                        <TextBlock Text=" (modificado)" FontSize="11" VerticalAlignment="Center"
+                                                                   Foreground="{StaticResource WarnBrush}"
+                                                                   Visibility="{Binding IsOverridden, Converter={StaticResource BoolVisConv}}"/>
+                                                    </StackPanel>
+
+                                                    <!-- + : abre o modal (trocar resultado / comentar / refazer) -->
+                                                    <Button Grid.Column="1" Content="＋"
+                                                            ToolTip="Abrir: trocar resultado, comentar ou refazer do zero"
+                                                            Style="{StaticResource BtnGhost}" Padding="11,2" FontWeight="Bold" FontSize="15"
+                                                            Command="{Binding DataContext.OpenTestActionCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                            CommandParameter="{Binding TestKey}"/>
+
+                                                    <!-- Detalhes -->
+                                                    <TextBlock Grid.Row="1" Grid.ColumnSpan="2" Text="{Binding Details}" TextWrapping="Wrap"
+                                                               FontSize="12" Foreground="{StaticResource Ink700Brush}" Margin="0,6,0,0"/>
+
+                                                    <!-- Balão de comentário do técnico -->
+                                                    <Border Grid.Row="2" Grid.ColumnSpan="2" Margin="0,6,0,0" Padding="8,5" CornerRadius="6"
+                                                            Background="{StaticResource Ink100Brush}"
+                                                            Visibility="{Binding HasComment, Converter={StaticResource BoolVisConv}}">
+                                                        <TextBlock Text="{Binding Comment}" TextWrapping="Wrap" FontSize="11.5"
+                                                                   Foreground="{StaticResource Ink700Brush}"/>
+                                                    </Border>
+                                                </Grid>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </StackPanel>
+                        </Border>
+
+                        <Border Grid.Row="1" Style="{StaticResource Card}" Margin="0,16,0,0">
+                            <StackPanel>
+                                <TextBlock Style="{StaticResource H2}" Text="Testes que precisam do técnico"/>
+                                <TextBlock Style="{StaticResource Subtle}" Margin="0,4,0,12"
+                                           Text="Som, câmera, tela, teclado e touchpad requerem confirmação do técnico. O resultado entra na grade acima."/>
+                                <UniformGrid Columns="4">
+                                    <UniformGrid.Resources>
+                                        <Style TargetType="Button" BasedOn="{StaticResource BtnBase}">
+                                            <Setter Property="Margin" Value="0,0,8,8"/>
+                                            <Setter Property="HorizontalAlignment" Value="Stretch"/>
+                                        </Style>
+                                    </UniformGrid.Resources>
+                                    <Button Content="◐ ◑  Estéreo (L/R)" Command="{Binding OpenTestActionCommand}" CommandParameter="estereo"/>
+                                    <Button Content="🎤  Microfone (ao vivo)" Command="{Binding OpenTestActionCommand}" CommandParameter="microfone"
+                                            Visibility="{Binding ShowFullTechTests, Converter={StaticResource BoolVisConv}}"/>
+                                    <Button Content="▶  Reproduzir gravação" Command="{Binding PlayMicCommand}"
+                                            IsEnabled="{Binding HasMicRecording}"
+                                            Visibility="{Binding ShowFullTechTests, Converter={StaticResource BoolVisConv}}"/>
+                                    <Button Content="🎥  Câmera" Command="{Binding OpenTestActionCommand}" CommandParameter="camera"
+                                            Visibility="{Binding ShowFullTechTests, Converter={StaticResource BoolVisConv}}"/>
+                                    <Button Content="🖵  Pixels da tela" Command="{Binding OpenTestActionCommand}" CommandParameter="tela"
+                                            Visibility="{Binding ShowFullTechTests, Converter={StaticResource BoolVisConv}}"/>
+                                    <Button Content="☀  Brilho da tela" Command="{Binding OpenTestActionCommand}" CommandParameter="brilho"
+                                            Visibility="{Binding ShowFullTechTests, Converter={StaticResource BoolVisConv}}"/>
+                                    <Button Content="⌨  Teclado" Command="{Binding OpenTestActionCommand}" CommandParameter="teclado"
+                                            Visibility="{Binding ShowFullTechTests, Converter={StaticResource BoolVisConv}}"/>
+                                    <Button Content="🖱  Touchpad" Command="{Binding OpenTestActionCommand}" CommandParameter="touchpad"
+                                            Visibility="{Binding ShowFullTechTests, Converter={StaticResource BoolVisConv}}"/>
+                                </UniformGrid>
+                            </StackPanel>
+                        </Border>
+
+                        <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,16,0,0">
+                            <Button Content="Voltar" Style="{StaticResource BtnGhost}" Command="{Binding GoBackCommand}"/>
+                            <Button Content="Continuar" Style="{StaticResource BtnPrimary}" Command="{Binding GoAfterAutoTestsCommand}"/>
+                        </StackPanel>
+                    </Grid>
+
+                    <!-- ============================ PERFORMANCE / STRESS / HUMANIZAÇÃO ============================ -->
+                    <Grid Visibility="{Binding CurrentStep, Converter={StaticResource StepConv}, ConverterParameter=Performance}"
+                          MaxWidth="1080" HorizontalAlignment="Stretch">
+                            <StackPanel>
+                                <Grid Margin="0,0,0,16">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel>
+                                        <TextBlock Style="{StaticResource H2}" Text="Desempenho e stress"/>
+                                        <TextBlock Style="{StaticResource Subtle}" Margin="0,4,0,0" TextWrapping="Wrap"
+                                                   Text="Benchmark + stress test (CPU, GPU, disco, VRAM, RAM e Geekbench) e a humanização de 12h. Cada um roda direto nesta etapa, sem janelas separadas."/>
+                                    </StackPanel>
+                                    <Button Grid.Column="1" Content="🌡 Sensores ao vivo" Style="{StaticResource BtnBase}"
+                                            VerticalAlignment="Top" Margin="12,0,0,0"
+                                            Command="{Binding OpenSensorsCommand}"/>
+                                </Grid>
+
+                                <!-- ====== BATERIA E TÉRMICA — testes ao vivo (todos os modos) ====== -->
+                                <Border Style="{StaticResource Card}" Margin="0,0,0,16">
+                                    <StackPanel>
+                                        <TextBlock Style="{StaticResource H2}" Text="🌡 Térmica (ao vivo)"/>
+                                        <TextBlock Style="{StaticResource Subtle}" Margin="0,4,0,12" TextWrapping="Wrap"
+                                                   Text="Teste ao vivo que precisa do técnico presente: roda carga máxima na CPU por ~60s e verifica se o clock cai sob calor (throttling térmico)."/>
+                                        <Border Style="{StaticResource Card}" Background="{StaticResource Ink50Brush}" Padding="14">
+                                            <StackPanel>
+                                                <TextBlock Text="🌡 Throttling térmico" FontWeight="Bold" FontSize="14"
+                                                           Foreground="{StaticResource Ink900Brush}"/>
+                                                <TextBlock Text="{Binding ThrottleResult}" Margin="0,6,0,10"
+                                                           TextWrapping="Wrap" FontSize="12"
+                                                           Foreground="{StaticResource Ink700Brush}" MinHeight="34"/>
+                                                <Button Content="Abrir teste de throttling" Style="{StaticResource BtnBase}"
+                                                        HorizontalAlignment="Left"
+                                                        Command="{Binding RunThrottleTestCommand}"/>
+                                            </StackPanel>
+                                        </Border>
+                                    </StackPanel>
+                                </Border>
+
+                                <!-- ====== AVISO: benchmark/stress só no Detalhado (aparece em Básico e Padrão) ====== -->
+                                <Border Style="{StaticResource Card}" Margin="0,0,0,16"
+                                        BorderBrush="{StaticResource BrandBrush}" BorderThickness="1"
+                                        Visibility="{Binding StressAvailable, Converter={StaticResource BoolVisConv}, ConverterParameter=invert}">
+                                    <StackPanel>
+                                        <TextBlock Style="{StaticResource H2}" Text="🔒 Benchmark e stress test"/>
+                                        <TextBlock Style="{StaticResource Subtle}" Margin="0,6,0,0" TextWrapping="Wrap"
+                                                   Text="Os testes de CPU, GPU, disco, VRAM e RAM e a nota final aparecem somente no modo Detalhado. Para rodá-los, reinicie o checklist e escolha o modo Detalhado na primeira etapa."/>
+                                    </StackPanel>
+                                </Border>
+
+                                <!-- ====== AVISO: humanização precisa de Padrão/Detalhado (aparece só no Básico) ====== -->
+                                <Border Style="{StaticResource Card}" Margin="0,0,0,16"
+                                        BorderBrush="{StaticResource BrandBrush}" BorderThickness="1"
+                                        Visibility="{Binding HumanizationAvailable, Converter={StaticResource BoolVisConv}, ConverterParameter=invert}">
+                                    <StackPanel>
+                                        <TextBlock Style="{StaticResource H2}" Text="🔒 Humanização (12h)"/>
+                                        <TextBlock Style="{StaticResource Subtle}" Margin="0,6,0,0" TextWrapping="Wrap"
+                                                   Text="A humanização está disponível nos modos Padrão e Detalhado. O modo Básico não inclui esta etapa."/>
+                                    </StackPanel>
+                                </Border>
+
+                                <!-- ====== BENCHMARK / STRESS — 1 botão por categoria ====== -->
+                                <Border Style="{StaticResource Card}"
+                                        Visibility="{Binding StressAvailable, Converter={StaticResource BoolVisConv}}">
+                                    <StackPanel>
+                                        <TextBlock Style="{StaticResource H2}" Text="🔥 Benchmark e stress"/>
+                                        <TextBlock Style="{StaticResource Subtle}" Margin="0,4,0,14" TextWrapping="Wrap"
+                                                   Text="Cada categoria tem seu próprio botão de iniciar/parar. A nota aparece no cartão ao terminar."/>
+
+                                        <UniformGrid Columns="5">
+                                            <!-- CPU -->
+                                            <Border Style="{StaticResource Card}" Margin="0,0,8,0" Padding="14">
+                                                <StackPanel>
+                                                    <TextBlock Text="🧠 CPU" FontWeight="Bold" FontSize="14"
+                                                               Foreground="{StaticResource Ink900Brush}"/>
+                                                    <TextBlock Text="{Binding CpuBenchText}" Margin="0,6,0,10" TextWrapping="Wrap"
+                                                               FontSize="12" Foreground="{StaticResource Ink700Brush}" MinHeight="34"/>
+                                                    <Button Content="{Binding CpuBenchButton}" Style="{StaticResource BtnBase}"
+                                                            HorizontalAlignment="Stretch" Command="{Binding RunCpuBenchCommand}"/>
+                                                </StackPanel>
+                                            </Border>
+                                            <!-- GPU -->
+                                            <Border Style="{StaticResource Card}" Margin="0,0,8,0" Padding="14">
+                                                <StackPanel>
+                                                    <TextBlock Text="🎮 GPU" FontWeight="Bold" FontSize="14"
+                                                               Foreground="{StaticResource Ink900Brush}"/>
+                                                    <TextBlock Text="{Binding GpuBenchText}" Margin="0,6,0,10" TextWrapping="Wrap"
+                                                               FontSize="12" Foreground="{StaticResource Ink700Brush}" MinHeight="34"/>
+                                                    <Button Content="{Binding GpuBenchButton}" Style="{StaticResource BtnBase}"
+                                                            HorizontalAlignment="Stretch" Command="{Binding RunGpuBenchCommand}"/>
+                                                </StackPanel>
+                                            </Border>
+                                            <!-- Disco -->
+                                            <Border Style="{StaticResource Card}" Margin="0,0,8,0" Padding="14">
+                                                <StackPanel>
+                                                    <TextBlock Text="💾 Disco" FontWeight="Bold" FontSize="14"
+                                                               Foreground="{StaticResource Ink900Brush}"/>
+                                                    <TextBlock Text="{Binding DiskBenchText}" Margin="0,6,0,10" TextWrapping="Wrap"
+                                                               FontSize="12" Foreground="{StaticResource Ink700Brush}" MinHeight="34"/>
+                                                    <Button Content="{Binding DiskBenchButton}" Style="{StaticResource BtnBase}"
+                                                            HorizontalAlignment="Stretch" Command="{Binding RunDiskBenchCommand}"/>
+                                                </StackPanel>
+                                            </Border>
+                                            <!-- VRAM -->
+                                            <Border Style="{StaticResource Card}" Margin="0,0,8,0" Padding="14">
+                                                <StackPanel>
+                                                    <TextBlock Text="🧬 VRAM" FontWeight="Bold" FontSize="14"
+                                                               Foreground="{StaticResource Ink900Brush}"/>
+                                                    <TextBlock Text="{Binding VramBenchText}" Margin="0,6,0,10" TextWrapping="Wrap"
+                                                               FontSize="12" Foreground="{StaticResource Ink700Brush}" MinHeight="34"/>
+                                                    <Button Content="{Binding VramBenchButton}" Style="{StaticResource BtnBase}"
+                                                            HorizontalAlignment="Stretch" Command="{Binding RunVramBenchCommand}"/>
+                                                </StackPanel>
+                                            </Border>
+                                            <!-- RAM -->
+                                            <Border Style="{StaticResource Card}" Padding="14">
+                                                <StackPanel>
+                                                    <TextBlock Text="📦 RAM" FontWeight="Bold" FontSize="14"
+                                                               Foreground="{StaticResource Ink900Brush}"/>
+                                                    <TextBlock Text="{Binding RamBenchText}" Margin="0,6,0,10" TextWrapping="Wrap"
+                                                               FontSize="12" Foreground="{StaticResource Ink700Brush}" MinHeight="34"/>
+                                                    <Button Content="{Binding RamBenchButton}" Style="{StaticResource BtnBase}"
+                                                            HorizontalAlignment="Stretch" Command="{Binding RunRamBenchCommand}"/>
+                                                </StackPanel>
+                                            </Border>
+                                        </UniformGrid>
+
+                                        <!-- Progresso comum -->
+                                        <Grid Margin="0,14,0,6">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Text="{Binding StressPhase}" FontWeight="SemiBold"
+                                                       Foreground="{StaticResource Ink900Brush}"/>
+                                            <TextBlock Grid.Column="1" Text="{Binding StressProgress, StringFormat={}{0}%}"
+                                                       FontWeight="SemiBold" Foreground="{StaticResource BrandBrush}"/>
+                                        </Grid>
+                                        <ProgressBar Maximum="100" Height="10" Value="{Binding StressProgress}"
+                                                     Foreground="{StaticResource BrandBrush}"
+                                                     Background="{StaticResource Ink100Brush}" BorderThickness="0"/>
+                                        <TextBlock Text="{Binding LiveTelemetryText}" FontSize="12" Margin="0,8,0,0"
+                                                   Foreground="{StaticResource Ink500Brush}"/>
+
+                                        <!-- Rodar todos + nota final -->
+                                        <Border Margin="0,14,0,0" Padding="14" CornerRadius="8" Background="{StaticResource Ink50Brush}">
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                    <ColumnDefinition Width="*"/>
+                                                </Grid.ColumnDefinitions>
+                                                <Button Grid.Column="0" Content="{Binding AllBenchButton}"
+                                                        Style="{StaticResource BtnPrimary}" VerticalAlignment="Center"
+                                                        Command="{Binding RunAllBenchmarksCommand}"/>
+                                                <StackPanel Grid.Column="1" Margin="16,0,0,0" VerticalAlignment="Center">
+                                                    <TextBlock Text="Nota final" Style="{StaticResource Label}"/>
+                                                    <TextBlock Text="{Binding FinalBenchScore}" FontSize="26" FontWeight="Bold"
+                                                               Foreground="{StaticResource BrandBrush}"/>
+                                                    <TextBlock Text="{Binding FinalBenchText}" FontSize="11"
+                                                               Foreground="{StaticResource Ink500Brush}"/>
+                                                </StackPanel>
+                                            </Grid>
+                                        </Border>
+                                    </StackPanel>
+                                </Border>
+
+                                <!-- ====== USERBENCHMARK (externo) ====== -->
+                                <Border Style="{StaticResource Card}" Margin="0,16,0,0"
+                                        Visibility="{Binding StressAvailable, Converter={StaticResource BoolVisConv}}">
+                                    <StackPanel>
+                                        <TextBlock Style="{StaticResource H2}" Text="🌐 UserBenchmark"/>
+                                        <TextBlock Style="{StaticResource Subtle}" Margin="0,4,0,14" TextWrapping="Wrap"
+                                                   Text="Benchmark mais preciso, com resultados comparados a outros dispositivos do mundo todo. Roda por fora (no navegador / app oficial), pois exige conta online e não pode ser embutido. Use para uma referência de mercado da máquina."/>
+                                        <Button Content="🌐 Baixar e abrir UserBenchmark" Style="{StaticResource BtnPrimary}"
+                                                HorizontalAlignment="Left"
+                                                Command="{Binding OpenUserBenchmarkCommand}"/>
+                                        <TextBlock Text="{Binding UserBenchmarkStatus}" FontSize="12" Margin="0,8,0,0"
+                                                   TextWrapping="Wrap" Foreground="{StaticResource Ink500Brush}"/>
+                                    </StackPanel>
+                                </Border>
+
+                                <!-- ====== HUMANIZAÇÃO ====== -->
+                                <Border Style="{StaticResource Card}" Margin="0,16,0,0"
+                                        Visibility="{Binding HumanizationAvailable, Converter={StaticResource BoolVisConv}}">
+                                    <StackPanel>
+                                        <TextBlock Style="{StaticResource H2}" Text="⏱ Humanização (12h)"/>
+                                        <TextBlock Style="{StaticResource Subtle}" Margin="0,4,0,12" TextWrapping="Wrap"
+                                                   Text="Simula uso humano normal por ~12h: navegação, vídeo em loop, picos de CPU 50/100%, câmera, disco I/O e idle. Deixe a máquina na tomada. Pode ser interrompida a qualquer momento."/>
+                                        <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+                                            <Button Content="▶ Iniciar humanização" Style="{StaticResource BtnPrimary}"
+                                                    Command="{Binding RunHumanizationCommand}"
+                                                    IsEnabled="{Binding HumanizationRunning, Converter={StaticResource InvBoolConv}}"/>
+                                            <Button Content="⏹ Parar humanização" Style="{StaticResource BtnGhost}"
+                                                    Command="{Binding StopHumanizationCommand}"
+                                                    IsEnabled="{Binding HumanizationRunning}"/>
+                                        </StackPanel>
+                                        <TextBlock Text="{Binding HumanizationStatus}" FontSize="13"
+                                                   Foreground="{StaticResource Ink700Brush}" TextWrapping="Wrap"/>
+                                    </StackPanel>
+                                </Border>
+
+                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,16,0,0">
+                                    <Button Content="Voltar" Style="{StaticResource BtnGhost}" Command="{Binding GoBackCommand}"/>
+                                    <Button Content="Continuar para inputs e portas" Style="{StaticResource BtnPrimary}" Command="{Binding GoInputsCommand}"/>
+                                </StackPanel>
+                            </StackPanel>
+                    </Grid>
+
+                    <!-- ============================ INPUTS / PORTS ============================ -->
+                    <Grid Visibility="{Binding CurrentStep, Converter={StaticResource StepConv}, ConverterParameter=Inputs}"
+                          MaxWidth="1080" HorizontalAlignment="Stretch">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+
+                        <Border Grid.Row="0" Style="{StaticResource Card}">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <StackPanel>
+                                    <TextBlock Style="{StaticResource H2}" Text="Inputs e portas"/>
+                                    <TextBlock Style="{StaticResource Subtle}" Margin="0,4,0,0" TextWrapping="Wrap"
+                                               Text="Portas detectadas no equipamento. Verde = ativo (dispositivo plugado, link UP, fone conectado, etc.). Cinza = livre. Teclado e touchpad são testados na etapa de testes."/>
+                                </StackPanel>
+                                <Button Grid.Column="1" Content="↻ Atualizar" Style="{StaticResource BtnBase}"
+                                        Command="{Binding RefreshPortsCommand}" VerticalAlignment="Center"/>
+                            </Grid>
+                        </Border>
+
+                        <Border Grid.Row="2" Style="{StaticResource Card}" Margin="0,16,0,0">
+                            <ItemsControl ItemsSource="{Binding Ports}">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <WrapPanel Orientation="Horizontal"/>
+                                    </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Border Width="160" Height="120" Margin="6"
+                                                CornerRadius="10"
+                                                BorderThickness="2"
+                                                BorderBrush="{Binding IsActive, Converter={StaticResource PortBorderConv}}"
+                                                Background="{Binding IsActive, Converter={StaticResource PortBgConv}}">
+                                            <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+                                                <!-- Glyph do Segoe Fluent/MDL2 (ícones nativos do Windows) -->
+                                                <TextBlock Text="{Binding Symbol}" FontSize="32"
+                                                           FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets"
+                                                           Foreground="{Binding IsActive, Converter={StaticResource PortLabelConv}}"
+                                                           HorizontalAlignment="Center"/>
+                                                <TextBlock Text="{Binding Label}" FontWeight="SemiBold" FontSize="13"
+                                                           HorizontalAlignment="Center" Margin="0,6,0,0"
+                                                           Foreground="{Binding IsActive, Converter={StaticResource PortLabelConv}}"/>
+                                                <TextBlock Text="{Binding Detail}" FontSize="11"
+                                                           HorizontalAlignment="Center" Margin="0,2,0,0"
+                                                           Foreground="{StaticResource Ink500Brush}"
+                                                           TextTrimming="CharacterEllipsis" MaxWidth="140"/>
+                                            </StackPanel>
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </Border>
+
+                        <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,16,0,0">
+                            <Button Content="Voltar" Style="{StaticResource BtnGhost}" Command="{Binding GoBackCommand}"/>
+                            <Button Content="Continuar para inspeção física" Style="{StaticResource BtnPrimary}" Command="{Binding GoManualCommand}"/>
+                        </StackPanel>
+                    </Grid>
+
+                    <!-- ============================ MANUAL ============================ -->
+                    <Grid Visibility="{Binding CurrentStep, Converter={StaticResource StepConv}, ConverterParameter=Manual}"
+                          MaxWidth="1080" HorizontalAlignment="Stretch">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+
+                        <Border Grid.Row="0" Style="{StaticResource Card}">
+                            <StackPanel>
+                                <!-- Aviso de pendências (bem visível) -->
+                                <Border Margin="0,0,0,14" Padding="14,10" CornerRadius="8"
+                                        Background="#FDECEC" BorderBrush="#E53935" BorderThickness="1"
+                                        Visibility="{Binding ManualWarning, Converter={StaticResource NotEmptyVisConv}}">
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="⚠" FontSize="18" Foreground="#C62828" VerticalAlignment="Center"/>
+                                        <TextBlock Text="{Binding ManualWarning}" Margin="10,0,0,0" TextWrapping="Wrap"
+                                                   FontWeight="SemiBold" Foreground="#C62828" VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                </Border>
+
+                                <!-- Confirmações de teclado: ocultas no Desktop (teclado externo). -->
+                                <StackPanel Visibility="{Binding ShowKeyboardChecks, Converter={StaticResource BoolVisConv}}">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Style="{StaticResource H2}" Text="Teclado retroiluminado"/>
+                                    <TextBlock Text="● obrigatório" Margin="10,0,0,0" VerticalAlignment="Center"
+                                               FontWeight="SemiBold" FontSize="12" Foreground="#C62828"
+                                               Visibility="{Binding KeyboardBacklightInvalid, Converter={StaticResource BoolVisConv}}"/>
+                                </StackPanel>
+                                <TextBlock Style="{StaticResource Subtle}" Margin="0,4,0,12">
+                                    <Run Text="Detecção automática:"/>
+                                    <Run FontWeight="SemiBold" Foreground="{StaticResource Ink800Brush}" Text="{Binding KeyboardBacklightDetected}"/>
+                                    <Run Text="— confirme abaixo"/>
+                                </TextBlock>
+                                <Border Padding="6" CornerRadius="6" BorderThickness="2"
+                                        BorderBrush="{Binding KeyboardBacklightInvalid, Converter={StaticResource ErrorBrushConv}}">
+                                    <StackPanel Orientation="Horizontal">
+                                        <RadioButton Content="Sim" GroupName="KbBacklight" IsChecked="{Binding KeyboardBacklightSim}"/>
+                                        <RadioButton Content="Não" GroupName="KbBacklight" IsChecked="{Binding KeyboardBacklightNao}" Margin="16,0,0,0"/>
+                                    </StackPanel>
+                                </Border>
+                                <StackPanel Orientation="Horizontal" Margin="0,16,0,0">
+                                    <TextBlock Style="{StaticResource H2}" Text="Teclado numérico (numpad)"/>
+                                    <TextBlock Text="● obrigatório" Margin="10,0,0,0" VerticalAlignment="Center"
+                                               FontWeight="SemiBold" FontSize="12" Foreground="#C62828"
+                                               Visibility="{Binding NumericKeypadInvalid, Converter={StaticResource BoolVisConv}}"/>
+                                </StackPanel>
+                                <TextBlock Style="{StaticResource Subtle}" Margin="0,4,0,8" Text="O teclado possui bloco numérico à direita?"/>
+                                <Border Padding="6" CornerRadius="6" BorderThickness="2"
+                                        BorderBrush="{Binding NumericKeypadInvalid, Converter={StaticResource ErrorBrushConv}}">
+                                    <StackPanel Orientation="Horizontal">
+                                        <RadioButton Content="Sim" GroupName="Numpad" IsChecked="{Binding NumericKeypadSim}"/>
+                                        <RadioButton Content="Não" GroupName="Numpad" IsChecked="{Binding NumericKeypadNao}" Margin="16,0,0,0"/>
+                                    </StackPanel>
+                                </Border>
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
+
+                        <Border Grid.Row="1" Style="{StaticResource Card}" Margin="0,16,0,0"
+                                BorderThickness="2"
+                                BorderBrush="{Binding InspectionIncomplete, Converter={StaticResource ErrorBrushConv}}">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+
+                                <!-- QR + instruções -->
+                                <StackPanel Grid.Column="0" Width="260" Margin="0,0,20,0">
+                                    <TextBlock Style="{StaticResource H2}" Text="Inspeção física por foto"/>
+                                    <TextBlock Style="{StaticResource Subtle}" Margin="0,4,0,12" TextWrapping="Wrap"
+                                               Text="Escaneie o QR com o celular e tire as fotos: 4 principais + até 5 de defeitos. Todas são OPCIONAIS — envie as que fizerem sentido; dá para finalizar sem completar a lista."/>
+                                    <Border Background="White" CornerRadius="10" Padding="10" HorizontalAlignment="Left">
+                                        <Image Source="{Binding InspectionQr}" Width="200" Height="200"
+                                               RenderOptions.BitmapScalingMode="NearestNeighbor"/>
+                                    </Border>
+                                    <TextBlock Text="{Binding InspectionUrl}" FontSize="11" Margin="0,8,0,0"
+                                               TextWrapping="Wrap" Foreground="{StaticResource Ink500Brush}"/>
+                                    <TextBlock Text="{Binding InspectionStatus}" FontSize="12" Margin="0,8,0,0"
+                                               TextWrapping="Wrap" FontWeight="SemiBold" Foreground="{StaticResource BrandBrush}"/>
+                                    <TextBlock Margin="0,6,0,0" FontSize="12" Foreground="{StaticResource Ink700Brush}">
+                                        <Run Text="Fotos principais:"/>
+                                        <Run Text="{Binding InspectionDoneCount}" FontWeight="Bold"/>
+                                        <Run Text="/"/>
+                                        <Run Text="{Binding InspectionTotalCount}"/>
+                                        <Run Text=" (opcionais)" FontSize="11" Foreground="#9099AD"/>
+                                    </TextBlock>
+                                </StackPanel>
+
+                                <!-- Lista de itens com estado -->
+                                <StackPanel Grid.Column="1">
+                                    <TextBlock Style="{StaticResource H2}" Text="Itens a fotografar"/>
+                                    <TextBlock Style="{StaticResource Subtle}" Margin="0,4,0,12"
+                                               Text="Os itens ficam verdes conforme as fotos chegam do celular. Fotos de defeito (opcionais) aparecem aqui quando enviadas."/>
+                                    <ItemsControl ItemsSource="{Binding InspectionItems}">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <Border Margin="0,0,0,8" Padding="12" CornerRadius="8"
+                                                        Background="{StaticResource Ink50Brush}">
+                                                    <Border.Style>
+                                                        <Style TargetType="Border">
+                                                            <Style.Triggers>
+                                                                <!-- Slots de defeito (opcionais) só aparecem quando a foto chega. -->
+                                                                <MultiDataTrigger>
+                                                                    <MultiDataTrigger.Conditions>
+                                                                        <Condition Binding="{Binding IsOptional}" Value="True"/>
+                                                                        <Condition Binding="{Binding HasPhoto}" Value="False"/>
+                                                                    </MultiDataTrigger.Conditions>
+                                                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                                                </MultiDataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </Border.Style>
+                                                    <Grid>
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="28"/>
+                                                            <ColumnDefinition Width="*"/>
+                                                        </Grid.ColumnDefinitions>
+                                                        <TextBlock Grid.Column="0" VerticalAlignment="Top" FontSize="16"
+                                                                   Text="{Binding HasPhoto, Converter={StaticResource PhotoCheckConv}}"/>
+                                                        <StackPanel Grid.Column="1">
+                                                            <StackPanel Orientation="Horizontal">
+                                                                <TextBlock Text="{Binding Label}" FontWeight="SemiBold"
+                                                                           Foreground="{StaticResource Ink900Brush}"/>
+                                                                <Border CornerRadius="999" Padding="8,1" Margin="8,0,0,0"
+                                                                        Background="{StaticResource Ink100Brush}"
+                                                                        Visibility="{Binding IsOptional, Converter={StaticResource BoolVisConv}}">
+                                                                    <TextBlock Text="opcional" FontSize="10"
+                                                                               Foreground="{StaticResource Ink500Brush}"/>
+                                                                </Border>
+                                                            </StackPanel>
+                                                            <TextBlock Text="{Binding Instruction}" FontSize="11.5"
+                                                                       TextWrapping="Wrap" Foreground="{StaticResource Ink500Brush}"
+                                                                       Margin="0,2,0,0"/>
+                                                        </StackPanel>
+                                                    </Grid>
+                                                </Border>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </StackPanel>
+                            </Grid>
+                        </Border>
+
+                        <Border Grid.Row="2" Style="{StaticResource Card}" Margin="0,16,0,0">
+                            <StackPanel>
+                                <TextBlock Style="{StaticResource H2}" Text="Observações gerais"/>
+                                <TextBlock Style="{StaticResource Subtle}" Margin="0,4,0,12"
+                                           Text="Anote algo relevante sobre o estado geral, acessórios incluídos, etc. (até 2000 caracteres)."/>
+                                <TextBox Text="{Binding GeneralNotes, UpdateSourceTrigger=PropertyChanged}" MaxLength="2000"
+                                         Height="120" TextWrapping="Wrap" AcceptsReturn="True" VerticalScrollBarVisibility="Auto"
+                                         VerticalContentAlignment="Top"/>
+                            </StackPanel>
+                        </Border>
+
+                        <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,16,0,0">
+                            <Button Content="Voltar" Style="{StaticResource BtnGhost}" Command="{Binding GoBackCommand}"/>
+                            <Button Content="Continuar para resumo" Style="{StaticResource BtnPrimary}" Command="{Binding GoSummaryCommand}"/>
+                        </StackPanel>
+                    </Grid>
+
+                    <!-- ============================ SUMMARY ============================ -->
+                    <Grid Visibility="{Binding CurrentStep, Converter={StaticResource StepConv}, ConverterParameter=Summary}"
+                          MaxWidth="1080" HorizontalAlignment="Stretch">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+
+                        <Border Grid.Row="0" Style="{StaticResource Card}">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <StackPanel>
+                                    <TextBlock Style="{StaticResource H2}" Text="Resumo do checklist"/>
+                                    <Grid Margin="0,12,0,0">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel>
+                                            <TextBlock Style="{StaticResource Label}" Text="Apelido / NTB"/>
+                                            <TextBlock Margin="0,4,0,0" FontWeight="SemiBold" FontSize="14"
+                                                       Foreground="{StaticResource Ink900Brush}" Text="{Binding NtbCode}"/>
+                                        </StackPanel>
+                                        <StackPanel Grid.Column="1">
+                                            <TextBlock Style="{StaticResource Label}" Text="Localização"/>
+                                            <TextBlock Margin="0,4,0,0" FontWeight="SemiBold" FontSize="14"
+                                                       Foreground="{StaticResource Ink900Brush}" Text="{Binding LocationField}"/>
+                                        </StackPanel>
+                                        <StackPanel Grid.Column="2">
+                                            <TextBlock Style="{StaticResource Label}" Text="Técnico"/>
+                                            <TextBlock Margin="0,4,0,0" FontWeight="SemiBold" FontSize="14"
+                                                       Foreground="{StaticResource Ink900Brush}" Text="{Binding TechnicianName}"/>
+                                        </StackPanel>
+                                    </Grid>
+                                </StackPanel>
+                                <Border Grid.Column="1" CornerRadius="999" Padding="14,6"
+                                        Background="{Binding FinalClassification, Converter={StaticResource StatusBgConv}}"
+                                        VerticalAlignment="Top">
+                                    <TextBlock Text="{Binding FinalClassification}" FontWeight="SemiBold"
+                                               Foreground="{Binding FinalClassification, Converter={StaticResource StatusFgConv}}"/>
+                                </Border>
+                            </Grid>
+                        </Border>
+
+                        <Border Grid.Row="1" Style="{StaticResource Card}" Margin="0,16,0,0">
+                            <StackPanel>
+                                <TextBlock Style="{StaticResource H2}" Text="Resultados"/>
+                                <DataGrid Margin="0,12,0,0" ItemsSource="{Binding TestResults}" MaxHeight="320">
+                                    <DataGrid.Columns>
+                                        <DataGridTextColumn Header="Teste" Binding="{Binding Label}" Width="220"/>
+                                        <DataGridTemplateColumn Header="Status" Width="160">
+                                            <DataGridTemplateColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <Border Padding="8,3" CornerRadius="999" HorizontalAlignment="Left"
+                                                            Background="{Binding Status, Converter={StaticResource StatusBgConv}}">
+                                                        <TextBlock Text="{Binding Status}" FontWeight="SemiBold" FontSize="12"
+                                                                   Foreground="{Binding Status, Converter={StaticResource StatusFgConv}}"/>
+                                                    </Border>
+                                                </DataTemplate>
+                                            </DataGridTemplateColumn.CellTemplate>
+                                        </DataGridTemplateColumn>
+                                        <DataGridTextColumn Header="Detalhes" Binding="{Binding Details}" Width="*"/>
+                                    </DataGrid.Columns>
+                                </DataGrid>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Notas do benchmark -->
+                        <Border Grid.Row="2" Style="{StaticResource Card}" Margin="0,16,0,0"
+                                Visibility="{Binding HasBenchSummary, Converter={StaticResource BoolVisConv}}">
+                            <StackPanel>
+                                <TextBlock Style="{StaticResource H2}" Text="🔥 Notas do benchmark"/>
+                                <ItemsControl Margin="0,12,0,0" ItemsSource="{Binding BenchSummary}">
+                                    <ItemsControl.ItemsPanel>
+                                        <ItemsPanelTemplate>
+                                            <UniformGrid Columns="2"/>
+                                        </ItemsPanelTemplate>
+                                    </ItemsControl.ItemsPanel>
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Border Margin="0,0,8,8" Padding="12" CornerRadius="8"
+                                                    Background="{StaticResource Ink50Brush}">
+                                                <StackPanel>
+                                                    <TextBlock Text="{Binding Label}" Style="{StaticResource Label}"/>
+                                                    <TextBlock Text="{Binding Value}" Margin="0,4,0,0" FontWeight="SemiBold"
+                                                               FontSize="14" Foreground="{StaticResource Ink900Brush}"/>
+                                                </StackPanel>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Fotos da inspeção física -->
+                        <Border Grid.Row="3" Style="{StaticResource Card}" Margin="0,16,0,0"
+                                Visibility="{Binding InspectionDoneCount, Converter={StaticResource CountVisConv}}">
+                            <StackPanel>
+                                <TextBlock Style="{StaticResource H2}" Text="📷 Fotos da inspeção física"/>
+                                <ItemsControl Margin="0,12,0,0"
+                                              ItemsSource="{Binding InspectionItems}">
+                                    <ItemsControl.ItemsPanel>
+                                        <ItemsPanelTemplate>
+                                            <WrapPanel/>
+                                        </ItemsPanelTemplate>
+                                    </ItemsControl.ItemsPanel>
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Border Width="180" Margin="0,0,10,10" CornerRadius="8"
+                                                    Background="{StaticResource Ink50Brush}"
+                                                    Visibility="{Binding HasPhoto, Converter={StaticResource BoolVisConv}}">
+                                                <StackPanel>
+                                                    <Image Source="{Binding PhotoUrl}" Height="120" Stretch="UniformToFill"/>
+                                                    <TextBlock Text="{Binding Label}" Margin="8,6,8,8" FontSize="12"
+                                                               FontWeight="SemiBold" TextWrapping="Wrap"
+                                                               Foreground="{StaticResource Ink800Brush}"/>
+                                                </StackPanel>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </StackPanel>
+                        </Border>
+
+                        <StackPanel Grid.Row="4" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,16,0,0">
+                            <Button Content="Voltar" Style="{StaticResource BtnGhost}" Command="{Binding GoBackCommand}"/>
+                            <Button Content="📊 Comparar com mesmas specs" Style="{StaticResource BtnBase}"
+                                    Command="{Binding CompareWithSameSpecsCommand}"/>
+                            <Button Content="📤 Enviar relatório" Style="{StaticResource BtnSuccess}" Command="{Binding FinalizeAndSendCommand}"/>
+                        </StackPanel>
+                    </Grid>
+
+                    <!-- ============================ DONE ============================ -->
+                    <Border Style="{StaticResource Card}"
+                            Visibility="{Binding CurrentStep, Converter={StaticResource StepConv}, ConverterParameter=Done}"
+                            HorizontalAlignment="Center" Width="640" Padding="40">
+                        <StackPanel HorizontalAlignment="Center">
+                            <Border Width="56" Height="56" CornerRadius="28" Background="#DCFCE7" Margin="0,0,0,20">
+                                <TextBlock Text="✓" Foreground="{StaticResource OkBrush}" FontSize="30" FontWeight="Bold"
+                                           HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            </Border>
+                            <TextBlock Style="{StaticResource H1}" Text="Relatório enviado" HorizontalAlignment="Center"/>
+                            <TextBlock Style="{StaticResource Subtle}" TextWrapping="Wrap" TextAlignment="Center"
+                                       Margin="0,8,0,28" MaxWidth="480"
+                                       Text="{Binding StatusMessage}"/>
+                            <Button Content="Iniciar novo checklist" Style="{StaticResource BtnPrimary}"
+                                    Command="{Binding RestartFlowCommand}" HorizontalAlignment="Center"/>
+                        </StackPanel>
+                    </Border>
+
+                </Grid>
+            </ScrollViewer>
+        </DockPanel>
+        </Grid> <!-- /Grid Row=1 -->
+    </Grid>
+</Window>

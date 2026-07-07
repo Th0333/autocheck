@@ -1,0 +1,32 @@
+<Window x:Class="NotebookCheck.Presentation.Views.PixelTestWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Teste de pixels mortos"
+        WindowStyle="None"
+        WindowState="Maximized"
+        ResizeMode="NoResize"
+        Topmost="True"
+        Cursor="Cross"
+        Background="Black"
+        ShowInTaskbar="False">
+    <Grid x:Name="root">
+        <!-- Painel cheio com cor sólida/gradiente/xadrez — preenchido em code-behind -->
+        <Rectangle x:Name="colorRect" Fill="Black"/>
+
+        <!-- Overlay de texto (teste de nitidez) — visível só no padrão "Texto" -->
+        <TextBlock x:Name="textOverlay" Visibility="Collapsed"
+                   TextWrapping="Wrap" Background="White" Foreground="Black"
+                   FontFamily="Segoe UI" FontSize="14" Padding="24" LineHeight="20"/>
+
+        <!-- Overlay com instruções (canto inferior direito, semi-transparente) -->
+        <Border HorizontalAlignment="Right" VerticalAlignment="Bottom"
+                Margin="20" Padding="14,10"
+                Background="#A0000000" CornerRadius="8">
+            <StackPanel>
+                <TextBlock x:Name="hint" Foreground="White" FontFamily="Segoe UI" FontSize="13"
+                           Text="Pressione → para próximo padrão • ← para anterior • ESC para fechar"/>
+                <TextBlock x:Name="status" Foreground="#FBBF24" FontFamily="Segoe UI" FontSize="12" Margin="0,4,0,0"/>
+            </StackPanel>
+        </Border>
+    </Grid>
+</Window>

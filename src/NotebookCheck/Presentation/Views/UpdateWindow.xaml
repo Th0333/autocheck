@@ -1,0 +1,31 @@
+<Window x:Class="NotebookCheck.Presentation.Views.UpdateWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Atualizando Notelet"
+        Width="460" Height="240"
+        WindowStartupLocation="CenterScreen"
+        Background="{StaticResource Ink900Brush}"
+        WindowStyle="None" ResizeMode="NoResize"
+        AllowsTransparency="False" Topmost="True">
+    <Border Padding="36">
+        <StackPanel VerticalAlignment="Center">
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,0,0,18">
+                <Border Width="34" Height="34" CornerRadius="9" Background="{StaticResource BrandBrush}">
+                    <TextBlock Text="N" Foreground="White" FontWeight="Bold" FontSize="18"
+                               HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                </Border>
+                <TextBlock Text="Notelet" Foreground="White" FontSize="20" FontWeight="SemiBold"
+                           VerticalAlignment="Center" Margin="12,0,0,0"/>
+            </StackPanel>
+
+            <TextBlock x:Name="phaseText" Text="Procurando atualizações..."
+                       Foreground="#E7EAF0" FontSize="14" HorizontalAlignment="Center" Margin="0,0,0,14"/>
+
+            <ProgressBar x:Name="bar" Height="10" Maximum="100" Value="0"
+                         Foreground="{StaticResource BrandBrush}" Background="#2A2F3A" BorderThickness="0"/>
+
+            <TextBlock x:Name="pctText" Text="" Foreground="#9AA3B2" FontSize="12"
+                       HorizontalAlignment="Center" Margin="0,10,0,0"/>
+        </StackPanel>
+    </Border>
+</Window>

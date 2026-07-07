@@ -1,0 +1,15 @@
+<UserControl x:Class="NotebookCheck.Presentation.Views.StereoTestControl"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <Border Style="{StaticResource Card}" Padding="18">
+        <StackPanel>
+            <TextBlock Style="{StaticResource Label}" Text="ÁUDIO ESTÉREO"/>
+            <TextBlock Style="{StaticResource Subtle}" Margin="0,4,0,12" TextWrapping="Wrap"
+                       Text="Toque a sequência e confirme: tom no canal ESQUERDO, depois DIREITO, depois ambos. Se ouvir os dois lados separadamente, está OK."/>
+            <Button x:Name="playBtn" Content="▶ Tocar L → R → ambos" Style="{StaticResource BtnPrimary}"
+                    HorizontalAlignment="Left" Click="OnPlay"/>
+            <TextBlock x:Name="statusLine" Margin="0,10,0,0" FontSize="12"
+                       Foreground="{StaticResource Ink600Brush}"/>
+        </StackPanel>
+    </Border>
+</UserControl>

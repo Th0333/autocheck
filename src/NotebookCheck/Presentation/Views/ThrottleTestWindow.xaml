@@ -1,0 +1,103 @@
+<views:TestResultWindow x:Class="NotebookCheck.Presentation.Views.ThrottleTestWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
+        xmlns:controls="clr-namespace:NotebookCheck.Presentation.Controls"
+        xmlns:views="clr-namespace:NotebookCheck.Presentation.Views"
+        Title="Throttling térmico"
+        Width="600" Height="560"
+        MinWidth="540" MinHeight="520"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="NoResize"
+        WindowStyle="None"
+        Background="{StaticResource Ink50Brush}">
+    <shell:WindowChrome.WindowChrome>
+        <shell:WindowChrome CaptionHeight="36" ResizeBorderThickness="6"
+                            CornerRadius="0" GlassFrameThickness="0"
+                            UseAeroCaptionButtons="False"/>
+    </shell:WindowChrome.WindowChrome>
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+        <controls:ModalTitleBar Grid.Row="0" Title="Throttling térmico"/>
+
+        <DockPanel Grid.Row="1" LastChildFill="True" Margin="20">
+            <StackPanel DockPanel.Dock="Top">
+                <TextBlock Style="{StaticResource H2}" Text="🌡 Teste de throttling térmico"/>
+                <TextBlock Style="{StaticResource Subtle}" Margin="0,4,0,12" TextWrapping="Wrap"
+                           Text="Roda carga máxima na CPU por ~60 s e observa se o clock cai sob calor (sinal de pasta térmica ruim, fan entupida ou refrigeração fraca). Mantenha o notebook na tomada e numa superfície firme."/>
+            </StackPanel>
+
+            <!-- Decisão (aparece ao terminar) -->
+            <StackPanel x:Name="decisionBar" DockPanel.Dock="Bottom" Orientation="Horizontal"
+                        HorizontalAlignment="Right" Margin="0,16,0,0" Visibility="Collapsed">
+                <Button Content="✗ Throttling (Falha)" Style="{StaticResource BtnGhost}" Click="OnFailed"/>
+                <Button Content="✓ Sem throttling (OK)" Style="{StaticResource BtnSuccess}" Click="OnOk"/>
+            </StackPanel>
+            <!-- Em execução -->
+            <StackPanel x:Name="runBar" DockPanel.Dock="Bottom" Orientation="Horizontal"
+                        HorizontalAlignment="Right" Margin="0,16,0,0">
+                <Button x:Name="stopBtn" Content="⏹ Parar e avaliar" Style="{StaticResource BtnGhost}" Click="OnStop"/>
+            </StackPanel>
+
+            <StackPanel>
+                <Border Style="{StaticResource Card}" Padding="18">
+                    <StackPanel>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0">
+                                <TextBlock Style="{StaticResource Label}" Text="TEMPERATURA"/>
+                                <TextBlock x:Name="tempText" Text="—" FontSize="30" FontWeight="Bold"
+                                           Foreground="{StaticResource BrandBrush}"/>
+                                <TextBlock x:Name="tempPeakText" Style="{StaticResource Subtle}" Text="Pico: —"/>
+                            </StackPanel>
+                            <StackPanel Grid.Column="1">
+                                <TextBlock Style="{StaticResource Label}" Text="CLOCK EFETIVO"/>
+                                <TextBlock x:Name="clockText" Text="—" FontSize="30" FontWeight="Bold"
+                                           Foreground="{StaticResource BrandBrush}"/>
+                                <TextBlock x:Name="clockBaseText" Style="{StaticResource Subtle}" Text="Inicial: —"/>
+                            </StackPanel>
+                        </Grid>
+
+                        <Separator Margin="0,12" Background="{StaticResource Ink100Brush}"/>
+
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0">
+                                <TextBlock Style="{StaticResource Label}" Text="USO"/>
+                                <TextBlock x:Name="loadText" Text="—" FontWeight="SemiBold" FontSize="16"/>
+                            </StackPanel>
+                            <StackPanel Grid.Column="1">
+                                <TextBlock Style="{StaticResource Label}" Text="CONSUMO"/>
+                                <TextBlock x:Name="powerText" Text="—" FontWeight="SemiBold" FontSize="16"/>
+                            </StackPanel>
+                            <StackPanel Grid.Column="2">
+                                <TextBlock Style="{StaticResource Label}" Text="TEMPO"/>
+                                <TextBlock x:Name="timeText" Text="—" FontWeight="SemiBold" FontSize="16"/>
+                            </StackPanel>
+                        </Grid>
+                    </StackPanel>
+                </Border>
+
+                <ProgressBar x:Name="progress" Maximum="100" Height="10" Margin="0,14,0,0"
+                             Foreground="{StaticResource BrandBrush}" Background="{StaticResource Ink100Brush}"
+                             BorderThickness="0"/>
+
+                <Border x:Name="verdictPanel" Margin="0,14,0,0" Padding="14" CornerRadius="8"
+                        Background="{StaticResource Ink50Brush}" BorderBrush="{StaticResource Ink200Brush}"
+                        BorderThickness="1" Visibility="Collapsed">
+                    <TextBlock x:Name="verdictText" TextWrapping="Wrap" Foreground="{StaticResource Ink800Brush}"/>
+                </Border>
+            </StackPanel>
+        </DockPanel>
+    </Grid>
+</views:TestResultWindow>

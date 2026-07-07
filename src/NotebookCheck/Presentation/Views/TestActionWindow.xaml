@@ -1,0 +1,62 @@
+<Window x:Class="NotebookCheck.Presentation.Views.TestActionWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
+        xmlns:controls="clr-namespace:NotebookCheck.Presentation.Controls"
+        Title="Teste"
+        Width="580" Height="Auto"
+        SizeToContent="Height"
+        MinWidth="520" MaxHeight="760"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="NoResize"
+        WindowStyle="None"
+        Background="{StaticResource Ink50Brush}">
+    <shell:WindowChrome.WindowChrome>
+        <shell:WindowChrome CaptionHeight="36" ResizeBorderThickness="6"
+                            CornerRadius="0" GlassFrameThickness="0"
+                            UseAeroCaptionButtons="False"/>
+    </shell:WindowChrome.WindowChrome>
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+        <controls:ModalTitleBar Grid.Row="0" Title="Teste"/>
+
+        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+            <StackPanel Margin="20">
+                <TextBlock x:Name="titleText" Style="{StaticResource H2}" Text="Teste"/>
+                <TextBlock x:Name="detailsText" Style="{StaticResource Subtle}" Margin="0,4,0,12"
+                           TextWrapping="Wrap" Text="—"/>
+
+                <!-- Área do teste: painel inline OU botão de rodar (testes em tela cheia) -->
+                <ContentControl x:Name="testHost"/>
+                <StackPanel x:Name="runArea" Visibility="Collapsed">
+                    <Button x:Name="runBtn" Style="{StaticResource BtnPrimary}"
+                            HorizontalAlignment="Left" Click="OnRun"/>
+                    <TextBlock x:Name="runHint" Style="{StaticResource Subtle}" Margin="0,8,0,0" TextWrapping="Wrap"
+                               Text="Roda o teste do zero (ignora o resultado anterior). Depois ajuste o resultado abaixo, se precisar."/>
+                </StackPanel>
+
+                <TextBlock Style="{StaticResource Label}" Margin="0,16,0,0" Text="RESULTADO"/>
+                <ComboBox x:Name="statusBox" Margin="0,4,0,0" Width="220" HorizontalAlignment="Left">
+                    <ComboBoxItem Content="OK"/>
+                    <ComboBoxItem Content="Atenção"/>
+                    <ComboBoxItem Content="Falha"/>
+                    <ComboBoxItem Content="Não testado"/>
+                    <ComboBoxItem Content="Não aplicável"/>
+                </ComboBox>
+
+                <TextBlock Style="{StaticResource Label}" Margin="0,14,0,0" Text="COMENTÁRIO (OPCIONAL)"/>
+                <TextBox x:Name="commentBox" Margin="0,4,0,0" MinHeight="56" MaxLength="1000"
+                         TextWrapping="Wrap" AcceptsReturn="True"
+                         VerticalScrollBarVisibility="Auto" VerticalContentAlignment="Top"/>
+
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,18,0,0">
+                    <Button Content="Cancelar" Style="{StaticResource BtnGhost}" Click="OnCancel"/>
+                    <Button Content="Salvar" Style="{StaticResource BtnSuccess}" Click="OnSave"/>
+                </StackPanel>
+            </StackPanel>
+        </ScrollViewer>
+    </Grid>
+</Window>

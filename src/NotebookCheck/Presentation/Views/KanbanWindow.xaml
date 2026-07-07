@@ -1,0 +1,163 @@
+<Window x:Class="NotebookCheck.Presentation.Views.KanbanWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
+        xmlns:controls="clr-namespace:NotebookCheck.Presentation.Controls"
+        Title="Notelet — Kanban de pedidos"
+        Width="1060" Height="720"
+        MinWidth="720" MinHeight="480"
+        WindowStartupLocation="CenterOwner"
+        WindowStyle="None"
+        Background="{StaticResource Ink50Brush}">
+    <shell:WindowChrome.WindowChrome>
+        <shell:WindowChrome CaptionHeight="36" ResizeBorderThickness="6"
+                            CornerRadius="0" GlassFrameThickness="0"
+                            UseAeroCaptionButtons="False"/>
+    </shell:WindowChrome.WindowChrome>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <controls:ModalTitleBar Grid.Row="0" Title="Kanban — máquinas dos pedidos de compra"/>
+
+        <!-- Cabeçalho -->
+        <Border Grid.Row="1" Background="White" BorderBrush="{StaticResource Ink200Brush}"
+                BorderThickness="0,0,0,1" Padding="22,14">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <StackPanel>
+                    <TextBlock Style="{StaticResource H1}" Text="Kanban de pedidos"/>
+                    <TextBlock Style="{StaticResource Subtle}" Margin="0,4,0,0" TextWrapping="Wrap"
+                               Text="No cartão: ◀ volta etapa · ▶ avança etapa · ✕ remove do quadro. Assumir registra o técnico; OK abre o cadastro."/>
+                </StackPanel>
+                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                    <Button Content="{Binding OcultosLabel}" Style="{StaticResource BtnGhost}" Margin="0,0,8,0"
+                            ToolTip="Trazer de volta os cartões removidos deste computador"
+                            Visibility="{Binding TemOcultos, Converter={StaticResource BoolVisConv}}"
+                            IsEnabled="{Binding IsBusy, Converter={StaticResource InvBoolConv}}"
+                            Command="{Binding MostrarOcultosCommand}"/>
+                    <Button Content="↻ Atualizar" Style="{StaticResource BtnGhost}"
+                            Command="{Binding RefreshCommand}"
+                            IsEnabled="{Binding IsBusy, Converter={StaticResource InvBoolConv}}"/>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- Colunas -->
+        <ScrollViewer Grid.Row="2" HorizontalScrollBarVisibility="Auto"
+                      VerticalScrollBarVisibility="Disabled" Padding="16,14">
+            <ItemsControl ItemsSource="{Binding Colunas}">
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate><StackPanel Orientation="Horizontal"/></ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <Border Width="280" Margin="6,0" CornerRadius="12"
+                                Background="{StaticResource Ink100Brush}" Padding="10">
+                            <DockPanel>
+                                <StackPanel DockPanel.Dock="Top" Margin="6,2,6,10">
+                                    <TextBlock Text="{Binding Titulo}" FontWeight="Bold" FontSize="14"
+                                               Foreground="{StaticResource Ink800Brush}"/>
+                                    <TextBlock Text="{Binding ContagemLabel}" FontSize="11"
+                                               Foreground="{StaticResource Ink500Brush}"/>
+                                </StackPanel>
+                                <!-- Aviso da etapa (componente/aprovação puláveis) -->
+                                <Border DockPanel.Dock="Bottom" Margin="0,8,0,0" Padding="10,8" CornerRadius="8"
+                                        Background="#FFFBEB" BorderBrush="{StaticResource WarnBrush}" BorderThickness="1"
+                                        Visibility="{Binding TemAviso, Converter={StaticResource BoolVisConv}}">
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="⚠" Margin="0,0,6,0" VerticalAlignment="Top"
+                                                   Foreground="{StaticResource WarnBrush}"/>
+                                        <TextBlock Text="{Binding Aviso}" TextWrapping="Wrap" MaxWidth="210"
+                                                   FontSize="12" Foreground="{StaticResource Ink800Brush}"/>
+                                    </StackPanel>
+                                </Border>
+                                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                                    <ItemsControl ItemsSource="{Binding Maquinas}">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <Border Background="White" CornerRadius="10" Padding="12"
+                                                        Margin="0,0,0,8" BorderThickness="1"
+                                                        BorderBrush="{StaticResource Ink200Brush}">
+                                                    <StackPanel>
+                                                        <!-- NTB + controles (retroceder / avançar / remover) -->
+                                                        <Grid>
+                                                            <Grid.ColumnDefinitions>
+                                                                <ColumnDefinition Width="*"/>
+                                                                <ColumnDefinition Width="Auto"/>
+                                                            </Grid.ColumnDefinitions>
+                                                            <TextBlock Grid.Column="0" Text="{Binding NtbDisplay}" FontWeight="Bold"
+                                                                       FontFamily="{StaticResource MonoFont}" VerticalAlignment="Center"/>
+                                                            <StackPanel Grid.Column="1" Orientation="Horizontal">
+                                                                <Button Content="◀" Style="{StaticResource BtnGhost}" Padding="7,2" Margin="0,0,4,0"
+                                                                        FontSize="12" ToolTip="{Binding RetrocederToolTip}"
+                                                                        IsEnabled="{Binding PodeRetroceder}"
+                                                                        Command="{Binding DataContext.RetrocederCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                                        CommandParameter="{Binding}"/>
+                                                                <Button Content="▶" Style="{StaticResource BtnGhost}" Padding="7,2" Margin="0,0,4,0"
+                                                                        FontSize="12" ToolTip="{Binding AvancarSetaToolTip}"
+                                                                        IsEnabled="{Binding PodeAvancarSeta}"
+                                                                        Command="{Binding DataContext.AvancarSetaCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                                        CommandParameter="{Binding}"/>
+                                                                <Button Content="✕" Style="{StaticResource BtnGhost}" Padding="7,2"
+                                                                        FontSize="12" Foreground="{StaticResource BadBrush}"
+                                                                        ToolTip="Remover do kanban (só neste computador)"
+                                                                        Command="{Binding DataContext.RemoverCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                                        CommandParameter="{Binding}"/>
+                                                            </StackPanel>
+                                                        </Grid>
+                                                        <TextBlock Text="{Binding ModeloDisplay}" TextWrapping="Wrap"
+                                                                   Margin="0,2,0,0" Foreground="{StaticResource Ink700Brush}"/>
+                                                        <TextBlock Text="{Binding PedidoLabel}" FontSize="11"
+                                                                   Margin="0,2,0,0" Foreground="{StaticResource Ink500Brush}"/>
+                                                        <TextBlock Text="{Binding AssumidoLabel}" FontSize="12"
+                                                                   Margin="0,4,0,0" FontWeight="SemiBold"
+                                                                   Foreground="{StaticResource Ink700Brush}"
+                                                                   Visibility="{Binding TemAssumido, Converter={StaticResource BoolVisConv}}"/>
+                                                        <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                                                            <Button Content="Assumir" Style="{StaticResource BtnGhost}"
+                                                                    Padding="10,5" Margin="0,0,6,0"
+                                                                    Visibility="{Binding MostraAssumir, Converter={StaticResource BoolVisConv}}"
+                                                                    Command="{Binding DataContext.AssumirCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                                    CommandParameter="{Binding}"/>
+                                                            <Button Content="OK ✓" Style="{StaticResource BtnPrimary}"
+                                                                    Padding="10,5"
+                                                                    ToolTip="{Binding OkToolTip}"
+                                                                    Visibility="{Binding MostraOk, Converter={StaticResource BoolVisConv}}"
+                                                                    Command="{Binding DataContext.OkCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                                    CommandParameter="{Binding}"/>
+                                                        </StackPanel>
+                                                    </StackPanel>
+                                                </Border>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </ScrollViewer>
+                            </DockPanel>
+                        </Border>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+        </ScrollViewer>
+
+        <!-- Rodapé: status -->
+        <Border Grid.Row="3" Background="White" BorderBrush="{StaticResource Ink200Brush}"
+                BorderThickness="0,1,0,0" Padding="22,10">
+            <StackPanel>
+                <TextBlock Text="{Binding StatusMessage}" TextWrapping="Wrap"
+                           Foreground="{StaticResource Ink600Brush}"/>
+                <ProgressBar Width="140" Height="4" IsIndeterminate="True" HorizontalAlignment="Left" Margin="0,6,0,0"
+                             Background="Transparent" Foreground="{StaticResource BrandBrush}" BorderThickness="0"
+                             Visibility="{Binding IsBusy, Converter={StaticResource BoolVisConv}}"/>
+            </StackPanel>
+        </Border>
+    </Grid>
+</Window>

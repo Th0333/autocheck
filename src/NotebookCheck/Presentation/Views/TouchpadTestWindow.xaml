@@ -1,0 +1,107 @@
+<views:TestResultWindow x:Class="NotebookCheck.Presentation.Views.TouchpadTestWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
+        xmlns:controls="clr-namespace:NotebookCheck.Presentation.Controls"
+        xmlns:views="clr-namespace:NotebookCheck.Presentation.Views"
+        Title="Teste de touchpad"
+        Width="900" Height="640"
+        MinWidth="720" MinHeight="540"
+        WindowStartupLocation="CenterOwner"
+        WindowStyle="None"
+        Background="{StaticResource Ink50Brush}">
+    <shell:WindowChrome.WindowChrome>
+        <shell:WindowChrome CaptionHeight="36" ResizeBorderThickness="6"
+                            CornerRadius="0" GlassFrameThickness="0"
+                            UseAeroCaptionButtons="False"/>
+    </shell:WindowChrome.WindowChrome>
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+        <controls:ModalTitleBar Grid.Row="0" Title="Teste do touchpad"/>
+
+        <DockPanel Grid.Row="1" LastChildFill="True" Margin="20">
+            <StackPanel DockPanel.Dock="Top">
+                <TextBlock Style="{StaticResource H2}" Text="Teste do touchpad"/>
+                <TextBlock Style="{StaticResource Subtle}" Margin="0,4,0,12" TextWrapping="Wrap"
+                           Text="Mova o cursor pela área abaixo para preencher o mapa de movimento. Faça os gestos da lista quando solicitado. Os marcadores ficam verdes ao validar."/>
+            </StackPanel>
+
+            <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,16,0,0">
+                <Button Content="Limpar" Style="{StaticResource BtnGhost}" Click="OnReset"/>
+                <Button Content="Marcar como falho" Style="{StaticResource BtnGhost}" Click="OnFailed"/>
+                <Button Content="Concluir teste" Style="{StaticResource BtnSuccess}" Click="OnComplete"/>
+            </StackPanel>
+
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="280"/>
+                </Grid.ColumnDefinitions>
+
+                <Border Grid.Column="0" Style="{StaticResource Card}" Padding="0">
+                    <Border x:Name="touchArea"
+                            Background="White"
+                            ClipToBounds="True"
+                            Cursor="Cross"
+                            MouseMove="OnMouseMove"
+                            MouseLeftButtonDown="OnLeftClick"
+                            MouseRightButtonDown="OnRightClick"
+                            MouseWheel="OnScroll">
+                        <Grid x:Name="overlay">
+                            <UniformGrid x:Name="coverageGrid" Rows="6" Columns="8"/>
+                            <TextBlock Text="Mova o cursor sobre toda a área"
+                                       Foreground="{StaticResource Ink400Brush}"
+                                       HorizontalAlignment="Center"
+                                       VerticalAlignment="Center"
+                                       IsHitTestVisible="False"/>
+                        </Grid>
+                    </Border>
+                </Border>
+
+                <Border Grid.Column="1" Style="{StaticResource Card}" Padding="16" Margin="14,0,0,0">
+                    <StackPanel>
+                        <TextBlock Style="{StaticResource Label}" Text="GESTOS DETECTADOS"/>
+                        <ItemsControl x:Name="gestureList" Margin="0,8,0,0">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Grid Margin="0,0,0,10">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="22"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <Ellipse Width="14" Height="14" VerticalAlignment="Center"
+                                                 Fill="{Binding Detected, Converter={StaticResource StatusBgConv}}"
+                                                 Stroke="{Binding Detected, Converter={StaticResource StatusFgConv}}" StrokeThickness="2"/>
+                                        <StackPanel Grid.Column="1">
+                                            <TextBlock Text="{Binding Name}" FontWeight="SemiBold"
+                                                       Foreground="{StaticResource Ink800Brush}"/>
+                                            <TextBlock Text="{Binding Hint}" FontSize="11"
+                                                       Foreground="{StaticResource Ink500Brush}" TextWrapping="Wrap"/>
+                                        </StackPanel>
+                                    </Grid>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+
+                        <Separator Margin="0,8" Background="{StaticResource Ink100Brush}"/>
+
+                        <TextBlock Style="{StaticResource Label}" Text="COBERTURA"/>
+                        <ProgressBar x:Name="coverageBar" Maximum="48" Height="8" Margin="0,8,0,0" Foreground="{StaticResource OkBrush}"/>
+                        <TextBlock x:Name="coverageText" Foreground="{StaticResource Ink600Brush}" FontSize="11" Margin="0,4,0,0"/>
+
+                        <Separator Margin="0,8" Background="{StaticResource Ink100Brush}"/>
+
+                        <TextBlock Style="{StaticResource Label}" Text="POLLING RATE (APROX.)"/>
+                        <TextBlock x:Name="pollingText" Foreground="{StaticResource Ink800Brush}" FontWeight="SemiBold"
+                                   FontSize="15" Margin="0,4,0,0" Text="— Hz"/>
+                        <TextBlock Foreground="{StaticResource Ink500Brush}" FontSize="10" Margin="0,2,0,0" TextWrapping="Wrap"
+                                   Text="Mova rápido pela área. Valor observado pelo Windows (costuma limitar em ~125 Hz)."/>
+                    </StackPanel>
+                </Border>
+            </Grid>
+        </DockPanel>
+    </Grid>
+</views:TestResultWindow>

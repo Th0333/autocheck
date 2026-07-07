@@ -1,0 +1,571 @@
+<Window x:Class="NotebookCheck.Presentation.Views.CadastroWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
+        xmlns:controls="clr-namespace:NotebookCheck.Presentation.Controls"
+        Title="Notelet — Cadastro no estoque"
+        Width="760" Height="840"
+        MinWidth="620" MinHeight="600"
+        WindowStartupLocation="CenterOwner"
+        WindowStyle="None"
+        Background="{StaticResource Ink50Brush}">
+    <shell:WindowChrome.WindowChrome>
+        <shell:WindowChrome CaptionHeight="36" ResizeBorderThickness="6"
+                            CornerRadius="0" GlassFrameThickness="0"
+                            UseAeroCaptionButtons="False"/>
+    </shell:WindowChrome.WindowChrome>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <controls:ModalTitleBar Grid.Row="0" Title="Cadastro no estoque (ERP)"/>
+
+        <!-- Cabeçalho: etapa atual + passos -->
+        <Border Grid.Row="1" Background="White" BorderBrush="{StaticResource Ink200Brush}"
+                BorderThickness="0,0,0,1" Padding="22,16">
+            <StackPanel>
+                <TextBlock Style="{StaticResource Label}" Text="{Binding StepNumberLabel}"/>
+                <TextBlock Style="{StaticResource H1}" Margin="0,2,0,12" Text="{Binding StepTitle}"/>
+                <ItemsControl>
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate><UniformGrid Rows="1"/></ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <Button Content="① Pedido" Style="{StaticResource BtnGhost}" Margin="0,0,6,0"
+                            Command="{Binding GoToStepCommand}" CommandParameter="0"/>
+                    <Button Content="② Identificação" Style="{StaticResource BtnGhost}" Margin="0,0,6,0"
+                            Command="{Binding GoToStepCommand}" CommandParameter="1"/>
+                    <Button Content="③ Condição" Style="{StaticResource BtnGhost}" Margin="0,0,6,0"
+                            Command="{Binding GoToStepCommand}" CommandParameter="2"/>
+                    <Button Content="④ Destino" Style="{StaticResource BtnGhost}" Margin="0,0,6,0"
+                            Command="{Binding GoToStepCommand}" CommandParameter="3"/>
+                    <Button Content="⑤ Revisão" Style="{StaticResource BtnGhost}"
+                            Command="{Binding GoToStepCommand}" CommandParameter="4"/>
+                </ItemsControl>
+            </StackPanel>
+        </Border>
+
+        <!-- Conteúdo do wizard -->
+        <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto" Padding="22,18"
+                      Visibility="{Binding IsDone, Converter={StaticResource BoolVisConv}, ConverterParameter=invert}">
+            <Grid>
+                <!-- =================== ETAPA 1: PEDIDO DE COMPRA ============== -->
+                <StackPanel Visibility="{Binding IsPedido, Converter={StaticResource BoolVisConv}}">
+                    <Border Style="{StaticResource Card}">
+                        <StackPanel>
+                            <TextBlock Style="{StaticResource H2}" Text="🧾 Pedido de compra *"/>
+                            <TextBlock Style="{StaticResource Subtle}" Margin="0,4,0,10" TextWrapping="Wrap"
+                                       Text="Todo cadastro parte de um pedido de compra aberto no ERP. Fornecedor, documento e valores vêm do pedido."/>
+                            <ComboBox ItemsSource="{Binding Pedidos}" SelectedItem="{Binding SelectedPedido}"
+                                      DisplayMemberPath="Display" IsEditable="False"/>
+
+                            <!-- Detalhes e requisitos do pedido selecionado -->
+                            <Border Margin="0,10,0,0" Padding="14" CornerRadius="8"
+                                    Background="{StaticResource Ink50Brush}"
+                                    Visibility="{Binding PedidoSelecionado, Converter={StaticResource BoolVisConv}}">
+                                <StackPanel>
+                                    <Grid>
+                                        <Grid.ColumnDefinitions><ColumnDefinition Width="160"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                        <Grid.RowDefinitions><RowDefinition/><RowDefinition/><RowDefinition/></Grid.RowDefinitions>
+                                        <TextBlock Text="Fornecedor" Foreground="{StaticResource Ink500Brush}"/>
+                                        <TextBlock Grid.Column="1" Text="{Binding PedidoFornecedor}" TextWrapping="Wrap"/>
+                                        <TextBlock Grid.Row="1" Text="Documento" Foreground="{StaticResource Ink500Brush}"/>
+                                        <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding PedidoDocumento}" TextWrapping="Wrap"/>
+                                        <TextBlock Grid.Row="2" Text="Progresso" Foreground="{StaticResource Ink500Brush}"/>
+                                        <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding PedidoProgresso}"/>
+                                    </Grid>
+                                    <StackPanel Visibility="{Binding PedidoTemRequisitos, Converter={StaticResource BoolVisConv}}">
+                                        <Border Height="1" Background="{StaticResource Ink200Brush}" Margin="0,10"/>
+                                        <TextBlock Style="{StaticResource Label}" Text="REQUISITOS DO PEDIDO"/>
+                                        <StackPanel Orientation="Horizontal" Margin="0,6,0,0"
+                                                    Visibility="{Binding TemCondicaoMinima, Converter={StaticResource BoolVisConv}}">
+                                            <TextBlock Text="Condição mínima:" Foreground="{StaticResource Ink500Brush}" Margin="0,0,6,0"/>
+                                            <TextBlock Text="{Binding PedidoCondicaoMinima}" FontWeight="SemiBold"/>
+                                        </StackPanel>
+                                        <StackPanel Margin="0,6,0,0"
+                                                    Visibility="{Binding TemAcessoriosObrigatorios, Converter={StaticResource BoolVisConv}}">
+                                            <TextBlock Text="Acessórios obrigatórios:" Foreground="{StaticResource Ink500Brush}"/>
+                                            <ItemsControl ItemsSource="{Binding AcessoriosChecklist}" Margin="0,4,0,0">
+                                                <ItemsControl.ItemsPanel>
+                                                    <ItemsPanelTemplate><WrapPanel/></ItemsPanelTemplate>
+                                                </ItemsControl.ItemsPanel>
+                                                <ItemsControl.ItemTemplate>
+                                                    <DataTemplate>
+                                                        <Border CornerRadius="999" Padding="9,4" Margin="0,0,6,6"
+                                                                Background="White" BorderThickness="1"
+                                                                BorderBrush="{StaticResource Ink200Brush}">
+                                                            <TextBlock Text="{Binding Nome}" FontSize="12"
+                                                                       Foreground="{StaticResource Ink700Brush}"/>
+                                                        </Border>
+                                                    </DataTemplate>
+                                                </ItemsControl.ItemTemplate>
+                                            </ItemsControl>
+                                        </StackPanel>
+                                    </StackPanel>
+                                </StackPanel>
+                            </Border>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Máquina em branco do pedido (o NTB já está reservado para ela) -->
+                    <Border Style="{StaticResource Card}" Margin="0,14,0,0"
+                            Visibility="{Binding PedidoSelecionado, Converter={StaticResource BoolVisConv}}">
+                        <StackPanel>
+                            <TextBlock Style="{StaticResource H2}" Text="💻 Máquina do pedido"/>
+                            <TextBlock Style="{StaticResource Subtle}" Margin="0,4,0,10" TextWrapping="Wrap"
+                                       Text="Escolha qual máquina do pedido está na sua mão. Cada uma já nasce com o NTB reservado."
+                                       Visibility="{Binding TemMaquinas, Converter={StaticResource BoolVisConv}}"/>
+                            <ComboBox ItemsSource="{Binding MaquinasDisponiveis}" SelectedItem="{Binding SelectedMaquina}"
+                                      DisplayMemberPath="Display"
+                                      Visibility="{Binding TemMaquinas, Converter={StaticResource BoolVisConv}}"/>
+                            <TextBlock Style="{StaticResource Subtle}" Margin="0,6,0,0" TextWrapping="Wrap"
+                                       Text="{Binding MaquinaConfigAcordadaText}"
+                                       Visibility="{Binding TemConfigAcordada, Converter={StaticResource BoolVisConv}}"/>
+                            <TextBlock Style="{StaticResource Subtle}" TextWrapping="Wrap"
+                                       Text="Carregando máquinas do pedido…"
+                                       Visibility="{Binding MaquinasCarregando, Converter={StaticResource BoolVisConv}}"/>
+                            <TextBlock Style="{StaticResource Subtle}" TextWrapping="Wrap"
+                                       Text="Sem lista de máquinas — o servidor escolherá a próxima em branco do pedido."
+                                       Visibility="{Binding SemMaquinasInfo, Converter={StaticResource BoolVisConv}}"/>
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+
+                <!-- ================== ETAPA 2: IDENTIFICAÇÃO ================== -->
+                <StackPanel Visibility="{Binding IsIdentificacao, Converter={StaticResource BoolVisConv}}">
+                    <Border Style="{StaticResource Card}">
+                        <StackPanel>
+                            <TextBlock Style="{StaticResource H2}" Text="🔖 Identificação da máquina"/>
+                            <TextBlock Margin="0,6,0,0" TextWrapping="Wrap" FontWeight="SemiBold"
+                                       Foreground="{StaticResource WarnBrush}"
+                                       Text="⚠ Preenchidos automaticamente — confira antes de cadastrar."/>
+                            <Grid Margin="0,10,0,0">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="12"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Grid.Column="0">
+                                    <TextBlock Style="{StaticResource Label}" Text="MODELO *"/>
+                                    <TextBox Text="{Binding Modelo, UpdateSourceTrigger=PropertyChanged}" Margin="0,2,0,8">
+                                        <TextBox.Style>
+                                            <Style TargetType="TextBox" BasedOn="{StaticResource {x:Type TextBox}}">
+                                                <Setter Property="BorderBrush" Value="{StaticResource WarnBrush}"/>
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding ModeloInvalid}" Value="True">
+                                                        <Setter Property="BorderBrush" Value="{StaticResource BadBrush}"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </TextBox.Style>
+                                    </TextBox>
+                                </StackPanel>
+                                <StackPanel Grid.Column="2">
+                                    <TextBlock Style="{StaticResource Label}" Text="MARCA"/>
+                                    <ComboBox ItemsSource="{Binding Marcas}" SelectedItem="{Binding SelectedMarca}"
+                                              DisplayMemberPath="Display" Margin="0,2,0,8"/>
+                                </StackPanel>
+                            </Grid>
+                            <TextBlock Style="{StaticResource Label}" Text="LINHA (ThinkPad, Latitude…)"/>
+                            <TextBox Text="{Binding Linha, UpdateSourceTrigger=PropertyChanged}" Margin="0,2,0,8"
+                                     BorderBrush="{StaticResource WarnBrush}"/>
+                            <Border Margin="0,6,0,0" Padding="12,10" CornerRadius="8"
+                                    Background="{StaticResource Ink50Brush}">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="🔢" Margin="0,0,8,0"/>
+                                    <TextBlock TextWrapping="Wrap" Foreground="{StaticResource Ink600Brush}"
+                                               Text="O NTB é gerado automaticamente pelo estoque (numeração sequencial da organização) e aparece na confirmação do cadastro."/>
+                                </StackPanel>
+                            </Border>
+                        </StackPanel>
+                    </Border>
+
+                    <Border Style="{StaticResource Card}" Margin="0,14,0,0">
+                        <StackPanel>
+                            <TextBlock Style="{StaticResource Label}" Text="NÚMERO DE SÉRIE"/>
+                            <Grid Margin="0,2,0,0">
+                                <TextBox Text="{Binding Serial, UpdateSourceTrigger=PropertyChanged}"
+                                         FontFamily="{StaticResource MonoFont}"
+                                         BorderBrush="{StaticResource WarnBrush}"/>
+                                <TextBlock Text="lendo…" VerticalAlignment="Center" HorizontalAlignment="Right"
+                                           Margin="0,0,12,0" Foreground="{StaticResource Ink400Brush}"
+                                           IsHitTestVisible="False"
+                                           Visibility="{Binding SerialReady, Converter={StaticResource BoolVisConv}, ConverterParameter=invert}"/>
+                            </Grid>
+                        </StackPanel>
+                    </Border>
+
+                    <Border Style="{StaticResource Card}" Margin="0,14,0,0">
+                        <StackPanel>
+                            <TextBlock Style="{StaticResource Label}" Text="ESPECIFICAÇÕES COLETADAS"/>
+                            <TextBlock Text="{Binding SpecsResumo}" TextWrapping="Wrap" Margin="0,4,0,0"
+                                       Foreground="{StaticResource Ink700Brush}"/>
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+
+                <!-- ===================== ETAPA 2: CONDIÇÃO ==================== -->
+                <StackPanel Visibility="{Binding IsCondicao, Converter={StaticResource BoolVisConv}}">
+                    <Border Style="{StaticResource Card}">
+                        <StackPanel>
+                            <TextBlock Style="{StaticResource H2}" Text="🔍 Condição do equipamento"/>
+                            <TextBlock Style="{StaticResource Label}" Text="CONDIÇÃO ESTÉTICA" Margin="0,10,0,2"/>
+                            <ComboBox ItemsSource="{Binding Condicoes}" SelectedItem="{Binding SelectedCondicao}"
+                                      DisplayMemberPath="Label"/>
+                            <StackPanel Orientation="Horizontal" Margin="0,4,0,0"
+                                        Visibility="{Binding TemCondicaoMinima, Converter={StaticResource BoolVisConv}}">
+                                <TextBlock Style="{StaticResource Subtle}" Text="Mínimo exigido pelo pedido: "/>
+                                <TextBlock Style="{StaticResource Subtle}" Text="{Binding PedidoCondicaoMinima}" FontWeight="SemiBold"/>
+                            </StackPanel>
+
+                            <!-- Aviso: condição abaixo do mínimo do pedido -->
+                            <Border Margin="0,10,0,0" Padding="12,10" CornerRadius="8"
+                                    Background="#FFFBEB" BorderBrush="{StaticResource WarnBrush}" BorderThickness="1"
+                                    Visibility="{Binding CondicaoAbaixoMinimo, Converter={StaticResource BoolVisConv}}">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="⚠" FontSize="16" Margin="0,0,8,0" VerticalAlignment="Top"
+                                               Foreground="{StaticResource WarnBrush}"/>
+                                    <TextBlock Text="{Binding CondicaoAvisoText}" TextWrapping="Wrap" MaxWidth="520"
+                                               Foreground="{StaticResource Ink800Brush}"/>
+                                </StackPanel>
+                            </Border>
+                        </StackPanel>
+                    </Border>
+
+                    <Border Style="{StaticResource Card}" Margin="0,14,0,0">
+                        <StackPanel>
+                            <TextBlock Style="{StaticResource H2}" Text="🎒 Acessórios"/>
+
+                            <StackPanel Visibility="{Binding TemAcessoriosObrigatorios, Converter={StaticResource BoolVisConv}}">
+                                <TextBlock Style="{StaticResource Label}" Text="OBRIGATÓRIOS PELO PEDIDO — MARQUE O QUE FOI RECEBIDO" Margin="0,10,0,4"/>
+                                <ItemsControl ItemsSource="{Binding AcessoriosChecklist}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <CheckBox Content="{Binding Nome}" IsChecked="{Binding IsChecked}"
+                                                      Margin="0,4,0,4"/>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+
+                                <!-- Aviso: acessórios obrigatórios faltando -->
+                                <Border Margin="0,8,0,0" Padding="12,10" CornerRadius="8"
+                                        Background="#FFFBEB" BorderBrush="{StaticResource WarnBrush}" BorderThickness="1"
+                                        Visibility="{Binding TemAcessoriosFaltando, Converter={StaticResource BoolVisConv}}">
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="⚠" FontSize="16" Margin="0,0,8,0" VerticalAlignment="Top"
+                                                   Foreground="{StaticResource WarnBrush}"/>
+                                        <TextBlock Text="{Binding AcessoriosAvisoText}" TextWrapping="Wrap" MaxWidth="520"
+                                                   Foreground="{StaticResource Ink800Brush}"/>
+                                    </StackPanel>
+                                </Border>
+                            </StackPanel>
+
+                            <TextBlock Style="{StaticResource Subtle}" Margin="0,10,0,0" TextWrapping="Wrap"
+                                       Text="Este pedido não define acessórios obrigatórios."
+                                       Visibility="{Binding TemAcessoriosObrigatorios, Converter={StaticResource BoolVisConv}, ConverterParameter=invert}"/>
+
+                            <TextBlock Style="{StaticResource Label}" Text="OUTROS ACESSÓRIOS RECEBIDOS (NÃO PREVISTOS)" Margin="0,12,0,2"/>
+                            <Grid>
+                                <TextBox x:Name="AcessoriosBox" Text="{Binding AcessoriosExtras}" AcceptsReturn="True" TextWrapping="Wrap"
+                                         Height="52" VerticalScrollBarVisibility="Auto"
+                                         ToolTip="Um por linha"/>
+                                <TextBlock Text="Bolsa, mouse, ..." IsHitTestVisible="False"
+                                           VerticalAlignment="Top" HorizontalAlignment="Left" Margin="12,9,0,0"
+                                           Foreground="{StaticResource Ink400Brush}">
+                                    <TextBlock.Style>
+                                        <Style TargetType="TextBlock">
+                                            <Setter Property="Visibility" Value="Collapsed"/>
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding Text.Length, ElementName=AcessoriosBox}" Value="0">
+                                                    <Setter Property="Visibility" Value="Visible"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </TextBlock.Style>
+                                </TextBlock>
+                            </Grid>
+                        </StackPanel>
+                    </Border>
+
+                    <Border Style="{StaticResource Card}" Margin="0,14,0,0">
+                        <StackPanel>
+                            <TextBlock Style="{StaticResource Label}" Text="DEFEITOS APARENTES" Margin="0,0,0,2"/>
+                            <Grid>
+                                <TextBox x:Name="DefeitosBox" Text="{Binding Defeitos}" AcceptsReturn="True" TextWrapping="Wrap"
+                                         Height="64" VerticalScrollBarVisibility="Auto"
+                                         ToolTip="Um por linha"/>
+                                <TextBlock Text="Tela com risco, dobradica quebrada, ..." IsHitTestVisible="False"
+                                           VerticalAlignment="Top" HorizontalAlignment="Left" Margin="12,9,0,0"
+                                           Foreground="{StaticResource Ink400Brush}">
+                                    <TextBlock.Style>
+                                        <Style TargetType="TextBlock">
+                                            <Setter Property="Visibility" Value="Collapsed"/>
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding Text.Length, ElementName=DefeitosBox}" Value="0">
+                                                    <Setter Property="Visibility" Value="Visible"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </TextBlock.Style>
+                                </TextBlock>
+                            </Grid>
+                            <TextBlock Style="{StaticResource Label}" Text="OBSERVAÇÕES GERAIS" Margin="0,12,0,2"/>
+                            <TextBox Text="{Binding Observacoes}" AcceptsReturn="True" TextWrapping="Wrap"
+                                     Height="72" VerticalScrollBarVisibility="Auto"/>
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+
+                <!-- ====================== ETAPA 3: DESTINO ==================== -->
+                <StackPanel Visibility="{Binding IsDestino, Converter={StaticResource BoolVisConv}}">
+                    <Border Style="{StaticResource Card}">
+                        <StackPanel>
+                            <TextBlock Style="{StaticResource H2}" Text="📍 Localização e destino"/>
+                            <TextBlock Style="{StaticResource Label}" Text="LOCALIZAÇÃO INICIAL" Margin="0,10,0,2"/>
+                            <ComboBox ItemsSource="{Binding Localizacoes}" SelectedItem="{Binding SelectedLocalizacao}"
+                                      DisplayMemberPath="Display"/>
+                            <TextBlock Style="{StaticResource Label}" Text="PRÓXIMO DESTINO" Margin="0,12,0,2"/>
+                            <ComboBox ItemsSource="{Binding ProximoDestinos}" SelectedItem="{Binding SelectedProximoDestino}"
+                                      DisplayMemberPath="Label"/>
+                            <TextBlock Style="{StaticResource Subtle}" Margin="0,8,0,0" TextWrapping="Wrap"
+                                       Text="Sem divergências, a máquina segue para 'em andamento' (bancada). Havendo alertas, entra em 'aguardando aprovação' para um humano decidir em /aprovacoes."/>
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+
+                <!-- ====================== ETAPA 4: REVISÃO ==================== -->
+                <StackPanel Visibility="{Binding IsRevisao, Converter={StaticResource BoolVisConv}}">
+
+                    <!-- Avisos de requisitos do pedido não atendidos -->
+                    <Border Margin="0,0,0,14" Padding="14,12" CornerRadius="12"
+                            Background="#FFFBEB" BorderBrush="{StaticResource WarnBrush}" BorderThickness="1"
+                            Visibility="{Binding CondicaoAbaixoMinimo, Converter={StaticResource BoolVisConv}}">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="⚠" FontSize="16" Margin="0,0,8,0" VerticalAlignment="Top"
+                                       Foreground="{StaticResource WarnBrush}"/>
+                            <TextBlock Text="{Binding CondicaoAvisoText}" TextWrapping="Wrap" MaxWidth="560"
+                                       Foreground="{StaticResource Ink800Brush}"/>
+                        </StackPanel>
+                    </Border>
+                    <Border Margin="0,0,0,14" Padding="14,12" CornerRadius="12"
+                            Background="#FFFBEB" BorderBrush="{StaticResource WarnBrush}" BorderThickness="1"
+                            Visibility="{Binding TemAcessoriosFaltando, Converter={StaticResource BoolVisConv}}">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="⚠" FontSize="16" Margin="0,0,8,0" VerticalAlignment="Top"
+                                       Foreground="{StaticResource WarnBrush}"/>
+                            <TextBlock Text="{Binding AcessoriosAvisoText}" TextWrapping="Wrap" MaxWidth="560"
+                                       Foreground="{StaticResource Ink800Brush}"/>
+                        </StackPanel>
+                    </Border>
+                    <Border Margin="0,0,0,14" Padding="14,12" CornerRadius="12"
+                            Background="#FFFBEB" BorderBrush="{StaticResource WarnBrush}" BorderThickness="1"
+                            Visibility="{Binding TemConfigDivergencias, Converter={StaticResource BoolVisConv}}">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="⚠" FontSize="16" Margin="0,0,8,0" VerticalAlignment="Top"
+                                       Foreground="{StaticResource WarnBrush}"/>
+                            <TextBlock Text="{Binding ConfigDivergenciasText}" TextWrapping="Wrap" MaxWidth="560"
+                                       Foreground="{StaticResource Ink800Brush}"/>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Pendências: o que ainda está vazio -->
+                    <Border Margin="0,0,0,14" Padding="18" CornerRadius="12"
+                            Background="#FFFBEB" BorderBrush="{StaticResource WarnBrush}" BorderThickness="1"
+                            Visibility="{Binding TemPendencias, Converter={StaticResource BoolVisConv}}">
+                        <StackPanel>
+                            <TextBlock Style="{StaticResource H2}" Text="⚠ Faltando preencher"
+                                       Foreground="{StaticResource WarnBrush}"/>
+                            <TextBlock Style="{StaticResource Subtle}" Margin="0,4,0,12" TextWrapping="Wrap"
+                                       Text="Estes campos estão vazios. O que estiver marcado como obrigatório impede o cadastro."/>
+                            <ItemsControl ItemsSource="{Binding Pendencias}">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate><WrapPanel/></ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Border CornerRadius="999" Padding="10,5" Margin="0,0,8,8" Background="White"
+                                                BorderThickness="1">
+                                            <Border.Style>
+                                                <Style TargetType="Border">
+                                                    <Setter Property="BorderBrush" Value="{StaticResource WarnBrush}"/>
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding Required}" Value="True">
+                                                            <Setter Property="BorderBrush" Value="{StaticResource BadBrush}"/>
+                                                            <Setter Property="Background" Value="#FEF2F2"/>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Border.Style>
+                                            <StackPanel Orientation="Horizontal">
+                                                <TextBlock Text="●" FontSize="13" Margin="0,0,7,0" VerticalAlignment="Center">
+                                                    <TextBlock.Style>
+                                                        <Style TargetType="TextBlock">
+                                                            <Setter Property="Foreground" Value="{StaticResource WarnBrush}"/>
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding Required}" Value="True">
+                                                                    <Setter Property="Foreground" Value="{StaticResource BadBrush}"/>
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </TextBlock.Style>
+                                                </TextBlock>
+                                                <TextBlock Text="{Binding Label}" VerticalAlignment="Center" FontWeight="SemiBold"
+                                                           Foreground="{StaticResource Ink800Brush}"/>
+                                                <TextBlock Text="obrigatório" FontSize="11" Margin="6,0,0,0" VerticalAlignment="Center"
+                                                           Foreground="{StaticResource BadBrush}"
+                                                           Visibility="{Binding Required, Converter={StaticResource BoolVisConv}}"/>
+                                            </StackPanel>
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Tudo preenchido -->
+                    <Border Margin="0,0,0,14" Padding="16" CornerRadius="12"
+                            Background="#ECFDF5" BorderBrush="{StaticResource OkBrush}" BorderThickness="1"
+                            Visibility="{Binding TudoPreenchido, Converter={StaticResource BoolVisConv}}">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="✅" FontSize="20" Margin="0,0,10,0" VerticalAlignment="Center"/>
+                            <TextBlock Text="Tudo preenchido — pronto para cadastrar." VerticalAlignment="Center"
+                                       Foreground="{StaticResource OkBrush}" FontWeight="SemiBold"/>
+                        </StackPanel>
+                    </Border>
+
+                    <Border Style="{StaticResource Card}">
+                        <StackPanel>
+                            <TextBlock Style="{StaticResource H2}" Text="✅ Revisão"/>
+                            <TextBlock Style="{StaticResource Subtle}" Margin="0,4,0,10" TextWrapping="Wrap"
+                                       Text="Confira tudo antes de cadastrar. Você pode voltar e ajustar qualquer etapa."/>
+
+                            <TextBlock Style="{StaticResource Label}" Text="PEDIDO DE COMPRA" Margin="0,4,0,4"/>
+                            <Grid>
+                                <Grid.ColumnDefinitions><ColumnDefinition Width="180"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/>
+                                </Grid.RowDefinitions>
+                                <TextBlock Text="Pedido" Foreground="{StaticResource Ink500Brush}"/>
+                                <TextBlock Grid.Column="1" Text="{Binding RevPedido}" FontWeight="SemiBold" TextWrapping="Wrap"/>
+                                <TextBlock Grid.Row="1" Text="Máquina" Foreground="{StaticResource Ink500Brush}"/>
+                                <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding RevMaquina}" TextWrapping="Wrap"/>
+                                <TextBlock Grid.Row="2" Text="Fornecedor" Foreground="{StaticResource Ink500Brush}"/>
+                                <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding PedidoFornecedor}" TextWrapping="Wrap"/>
+                                <TextBlock Grid.Row="3" Text="Documento" Foreground="{StaticResource Ink500Brush}"/>
+                                <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding PedidoDocumento}" TextWrapping="Wrap"/>
+                            </Grid>
+
+                            <Border Height="1" Background="{StaticResource Ink200Brush}" Margin="0,12"/>
+                            <TextBlock Style="{StaticResource Label}" Text="IDENTIFICAÇÃO" Margin="0,0,0,4"/>
+                            <Grid>
+                                <Grid.ColumnDefinitions><ColumnDefinition Width="180"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/>
+                                </Grid.RowDefinitions>
+                                <TextBlock Text="Modelo" Foreground="{StaticResource Ink500Brush}"/>
+                                <TextBlock Grid.Column="1" Text="{Binding RevModelo}" FontWeight="SemiBold" TextWrapping="Wrap"/>
+                                <TextBlock Grid.Row="1" Text="NTB" Foreground="{StaticResource Ink500Brush}"/>
+                                <TextBlock Grid.Row="1" Grid.Column="1" Text="Gerado automaticamente no cadastro"
+                                           Foreground="{StaticResource Ink500Brush}" FontStyle="Italic"/>
+                                <TextBlock Grid.Row="2" Text="Linha" Foreground="{StaticResource Ink500Brush}"/>
+                                <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding RevLinha}"/>
+                                <TextBlock Grid.Row="3" Text="Marca" Foreground="{StaticResource Ink500Brush}"/>
+                                <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding RevMarca}"/>
+                                <TextBlock Grid.Row="4" Text="Serial" Foreground="{StaticResource Ink500Brush}"/>
+                                <TextBlock Grid.Row="4" Grid.Column="1" Text="{Binding RevSerial}" FontFamily="{StaticResource MonoFont}"/>
+                            </Grid>
+
+                            <Border Height="1" Background="{StaticResource Ink200Brush}" Margin="0,12"/>
+                            <TextBlock Style="{StaticResource Label}" Text="CONDIÇÃO" Margin="0,0,0,4"/>
+                            <Grid>
+                                <Grid.ColumnDefinitions><ColumnDefinition Width="180"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                <Grid.RowDefinitions><RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/></Grid.RowDefinitions>
+                                <TextBlock Text="Estética" Foreground="{StaticResource Ink500Brush}"/>
+                                <TextBlock Grid.Column="1" Text="{Binding RevCondicao}"/>
+                                <TextBlock Grid.Row="1" Text="Acessórios" Foreground="{StaticResource Ink500Brush}"/>
+                                <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding RevAcessorios}" TextWrapping="Wrap"/>
+                                <TextBlock Grid.Row="2" Text="Defeitos" Foreground="{StaticResource Ink500Brush}"/>
+                                <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding RevDefeitos}" TextWrapping="Wrap"/>
+                                <TextBlock Grid.Row="3" Text="Observações" Foreground="{StaticResource Ink500Brush}"/>
+                                <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding RevObservacoes}" TextWrapping="Wrap"/>
+                            </Grid>
+
+                            <Border Height="1" Background="{StaticResource Ink200Brush}" Margin="0,12"/>
+                            <TextBlock Style="{StaticResource Label}" Text="DESTINO" Margin="0,0,0,4"/>
+                            <Grid>
+                                <Grid.ColumnDefinitions><ColumnDefinition Width="180"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                <Grid.RowDefinitions><RowDefinition/><RowDefinition/></Grid.RowDefinitions>
+                                <TextBlock Text="Localização" Foreground="{StaticResource Ink500Brush}"/>
+                                <TextBlock Grid.Column="1" Text="{Binding RevLocalizacao}" TextWrapping="Wrap"/>
+                                <TextBlock Grid.Row="1" Text="Próximo destino" Foreground="{StaticResource Ink500Brush}"/>
+                                <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding RevProximoDestino}" TextWrapping="Wrap"/>
+                            </Grid>
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+            </Grid>
+        </ScrollViewer>
+
+        <!-- Tela de sucesso -->
+        <Border Grid.Row="2" Padding="40" VerticalAlignment="Center"
+                Visibility="{Binding IsDone, Converter={StaticResource BoolVisConv}}">
+            <StackPanel HorizontalAlignment="Center" MaxWidth="460">
+                <TextBlock Text="✅" FontSize="56" HorizontalAlignment="Center"/>
+                <TextBlock Style="{StaticResource H1}" HorizontalAlignment="Center" TextAlignment="Center"
+                           Margin="0,12,0,8" Text="Enviado ao estoque"/>
+                <Border CornerRadius="10" Padding="18,10" Margin="0,0,0,10" HorizontalAlignment="Center"
+                        Background="White" BorderBrush="{StaticResource Ink200Brush}" BorderThickness="1"
+                        Visibility="{Binding TemNtbGerado, Converter={StaticResource BoolVisConv}}">
+                    <StackPanel HorizontalAlignment="Center">
+                        <TextBlock Style="{StaticResource Label}" Text="NTB GERADO" HorizontalAlignment="Center"/>
+                        <TextBlock Text="{Binding NtbGeradoDisplay}" FontSize="26" FontWeight="Bold"
+                                   FontFamily="{StaticResource MonoFont}" HorizontalAlignment="Center"/>
+                    </StackPanel>
+                </Border>
+                <TextBlock Text="{Binding ResultText}" TextWrapping="Wrap" TextAlignment="Center"
+                           Foreground="{StaticResource Ink600Brush}"/>
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,22,0,0">
+                    <Button Content="Cadastrar outra" Style="{StaticResource BtnPrimary}" Margin="0,0,10,0"
+                            Command="{Binding NovoCadastroCommand}"/>
+                    <Button Content="Fechar" Style="{StaticResource BtnGhost}"
+                            Command="{Binding FecharCommand}"/>
+                </StackPanel>
+            </StackPanel>
+        </Border>
+
+        <!-- Rodapé: status + navegação -->
+        <Border Grid.Row="3" Background="White" BorderBrush="{StaticResource Ink200Brush}"
+                BorderThickness="0,1,0,0" Padding="22,12"
+                Visibility="{Binding IsDone, Converter={StaticResource BoolVisConv}, ConverterParameter=invert}">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <StackPanel VerticalAlignment="Center">
+                    <TextBlock Text="{Binding StatusMessage}" TextWrapping="Wrap" Foreground="{StaticResource Ink600Brush}"/>
+                    <ProgressBar Width="140" Height="4" IsIndeterminate="True" HorizontalAlignment="Left" Margin="0,6,0,0"
+                                 Background="Transparent" Foreground="{StaticResource BrandBrush}" BorderThickness="0"
+                                 Visibility="{Binding IsBusy, Converter={StaticResource BoolVisConv}}"/>
+                </StackPanel>
+                <StackPanel Grid.Column="1" Orientation="Horizontal">
+                    <Button Content="← Voltar" Style="{StaticResource BtnGhost}" Margin="0,0,8,0"
+                            Command="{Binding BackCommand}"
+                            Visibility="{Binding CanGoBack, Converter={StaticResource BoolVisConv}}"/>
+                    <Button Content="{Binding NextLabel}" Style="{StaticResource BtnPrimary}"
+                            Command="{Binding NextCommand}"
+                            IsEnabled="{Binding IsBusy, Converter={StaticResource InvBoolConv}}"
+                            Visibility="{Binding IsLastStep, Converter={StaticResource BoolVisConv}, ConverterParameter=invert}"/>
+                    <Button Content="📦 Cadastrar no estoque" Style="{StaticResource BtnPrimary}"
+                            Command="{Binding CadastrarCommand}"
+                            IsEnabled="{Binding IsBusy, Converter={StaticResource InvBoolConv}}"
+                            Visibility="{Binding IsLastStep, Converter={StaticResource BoolVisConv}}"/>
+                </StackPanel>
+            </Grid>
+        </Border>
+    </Grid>
+</Window>

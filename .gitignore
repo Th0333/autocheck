@@ -1,0 +1,139 @@
+# =============================================================================
+# .gitignore — Checklist Técnico Portátil
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# .NET / MSBuild build artifacts
+# -----------------------------------------------------------------------------
+bin/
+obj/
+publish/
+out/
+[Dd]ebug/
+[Rr]elease/
+x64/
+x86/
+[Aa][Rr][Mm]/
+[Aa][Rr][Mm]64/
+build/
+[Bb]uildLog.*
+msbuild.log
+msbuild.err
+msbuild.wrn
+*.binlog
+
+# Compiled binaries (we do not ship build artifacts via the repo)
+*.dll
+*.exe
+*.pdb
+*.mdb
+*.so
+*.dylib
+*.lib
+*.a
+*.exp
+*.ilk
+*.meta
+*.obj
+*.pch
+*.tlog
+*.vspscc
+*.vssscc
+
+# -----------------------------------------------------------------------------
+# Visual Studio
+# -----------------------------------------------------------------------------
+.vs/
+*.suo
+*.user
+*.userosscache
+*.userprefs
+*.sln.docstates
+*.sln.iml
+*.opendb
+*.VC.db
+*.VC.opendb
+*.cachefile
+
+# -----------------------------------------------------------------------------
+# JetBrains Rider / ReSharper
+# -----------------------------------------------------------------------------
+.idea/
+*.DotSettings.user
+_ReSharper*/
+*.[Rr]e[Ss]harper
+
+# -----------------------------------------------------------------------------
+# Visual Studio Code
+# -----------------------------------------------------------------------------
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+*.code-workspace
+
+# -----------------------------------------------------------------------------
+# Test results / coverage
+# -----------------------------------------------------------------------------
+TestResults/
+[Tt]est[Rr]esult*/
+coverage/
+coverage.*
+*.coverage
+*.coveragexml
+*.trx
+*.testsettings
+
+# -----------------------------------------------------------------------------
+# NuGet
+# -----------------------------------------------------------------------------
+*.nupkg
+*.snupkg
+.nuget/
+packages/
+!packages/build/
+
+# -----------------------------------------------------------------------------
+# Tooling caches
+# -----------------------------------------------------------------------------
+.tool-versions
+*.cache
+node_modules/
+
+# -----------------------------------------------------------------------------
+# OS-generated files
+# -----------------------------------------------------------------------------
+.DS_Store
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# -----------------------------------------------------------------------------
+# Application-generated artifacts (NÃO versionar)
+# -----------------------------------------------------------------------------
+# Configuração runtime (apenas o template é versionado)
+config.json
+
+# Filas offline e logs em rolling
+queue/
+logs/
+*.log
+*.log.*
+
+# Fotos capturadas pelo checklist
+photos/
+
+# Arquivos temporários
+*.tmp
+*.temp
+*.bak
+*.swp
+*~
+
+# Relatórios gerados (CHECKLIST_*.json e RETESTE_*.json e seus PDFs)
+CHECKLIST_*.json
+CHECKLIST_*.pdf
+RETESTE_*.json
+RETESTE_*.pdf

@@ -1,0 +1,928 @@
+using System;
+using System.Collections.Generic;
+using System.Collections.ObjectModel;
+using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
+using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
+using Microsoft.Extensions.Logging;
+using NotebookCheck.Domain.Abstractions;
+using NotebookCheck.Domain.Enums;
+using NotebookCheck.Infrastructure.Erp;
+using NotebookCheck.Infrastructure.Persistence;
+
+namespace NotebookCheck.Presentation;
+
+/// <summary>Etapas do wizard de cadastro no estoque.</summary>
+public enum CadastroStep { Pedido = 0, Identificacao = 1, Condicao = 2, Destino = 3, Revisao = 4 }
+
+/// <summary>Opção (valor técnico + rótulo amigável) para dropdowns de enum.</summary>
+public sealed record CadastroOption(string Value, string Label)
+{
+    public override string ToString() => Label;
+}
+
+/// <summary>Campo ainda vazio no momento da revisão (obrigatório ou opcional).</summary>
+public sealed record Pendencia(string Label, bool Required);
+
+/// <summary>Acessório obrigatório do pedido de compra, marcável pelo técnico.</summary>
+public sealed partial class AcessorioCheckItem : ObservableObject
+{
+    public string Nome { get; }
+    [ObservableProperty] private bool isChecked;
+    public AcessorioCheckItem(string nome) => Nome = nome;
+}
+
+/// <summary>
+/// ViewModel do modo "Cadastro no estoque": wizard de 4 etapas (Identificação,
+/// Condição, Destino, Revisão). Todo cadastro parte de um pedido de compra do
+/// ERP — fornecedor, documento e valores vêm do pedido; o NTB é gerado pelo
+/// servidor. O pedido também define os requisitos (condição estética mínima e
+/// acessórios obrigatórios) que o app sinaliza quando não atendidos.
+/// </summary>
+public sealed partial class CadastroViewModel : ObservableObject
+{
+    private readonly ErpClient _erp;
+    private readonly IHardwareCollector _collector;
+    private readonly SerialNtbStore _serialNtb;
+    private readonly LinhaStore _linhaStore;
+    private readonly MachineIdentityStore _identityStore;
+    private readonly ILogger<CadastroViewModel> _logger;
+
+    /// <summary>Disparado quando o usuário pede para fechar a janela.</summary>
+    public event EventHandler? CloseRequested;
+
+    public CadastroViewModel(
+        ErpClient erp,
+        IHardwareCollector collector,
+        SerialNtbStore serialNtb,
+        LinhaStore linhaStore,
+        MachineIdentityStore identityStore,
+        ILogger<CadastroViewModel> logger)
+    {
+        _erp = erp;
+        _collector = collector;
+        _serialNtb = serialNtb;
+        _linhaStore = linhaStore;
+        _identityStore = identityStore;
+        _logger = logger;
+        // TEMPORÁRIO (bug do ERP): o ideal (§3.5) é "producao_tecnica", que leva
+        // a máquina à bancada (Em andamento). Mas hoje essa rota quebra o
+        // recebimento com `record "v_os" is not assigned yet`
+        // (ver docs/relatorio-para-erp-kanban.md §3). Enquanto não corrigido, o
+        // padrão fica "aprovacao_direta" para o cadastro funcionar — reverter
+        // para "producao_tecnica" quando o ERP consertar a função da OS.
+        SelectedProximoDestino = ProximoDestinos.First(o => o.Value == "aprovacao_direta");
+    }
+
+    // ---------------------------------------------------------------- step ---
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsPedido), nameof(IsIdentificacao), nameof(IsCondicao),
+        nameof(IsDestino), nameof(IsRevisao), nameof(StepTitle), nameof(StepNumberLabel),
+        nameof(CanGoBack), nameof(NextLabel), nameof(IsLastStep))]
+    private CadastroStep step = CadastroStep.Pedido;
+
+    public bool IsPedido => Step == CadastroStep.Pedido;
+    public bool IsIdentificacao => Step == CadastroStep.Identificacao;
+    public bool IsCondicao => Step == CadastroStep.Condicao;
+    public bool IsDestino => Step == CadastroStep.Destino;
+    public bool IsRevisao => Step == CadastroStep.Revisao;
+    public bool IsLastStep => Step == CadastroStep.Revisao;
+    public bool CanGoBack => Step != CadastroStep.Pedido && !IsBusy && !IsDone;
+    public string NextLabel => Step == CadastroStep.Destino ? "Revisar →" : "Avançar →";
+
+    public string StepTitle => Step switch
+    {
+        CadastroStep.Pedido => "Pedido de compra",
+        CadastroStep.Identificacao => "Identificação",
+        CadastroStep.Condicao => "Condição",
+        CadastroStep.Destino => "Destino",
+        _ => "Revisão",
+    };
+
+    public string StepNumberLabel => $"Etapa {(int)Step + 1} de 5";
+
+    // -------------------------------------------------------------- estado ---
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(CanGoBack))]
+    private bool isBusy;
+
+    [ObservableProperty] private string statusMessage = "";
+    [ObservableProperty] private bool isConnected;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(CanGoBack))]
+    private bool isDone;
+
+    [ObservableProperty] private string resultText = "";
+    [ObservableProperty] private bool resultOk;
+
+    // ------------------------------------ Etapa 1: Pedido + Identificação ---
+
+    public ObservableCollection<ErpPedidoCompra> Pedidos { get; } = new();
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(PedidoSelecionado), nameof(PedidoFornecedor),
+        nameof(PedidoDocumento), nameof(PedidoProgresso), nameof(PedidoCondicaoMinima),
+        nameof(PedidoTemRequisitos), nameof(TemCondicaoMinima), nameof(CondicaoAbaixoMinimo),
+        nameof(CondicaoAvisoText), nameof(TemAcessoriosObrigatorios))]
+    private ErpPedidoCompra? selectedPedido;
+
+    public bool PedidoSelecionado => SelectedPedido is not null;
+    public string PedidoFornecedor => Trimmed(SelectedPedido?.FornecedorNome, "—");
+    public string PedidoDocumento => Trimmed(SelectedPedido?.DocumentoEntrada, "—");
+    public string PedidoProgresso => SelectedPedido?.QuantidadeTotal is int total
+        ? $"{SelectedPedido?.QuantidadeRecebida ?? 0} de {total} máquinas recebidas"
+        : "—";
+    public string PedidoCondicaoMinima =>
+        Domain.Rules.CondicaoEstetica.Label(SelectedPedido?.CondicaoMinima) is { Length: > 0 } l ? l : "—";
+    public bool TemCondicaoMinima => !string.IsNullOrWhiteSpace(SelectedPedido?.CondicaoMinima);
+    public bool PedidoTemRequisitos => TemCondicaoMinima || TemAcessoriosObrigatorios;
+    public bool TemAcessoriosObrigatorios => (SelectedPedido?.AcessoriosObrigatorios?.Count ?? 0) > 0;
+
+    partial void OnSelectedPedidoChanged(ErpPedidoCompra? value)
+    {
+        RebuildAcessorios(value);
+        // Modelo previsto do pedido ajuda quando o WMI não trouxe nada útil.
+        if (string.IsNullOrWhiteSpace(Modelo) && !string.IsNullOrWhiteSpace(value?.ModeloPrevisto))
+            Modelo = value!.ModeloPrevisto!.Trim();
+        TrySelectMarca();
+        RaiseCondicaoWarnings();
+        RaiseAcessorioWarnings();
+        _ = LoadMaquinasAsync(value);
+    }
+
+    // ------------------------------------------ máquinas em branco do pedido ---
+
+    /// <summary>Máquinas em branco do pedido (uma delas é reivindicada no cadastro).</summary>
+    public ObservableCollection<ErpPedidoMaquina> MaquinasDisponiveis { get; } = new();
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(MaquinaConfigAcordadaText), nameof(TemConfigAcordada))]
+    private ErpPedidoMaquina? selectedMaquina;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(TemMaquinas), nameof(SemMaquinasInfo))]
+    private bool maquinasCarregadas;
+
+    [ObservableProperty] private bool maquinasCarregando;
+
+    public bool TemMaquinas => MaquinasDisponiveis.Count > 0;
+
+    /// <summary>Lista carregada mas vazia: o servidor escolhe a próxima em branco.</summary>
+    public bool SemMaquinasInfo => MaquinasCarregadas && !TemMaquinas;
+
+    public bool TemConfigAcordada => SelectedMaquina?.ConfigAcordada is not null;
+    public string MaquinaConfigAcordadaText
+    {
+        get
+        {
+            var c = SelectedMaquina?.ConfigAcordada;
+            if (c is null) return "";
+            var parts = new List<string>();
+            if (!string.IsNullOrWhiteSpace(c.Processador)) parts.Add(c.Processador!);
+            if (c.RamGb is int r) parts.Add($"{r} GB RAM");
+            if (c.StorageGb is int s) parts.Add($"{s} GB armazenamento");
+            return parts.Count == 0 ? "" : $"Config acordada: {string.Join(" · ", parts)}";
+        }
+    }
+
+    partial void OnSelectedMaquinaChanged(ErpPedidoMaquina? value)
+    {
+        if (value is null) return;
+        // Prefill a partir da máquina do pedido, sem sobrescrever o que o
+        // técnico ou o WMI já preencheram.
+        if (string.IsNullOrWhiteSpace(Modelo) && !string.IsNullOrWhiteSpace(value.Modelo))
+            Modelo = value.Modelo!.Trim();
+        if (string.IsNullOrWhiteSpace(Linha) && !string.IsNullOrWhiteSpace(value.Linha))
+            Linha = value.Linha!.Trim();
+    }
+
+    private async Task LoadMaquinasAsync(ErpPedidoCompra? pedido)
+    {
+        SelectedMaquina = null;
+        MaquinasDisponiveis.Clear();
+        MaquinasCarregadas = false;
+        if (pedido is null) return;
+
+        MaquinasCarregando = true;
+        try
+        {
+            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+            var resp = await _erp.GetPedidoMaquinasAsync(pedido.Id, cts.Token).ConfigureAwait(true);
+            if (SelectedPedido?.Id != pedido.Id) return; // usuário trocou de pedido no meio
+
+            foreach (var m in resp.Maquinas.Where(m => m.PodeCheckEntrada))
+                MaquinasDisponiveis.Add(m);
+
+            // Kanban pediu uma máquina específica; senão, única em branco = escolha óbvia.
+            if (_preselectAssetId is not null)
+            {
+                SelectedMaquina = MaquinasDisponiveis.FirstOrDefault(m =>
+                    string.Equals(m.AssetId, _preselectAssetId, StringComparison.OrdinalIgnoreCase));
+                _preselectAssetId = null;
+            }
+            SelectedMaquina ??= MaquinasDisponiveis.Count == 1 ? MaquinasDisponiveis[0] : null;
+        }
+        catch (ErpException ex)
+        {
+            // Endpoint indisponível: segue sem seleção — o servidor pega a próxima em branco.
+            _logger.LogWarning(ex, "Falha carregando máquinas do pedido {Pedido}", pedido.Numero);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Erro inesperado carregando máquinas do pedido");
+        }
+        finally
+        {
+            MaquinasCarregando = false;
+            MaquinasCarregadas = true;
+            OnPropertyChanged(nameof(TemMaquinas));
+            OnPropertyChanged(nameof(SemMaquinasInfo));
+        }
+    }
+
+    private string? _preselectPedidoId;
+    private string? _preselectAssetId;
+
+    /// <summary>
+    /// Usado pelo kanban: pré-seleciona o pedido e a máquina em branco assim
+    /// que as listas carregarem. Chamar antes de <see cref="InitializeAsync"/>.
+    /// </summary>
+    public void Preselect(string? pedidoId, string? assetId)
+    {
+        _preselectPedidoId = NullIfEmpty(pedidoId);
+        _preselectAssetId = NullIfEmpty(assetId);
+    }
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ModeloInvalid))]
+    private string modelo = "";
+
+    [ObservableProperty] private string linha = "";
+
+    public ObservableCollection<ErpRef> Marcas { get; } = new();
+    [ObservableProperty] private ErpRef? selectedMarca;
+
+    [ObservableProperty] private string serial = "";
+    [ObservableProperty] private bool serialReady;
+
+    public bool ModeloInvalid => string.IsNullOrWhiteSpace(Modelo) || Modelo.Trim().Length < 2;
+
+    // ------------------------------------------------ Etapa 2: Condição -----
+
+    public IReadOnlyList<CadastroOption> Condicoes { get; } = new[]
+    {
+        new CadastroOption("excelente", "Excelente"),
+        new CadastroOption("boa", "Boa"),
+        new CadastroOption("regular", "Regular"),
+        new CadastroOption("ruim", "Ruim"),
+        new CadastroOption("sucata", "Sucata"),
+    };
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(CondicaoAbaixoMinimo), nameof(CondicaoAvisoText))]
+    private CadastroOption? selectedCondicao;
+
+    /// <summary>True quando a condição informada é pior que a exigida pelo pedido.</summary>
+    public bool CondicaoAbaixoMinimo => Domain.Rules.CondicaoEstetica.IsAbaixoDoMinimo(
+        SelectedCondicao?.Value, SelectedPedido?.CondicaoMinima);
+
+    public string CondicaoAvisoText => CondicaoAbaixoMinimo
+        ? $"Condição abaixo do mínimo do pedido ({PedidoCondicaoMinima}). Confirme com o responsável antes de cadastrar."
+        : "";
+
+    /// <summary>Checklist dos acessórios obrigatórios do pedido selecionado.</summary>
+    public ObservableCollection<AcessorioCheckItem> AcessoriosChecklist { get; } = new();
+
+    [ObservableProperty] private string acessoriosExtras = "";
+    [ObservableProperty] private string defeitos = "";
+    [ObservableProperty] private string observacoes = "";
+
+    public IReadOnlyList<string> AcessoriosFaltando =>
+        AcessoriosChecklist.Where(a => !a.IsChecked).Select(a => a.Nome).ToList();
+
+    public bool TemAcessoriosFaltando => AcessoriosChecklist.Any(a => !a.IsChecked);
+
+    public string AcessoriosAvisoText => TemAcessoriosFaltando
+        ? $"Acessórios obrigatórios não recebidos: {string.Join(", ", AcessoriosFaltando)}."
+        : "";
+
+    private void RebuildAcessorios(ErpPedidoCompra? pedido)
+    {
+        foreach (var item in AcessoriosChecklist)
+            item.PropertyChanged -= OnAcessorioChanged;
+        AcessoriosChecklist.Clear();
+        foreach (var nome in pedido?.AcessoriosObrigatorios ?? new List<string>())
+        {
+            if (string.IsNullOrWhiteSpace(nome)) continue;
+            var item = new AcessorioCheckItem(nome.Trim());
+            item.PropertyChanged += OnAcessorioChanged;
+            AcessoriosChecklist.Add(item);
+        }
+        RaiseAcessorioWarnings();
+    }
+
+    private void OnAcessorioChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e) =>
+        RaiseAcessorioWarnings();
+
+    private void RaiseAcessorioWarnings()
+    {
+        OnPropertyChanged(nameof(AcessoriosFaltando));
+        OnPropertyChanged(nameof(TemAcessoriosFaltando));
+        OnPropertyChanged(nameof(AcessoriosAvisoText));
+    }
+
+    private void RaiseCondicaoWarnings()
+    {
+        OnPropertyChanged(nameof(CondicaoAbaixoMinimo));
+        OnPropertyChanged(nameof(CondicaoAvisoText));
+    }
+
+    // -------------------------------------------------- Etapa 3: Destino ----
+
+    public ObservableCollection<ErpRef> Localizacoes { get; } = new();
+    [ObservableProperty] private ErpRef? selectedLocalizacao;
+
+    public IReadOnlyList<CadastroOption> ProximoDestinos { get; } = new[]
+    {
+        new CadastroOption("producao_tecnica", "Produção técnica (cria ordem de diagnóstico)"),
+        new CadastroOption("quarentena", "Quarentena (decisão pendente)"),
+        new CadastroOption("uso_interno", "Uso interno (aprovação)"),
+        new CadastroOption("aprovacao_direta", "Aprovação direta (vai para a fila de aprovação)"),
+        new CadastroOption("devolucao_fornecedor", "Devolução ao fornecedor"),
+    };
+    [ObservableProperty] private CadastroOption? selectedProximoDestino;
+
+    // ------------------------------------------------ Etapa 4: Revisão ------
+
+    public string RevPedido => SelectedPedido?.Display ?? "—";
+    public string RevMaquina => SelectedMaquina?.Display
+        ?? (TemMaquinas ? "—" : "Próxima máquina em branco do pedido");
+    public string RevModelo => Trimmed(Modelo, "—");
+    public string RevLinha => Trimmed(Linha, "—");
+    public string RevMarca => SelectedMarca?.Nome ?? "—";
+    public string RevSerial => Trimmed(Serial, "—");
+    public string RevCondicao => SelectedCondicao?.Label ?? "—";
+    public string RevAcessorios
+    {
+        get
+        {
+            var marcados = AcessoriosChecklist.Where(a => a.IsChecked).Select(a => a.Nome).ToList();
+            marcados.AddRange(SplitItems(AcessoriosExtras) ?? new List<string>());
+            return marcados.Count == 0 ? "—" : string.Join(", ", marcados);
+        }
+    }
+    public string RevDefeitos => Trimmed(Defeitos, "—");
+    public string RevObservacoes => Trimmed(Observacoes, "—");
+    public string RevLocalizacao => SelectedLocalizacao?.Display ?? "—";
+    public string RevProximoDestino => SelectedProximoDestino?.Label ?? "—";
+
+    private ErpEspecificacoes? _specs;
+    private Domain.Models.MachineInfo? _machine;
+
+    /// <summary>Resumo das especificações coletadas, exibido na Identificação.</summary>
+    public string SpecsResumo => _specs is null ? "Coletando…" : DescribeSpecs(_specs);
+
+    /// <summary>NTB devolvido pelo servidor após o cadastro (gerado automaticamente).</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(NtbGeradoDisplay), nameof(TemNtbGerado))]
+    private string ntbGerado = "";
+
+    public string NtbGeradoDisplay => string.IsNullOrWhiteSpace(NtbGerado)
+        ? "" : Domain.Rules.NtbCode.Normalize(NtbGerado);
+    public bool TemNtbGerado => !string.IsNullOrWhiteSpace(NtbGerado);
+
+    /// <summary>
+    /// Diferenças entre a config acordada no pedido e o que foi coletado da
+    /// máquina (RAM, armazenamento, processador). Vão como alerta na aprovação.
+    /// </summary>
+    private List<string> BuildConfigDivergencias()
+    {
+        var divs = new List<string>();
+        var acordada = SelectedMaquina?.ConfigAcordada;
+        if (acordada is null || _specs is null) return divs;
+
+        if (acordada.RamGb is int ramAc && _specs.RamGb is int ramEnc && ramAc != ramEnc)
+            divs.Add($"RAM: acordado {ramAc} GB, encontrado {ramEnc} GB");
+
+        // Discos "512 GB" reportam ~477 GiB reais — tolerância para não gerar
+        // alerta falso; fora de 88%–130% do acordado é divergência de verdade.
+        if (acordada.StorageGb is int stAc && stAc > 0 && _specs.StorageGb is int stEnc &&
+            (stEnc < stAc * 0.88 || stEnc > stAc * 1.30))
+            divs.Add($"Armazenamento: acordado {stAc} GB, encontrado {stEnc} GB");
+
+        if (!string.IsNullOrWhiteSpace(acordada.Processador) && !string.IsNullOrWhiteSpace(_specs.Processador))
+        {
+            static string Norm(string s) => new(s.ToLowerInvariant().Where(char.IsLetterOrDigit).ToArray());
+            if (!Norm(_specs.Processador!).Contains(Norm(acordada.Processador!)))
+                divs.Add($"Processador: acordado {acordada.Processador}, encontrado {_specs.Processador}");
+        }
+        return divs;
+    }
+
+    public IReadOnlyList<string> ConfigDivergencias => BuildConfigDivergencias();
+    public bool TemConfigDivergencias => ConfigDivergencias.Count > 0;
+    public string ConfigDivergenciasText => TemConfigDivergencias
+        ? $"Configuração fora do acordado no pedido: {string.Join("; ", ConfigDivergencias)}."
+        : "";
+
+    /// <summary>Campos vazios destacados na revisão (obrigatórios em vermelho).</summary>
+    public IReadOnlyList<Pendencia> Pendencias
+    {
+        get
+        {
+            var list = new List<Pendencia>();
+            void Add(bool empty, string label, bool required = false)
+            {
+                if (empty) list.Add(new Pendencia(label, required));
+            }
+            Add(SelectedPedido is null, "Pedido de compra", required: true);
+            Add(TemMaquinas && SelectedMaquina is null, "Máquina do pedido", required: true);
+            Add(ModeloInvalid, "Modelo", required: true);
+            Add(SelectedMarca is null, "Marca");
+            Add(string.IsNullOrWhiteSpace(Linha), "Linha");
+            Add(string.IsNullOrWhiteSpace(Serial), "Número de série");
+            Add(SelectedCondicao is null, "Condição estética");
+            Add(SelectedLocalizacao is null, "Localização inicial");
+            return list;
+        }
+    }
+
+    public bool TemPendencias => Pendencias.Count > 0;
+    public bool TudoPreenchido => !TemPendencias;
+
+    // ------------------------------------------------------------- init -----
+
+    /// <summary>Conecta no ERP, carrega pedidos/listas e lê serial + specs da máquina.</summary>
+    public async Task InitializeAsync()
+    {
+        if (!_erp.IsConfigured)
+        {
+            StatusMessage = "Integração com o ERP não configurada. Verifique URL e credenciais.";
+            IsConnected = false;
+            return;
+        }
+
+        IsBusy = true;
+        StatusMessage = "Conectando ao ERP…";
+        try
+        {
+            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+            await _erp.ConnectAsync(cts.Token).ConfigureAwait(true);
+            IsConnected = true;
+            StatusMessage = "Conectado. Carregando pedidos de compra…";
+
+            await LoadListsAsync(cts.Token).ConfigureAwait(true);
+        }
+        catch (ErpException ex)
+        {
+            IsConnected = false;
+            StatusMessage = $"Erro ao conectar: {ex.Message}";
+            _logger.LogWarning(ex, "Falha conectando ao ERP");
+        }
+        catch (Exception ex)
+        {
+            IsConnected = false;
+            StatusMessage = $"Erro inesperado: {ex.Message}";
+            _logger.LogError(ex, "Erro inesperado na conexão com o ERP");
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+
+        // Leitura de hardware em paralelo (não bloqueia o wizard).
+        _ = CollectHardwareAsync();
+    }
+
+    private async Task LoadListsAsync(CancellationToken ct)
+    {
+        var marcas = await _erp.GetMarcasAsync(null, ct).ConfigureAwait(true);
+        var locais = await _erp.GetLocalizacoesAsync(null, ct).ConfigureAwait(true);
+
+        Marcas.Clear();
+        foreach (var m in marcas) Marcas.Add(m);
+        Localizacoes.Clear();
+        foreach (var l in locais) Localizacoes.Add(l);
+
+        // Pré-seleciona o "Estoque padrão" se vier marcado.
+        SelectedLocalizacao = locais.FirstOrDefault(l => l.IsDefault);
+
+        // Pedidos por último: se o endpoint ainda não existir no ERP, as demais
+        // listas já carregaram e a mensagem explica o bloqueio.
+        try
+        {
+            var pedidos = await _erp.GetPedidosCompraAsync(null, ct).ConfigureAwait(true);
+            Pedidos.Clear();
+            foreach (var p in pedidos) Pedidos.Add(p);
+            StatusMessage = pedidos.Count == 0
+                ? "Nenhum pedido de compra aberto no ERP. Crie o pedido antes de cadastrar máquinas."
+                : "";
+
+            // Vindo do kanban: seleciona o pedido pedido (a máquina é aplicada
+            // quando LoadMaquinasAsync terminar).
+            if (_preselectPedidoId is not null)
+            {
+                var alvo = pedidos.FirstOrDefault(p =>
+                    string.Equals(p.Id, _preselectPedidoId, StringComparison.OrdinalIgnoreCase));
+                _preselectPedidoId = null;
+                if (alvo is not null) SelectedPedido = alvo;
+            }
+        }
+        catch (ErpException ex)
+        {
+            StatusMessage = ex.StatusCode == 404
+                ? "O ERP ainda não expõe pedidos de compra (endpoint pendente). Cadastro bloqueado até a API ser atualizada."
+                : $"Erro carregando pedidos de compra: {ex.Message}";
+            _logger.LogWarning(ex, "Falha carregando pedidos de compra");
+        }
+
+        TrySelectMarca();
+    }
+
+    private async Task CollectHardwareAsync()
+    {
+        try
+        {
+            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(45));
+            var machine = await _collector.CollectMachineAsync(cts.Token).ConfigureAwait(true);
+            var storage = await _collector.CollectStorageAsync(cts.Token).ConfigureAwait(true);
+            Domain.Models.BatteryInfo? battery = null;
+            Domain.Models.DisplayInfo? display = null;
+            try { battery = await _collector.CollectBatteryAsync(cts.Token).ConfigureAwait(true); } catch { }
+            try { display = await _collector.CollectDisplayAsync(cts.Token).ConfigureAwait(true); } catch { }
+
+            _machine = machine;
+            // Editável: máquinas com serial repetido são diferenciadas à mão.
+            if (string.IsNullOrWhiteSpace(Serial))
+                Serial = machine.Serial ?? "";
+            SerialReady = true;
+
+            // Se não veio modelo/marca preenchidos, sugere a partir do hardware.
+            if (string.IsNullOrWhiteSpace(Modelo) && !string.IsNullOrWhiteSpace(machine.Model))
+                Modelo = machine.Model!.Trim();
+
+            SuggestLinha(machine);
+            TrySelectMarca();
+
+            _specs = BuildSpecs(machine, storage, battery, display);
+            OnPropertyChanged(nameof(SpecsResumo));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Falha coletando hardware para o cadastro");
+            SerialReady = true; // libera o campo mesmo sem serial
+        }
+    }
+
+    /// <summary>
+    /// Preenche a linha: correção já aprendida em cadastros anteriores vence;
+    /// senão o "brand name" reportado pela própria máquina (SMBIOS SystemFamily);
+    /// por fim a heurística sobre o modelo. O campo continua editável — ao
+    /// cadastrar, o valor confirmado é aprendido para as próximas máquinas.
+    /// </summary>
+    private void SuggestLinha(Domain.Models.MachineInfo machine)
+    {
+        if (!string.IsNullOrWhiteSpace(Linha)) return;
+        var learned = _linhaStore.Lookup(machine.Manufacturer, machine.Model);
+        var brandName = string.IsNullOrWhiteSpace(machine.Family) ? null : machine.Family!.Trim();
+        var sugestao = learned ?? brandName ?? LinhaStore.Suggest(machine.Manufacturer, machine.Model);
+        if (!string.IsNullOrWhiteSpace(sugestao)) Linha = sugestao!;
+    }
+
+    /// <summary>Pré-seleciona a marca pelo pedido (brand_id/nome) ou pelo fabricante lido.</summary>
+    private void TrySelectMarca()
+    {
+        if (SelectedMarca is not null || Marcas.Count == 0) return;
+
+        if (!string.IsNullOrWhiteSpace(SelectedPedido?.BrandId))
+        {
+            var byId = Marcas.FirstOrDefault(m =>
+                string.Equals(m.Id, SelectedPedido!.BrandId, StringComparison.OrdinalIgnoreCase));
+            if (byId is not null) { SelectedMarca = byId; return; }
+        }
+
+        var nome = SelectedPedido?.MarcaNome ?? _machine?.Manufacturer;
+        if (string.IsNullOrWhiteSpace(nome)) return;
+        SelectedMarca = Marcas.FirstOrDefault(m =>
+            nome!.Contains(m.Nome, StringComparison.OrdinalIgnoreCase) ||
+            m.Nome.Contains(nome!, StringComparison.OrdinalIgnoreCase));
+    }
+
+    // ---------------------------------------------------------- comandos ----
+
+    [RelayCommand]
+    private void Next()
+    {
+        if (IsBusy || IsDone) return;
+        if (Step == CadastroStep.Pedido && !ValidatePedido()) return;
+        if (Step == CadastroStep.Identificacao && !ValidateIdentificacao()) return;
+        StatusMessage = "";
+        if (Step != CadastroStep.Revisao)
+        {
+            Step = (CadastroStep)((int)Step + 1);
+            RaiseReviewFields();
+        }
+    }
+
+    private bool ValidatePedido()
+    {
+        if (SelectedPedido is null)
+        {
+            StatusMessage = "Selecione o pedido de compra para continuar.";
+            return false;
+        }
+        if (TemMaquinas && SelectedMaquina is null)
+        {
+            StatusMessage = "Selecione qual máquina do pedido está na sua mão.";
+            return false;
+        }
+        return true;
+    }
+
+    private bool ValidateIdentificacao()
+    {
+        if (ModeloInvalid)
+        {
+            StatusMessage = "Informe o modelo (mínimo 2 caracteres) para continuar.";
+            return false;
+        }
+        return true;
+    }
+
+    [RelayCommand]
+    private void Back()
+    {
+        if (!CanGoBack) return;
+        StatusMessage = "";
+        Step = (CadastroStep)((int)Step - 1);
+    }
+
+    [RelayCommand]
+    private void GoToStep(string? index)
+    {
+        if (IsBusy || IsDone) return;
+        if (int.TryParse(index, out var i) && i >= 0 && i <= 4)
+        {
+            if (i > (int)CadastroStep.Pedido && !ValidatePedido())
+            {
+                Step = CadastroStep.Pedido;
+                return;
+            }
+            if (i > (int)CadastroStep.Identificacao && !ValidateIdentificacao())
+            {
+                Step = CadastroStep.Identificacao;
+                return;
+            }
+            StatusMessage = "";
+            Step = (CadastroStep)i;
+            RaiseReviewFields();
+        }
+    }
+
+    private string? _idempotencyKey;
+
+    [RelayCommand]
+    private async Task CadastrarAsync()
+    {
+        if (IsBusy || IsDone) return;
+        if (!ValidatePedido())
+        {
+            Step = CadastroStep.Pedido;
+            return;
+        }
+        if (!ValidateIdentificacao())
+        {
+            Step = CadastroStep.Identificacao;
+            return;
+        }
+        if (!_erp.IsConfigured) { StatusMessage = "ERP não configurado."; return; }
+
+        // Mesma chave em retries (idempotência); nova só após sucesso.
+        _idempotencyKey ??= Guid.NewGuid().ToString();
+
+        IsBusy = true;
+        StatusMessage = "Enviando para o estoque…";
+        try
+        {
+            var incluidos = AcessoriosChecklist.Where(a => a.IsChecked).Select(a => a.Nome).ToList();
+            incluidos.AddRange(SplitItems(AcessoriosExtras) ?? new List<string>());
+            var faltantes = AcessoriosFaltando.ToList();
+
+            var divergencias = BuildConfigDivergencias();
+
+            var req = new ErpRecebimentoRequest
+            {
+                PedidoCompraId = SelectedPedido!.Id,
+                AssetId = NullIfEmpty(SelectedMaquina?.AssetId),
+                Modelo = Modelo.Trim(),
+                Linha = NullIfEmpty(Linha),
+                BrandId = NullIfEmpty(SelectedMarca?.Id),
+                SerialNumber = NullIfEmpty(Serial),
+                CondicaoEstetica = SelectedCondicao?.Value,
+                CondicaoAbaixoMinimo = TemCondicaoMinima ? CondicaoAbaixoMinimo : null,
+                DefeitosAparentes = SplitItems(Defeitos),
+                AcessoriosIncluidos = incluidos.Count == 0 ? null : incluidos,
+                AcessoriosFaltantes = faltantes.Count == 0 ? null : faltantes,
+                ConfigDivergencias = divergencias.Count == 0 ? null : divergencias,
+                Observacoes = NullIfEmpty(Observacoes),
+                LocalizacaoInicialId = NullIfEmpty(SelectedLocalizacao?.Id),
+                ProximoDestino = SelectedProximoDestino?.Value,
+                Especificacoes = _specs,
+            };
+
+            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(40));
+            var resp = await _erp.CreateRecebimentoAsync(req, _idempotencyKey, cts.Token).ConfigureAwait(true);
+
+            NtbGerado = resp.Ntb ?? "";
+            var ntbNormalizado = NtbGeradoDisplay;
+
+            // Serial → NTB para auto-preencher no checklist futuro desta máquina.
+            if (!string.IsNullOrWhiteSpace(Serial) && ntbNormalizado.Length > 0)
+                _serialNtb.Save(Serial, ntbNormalizado);
+
+            // Aprende a linha confirmada para as próximas máquinas da mesma família.
+            if (_machine is not null)
+                _linhaStore.Learn(_machine.Manufacturer, _machine.Model, Linha);
+
+            // Arquivo de identidade gravado NA máquina, para o checklist principal.
+            try
+            {
+                _identityStore.Save(new MachineIdentity
+                {
+                    Serial = NullIfEmpty(Serial),
+                    Ntb = NullIfEmpty(ntbNormalizado),
+                    AssetId = NullIfEmpty(resp.AssetId),
+                    CodigoInterno = NullIfEmpty(resp.CodigoInterno),
+                    Modelo = Modelo.Trim(),
+                    Linha = NullIfEmpty(Linha),
+                    Marca = NullIfEmpty(SelectedMarca?.Nome),
+                    PedidoCompraId = NullIfEmpty(resp.PedidoCompraId) ?? SelectedPedido!.Id,
+                    PedidoCompraNumero = NullIfEmpty(resp.PedidoNumero) ?? NullIfEmpty(SelectedPedido!.Numero),
+                    CadastradoEmUtc = DateTime.UtcNow,
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Falha gravando o arquivo de identidade da máquina");
+            }
+
+            ResultOk = true;
+            IsDone = true;
+            var codigo = string.IsNullOrWhiteSpace(resp.CodigoInterno) ? resp.AssetId : resp.CodigoInterno;
+            var ntbParte = ntbNormalizado.Length > 0 ? $"NTB: {ntbNormalizado}. " : "";
+            // Com alertas o ERP abre aprovação; sem alertas + produção técnica a
+            // máquina segue para a bancada (Em andamento no kanban). O status
+            // exato varia, então derivamos do que a resposta indicar.
+            var vaiParaAprovacao = (resp.Status ?? "").Contains("aprovacao", StringComparison.OrdinalIgnoreCase);
+            var destinoParte = vaiParaAprovacao
+                ? "Aguardando aprovação em /aprovacoes."
+                : "Seguiu para o teste — acompanhe no kanban.";
+            ResultText = resp.Idempotent
+                ? $"Já estava cadastrado (reenvio). {ntbParte}Código: {codigo}. {destinoParte}"
+                : $"Máquina cadastrada! {ntbParte}Código: {codigo}. {destinoParte}";
+            StatusMessage = "";
+            _idempotencyKey = null; // próximo cadastro gera nova chave
+        }
+        catch (ErpException ex)
+        {
+            ResultOk = false;
+            // 409 já vem com mensagem de negócio pronta do ERP (ex.: pedido
+            // fechado ou todas as máquinas já recebidas).
+            StatusMessage = ex.StatusCode == 409
+                ? ex.Message
+                : $"Erro ao cadastrar: {ex.Message}";
+        }
+        catch (Exception ex)
+        {
+            ResultOk = false;
+            StatusMessage = $"Erro inesperado: {ex.Message}";
+            _logger.LogError(ex, "Erro no cadastro de recebimento");
+        }
+        finally { IsBusy = false; }
+    }
+
+    [RelayCommand]
+    private void NovoCadastro()
+    {
+        // Mantém o pedido e o destino (mesma remessa costuma repetir), zera a máquina.
+        IsDone = false;
+        ResultText = "";
+        NtbGerado = "";
+        Modelo = Linha = "";
+        Serial = "";
+        SerialReady = false;
+        SelectedMarca = null;
+        SelectedCondicao = null;
+        AcessoriosExtras = Defeitos = Observacoes = "";
+        foreach (var item in AcessoriosChecklist) item.IsChecked = false;
+        _specs = null;
+        _machine = null;
+        Step = CadastroStep.Pedido;
+        OnPropertyChanged(nameof(SpecsResumo));
+        // Recarrega as máquinas em branco: a que acabou de ser cadastrada saiu da lista.
+        _ = LoadMaquinasAsync(SelectedPedido);
+        _ = CollectHardwareAsync();
+    }
+
+    [RelayCommand]
+    private void Fechar() => CloseRequested?.Invoke(this, EventArgs.Empty);
+
+    private void RaiseReviewFields()
+    {
+        foreach (var p in new[]
+        {
+            nameof(RevPedido), nameof(RevMaquina), nameof(RevModelo), nameof(RevLinha), nameof(RevMarca),
+            nameof(RevSerial), nameof(RevCondicao), nameof(RevAcessorios), nameof(RevDefeitos),
+            nameof(RevObservacoes), nameof(RevLocalizacao), nameof(RevProximoDestino), nameof(SpecsResumo),
+            nameof(Pendencias), nameof(TemPendencias), nameof(TudoPreenchido),
+            nameof(CondicaoAbaixoMinimo), nameof(CondicaoAvisoText),
+            nameof(TemAcessoriosFaltando), nameof(AcessoriosAvisoText),
+            nameof(ConfigDivergencias), nameof(TemConfigDivergencias), nameof(ConfigDivergenciasText),
+        })
+            OnPropertyChanged(p);
+    }
+
+    // ----------------------------------------------------------- helpers ----
+
+    private static string Trimmed(string? s, string fallback) =>
+        string.IsNullOrWhiteSpace(s) ? fallback : s!.Trim();
+
+    private static string? NullIfEmpty(string? s) =>
+        string.IsNullOrWhiteSpace(s) ? null : s!.Trim();
+
+    /// <summary>Quebra texto livre em itens (linha/; /,) limitados a 50 × 200 chars.</summary>
+    private static List<string>? SplitItems(string? text)
+    {
+        if (string.IsNullOrWhiteSpace(text)) return null;
+        var items = text
+            .Split(new[] { '\n', '\r', ';' }, StringSplitOptions.RemoveEmptyEntries)
+            .Select(s => s.Trim())
+            .Where(s => s.Length > 0)
+            .Select(s => s.Length > 200 ? s[..200] : s)
+            .Take(50)
+            .ToList();
+        return items.Count == 0 ? null : items;
+    }
+
+    private static string Clip(string? s, int max) =>
+        string.IsNullOrWhiteSpace(s) ? "" : (s!.Length > max ? s[..max] : s);
+
+    private static ErpEspecificacoes BuildSpecs(
+        Domain.Models.MachineInfo m,
+        IReadOnlyList<Domain.Models.StorageInfo> disks,
+        Domain.Models.BatteryInfo? bat,
+        Domain.Models.DisplayInfo? disp)
+    {
+        var primary = disks?.OrderByDescending(d => d.CapacityGb).FirstOrDefault();
+        var totalGb = disks is null ? 0 : disks.Sum(d => (double)d.CapacityGb);
+
+        return new ErpEspecificacoes
+        {
+            Processador = NullIfEmptyStr(Clip(m.Processor?.Name ?? m.Cpu, 120)),
+            RamGb = m.RamGb > 0 ? (int)Math.Round(m.RamGb) : (m.Memory?.TotalGb is decimal tg ? (int)Math.Round(tg) : null),
+            RamTipo = NullIfEmptyStr(Clip(m.Memory?.Type, 40)),
+            RamSlots = m.Memory?.SlotsTotal,
+            StorageGb = totalGb > 0 ? (int)Math.Round(totalGb) : null,
+            StorageTipo = MapStorageType(primary?.Type),
+            StorageHealthPct = primary?.LifePercentRemaining,
+            Gpu = NullIfEmptyStr(Clip(m.GraphicsAdapter ?? m.GraphicsDetails?.FirstOrDefault()?.Name, 120)),
+            Resolucao = NullIfEmptyStr(Clip(disp?.Resolution ?? m.ScreenResolution, 40)),
+            So = NullIfEmptyStr(Clip(m.Os, 80)),
+            Licenca = m.WindowsActivation == AvailabilityFlag.Ativado ? "Ativado"
+                      : m.WindowsActivation == AvailabilityFlag.NaoAtivado ? "Não ativado" : null,
+            BateriaSaudePct = bat?.HealthPercent is decimal h ? (int)Math.Round(Math.Clamp(h, 0, 100)) : null,
+            WifiOk = m.WifiAdapterCount > 0,
+            BluetoothOk = m.Bluetooth is not null,
+        };
+    }
+
+    private static string? NullIfEmptyStr(string? s) => string.IsNullOrWhiteSpace(s) ? null : s;
+
+    private static string? MapStorageType(StorageType? t)
+    {
+        if (t is null) return null;
+        var s = t.ToString() ?? "";
+        if (s.Contains("NVMe", StringComparison.OrdinalIgnoreCase)) return "nvme";
+        if (s.Contains("SSD", StringComparison.OrdinalIgnoreCase)) return "ssd";
+        if (s.Contains("HDD", StringComparison.OrdinalIgnoreCase)) return "hdd";
+        if (s.Contains("eMMC", StringComparison.OrdinalIgnoreCase)) return "emmc";
+        return null;
+    }
+
+    private static string DescribeSpecs(ErpEspecificacoes s)
+    {
+        var parts = new List<string>();
+        if (!string.IsNullOrWhiteSpace(s.Processador)) parts.Add(s.Processador!);
+        if (s.RamGb is int r) parts.Add($"{r} GB RAM{(string.IsNullOrWhiteSpace(s.RamTipo) ? "" : $" {s.RamTipo}")}");
+        if (s.StorageGb is int g) parts.Add($"{g} GB {(s.StorageTipo ?? "armazenamento").ToUpperInvariant()}");
+        if (!string.IsNullOrWhiteSpace(s.Gpu)) parts.Add(s.Gpu!);
+        if (!string.IsNullOrWhiteSpace(s.Resolucao)) parts.Add(s.Resolucao!);
+        if (s.BateriaSaudePct is int b) parts.Add($"bateria {b}%");
+        return parts.Count == 0 ? "—" : string.Join(" · ", parts);
+    }
+}
