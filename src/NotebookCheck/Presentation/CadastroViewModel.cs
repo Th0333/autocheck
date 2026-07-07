@@ -67,13 +67,12 @@ public sealed partial class CadastroViewModel : ObservableObject
         _linhaStore = linhaStore;
         _identityStore = identityStore;
         _logger = logger;
-        // TEMPORÁRIO (bug do ERP): o ideal (§3.5) é "producao_tecnica", que leva
-        // a máquina à bancada (Em andamento). Mas hoje essa rota quebra o
-        // recebimento com `record "v_os" is not assigned yet`
-        // (ver docs/relatorio-para-erp-kanban.md §3). Enquanto não corrigido, o
-        // padrão fica "aprovacao_direta" para o cadastro funcionar — reverter
-        // para "producao_tecnica" quando o ERP consertar a função da OS.
-        SelectedProximoDestino = ProximoDestinos.First(o => o.Value == "aprovacao_direta");
+        // Fluxo padrão (§3.5): "producao_tecnica" leva a máquina à bancada (Em
+        // andamento) para o teste completo/autocheck; o técnico só dá o OK depois.
+        // O ERP já corrigiu a função da OS (v_os) e a transição de aguardando_teste,
+        // então o cadastro pelo app não escolhe mais destino — segue sempre para o
+        // teste. A colocação manual em outra etapa é feita pelo kanban do ERP.
+        SelectedProximoDestino = ProximoDestinos.First(o => o.Value == "producao_tecnica");
     }
 
     // ---------------------------------------------------------------- step ---
@@ -98,7 +97,7 @@ public sealed partial class CadastroViewModel : ObservableObject
         CadastroStep.Pedido => "Pedido de compra",
         CadastroStep.Identificacao => "Identificação",
         CadastroStep.Condicao => "Condição",
-        CadastroStep.Destino => "Destino",
+        CadastroStep.Destino => "Localização",
         _ => "Revisão",
     };
 

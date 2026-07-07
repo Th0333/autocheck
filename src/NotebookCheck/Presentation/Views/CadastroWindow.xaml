@@ -41,7 +41,7 @@
                             Command="{Binding GoToStepCommand}" CommandParameter="1"/>
                     <Button Content="③ Condição" Style="{StaticResource BtnGhost}" Margin="0,0,6,0"
                             Command="{Binding GoToStepCommand}" CommandParameter="2"/>
-                    <Button Content="④ Destino" Style="{StaticResource BtnGhost}" Margin="0,0,6,0"
+                    <Button Content="④ Localização" Style="{StaticResource BtnGhost}" Margin="0,0,6,0"
                             Command="{Binding GoToStepCommand}" CommandParameter="3"/>
                     <Button Content="⑤ Revisão" Style="{StaticResource BtnGhost}"
                             Command="{Binding GoToStepCommand}" CommandParameter="4"/>
@@ -324,15 +324,12 @@
                 <StackPanel Visibility="{Binding IsDestino, Converter={StaticResource BoolVisConv}}">
                     <Border Style="{StaticResource Card}">
                         <StackPanel>
-                            <TextBlock Style="{StaticResource H2}" Text="📍 Localização e destino"/>
+                            <TextBlock Style="{StaticResource H2}" Text="📍 Localização"/>
                             <TextBlock Style="{StaticResource Label}" Text="LOCALIZAÇÃO INICIAL" Margin="0,10,0,2"/>
                             <ComboBox ItemsSource="{Binding Localizacoes}" SelectedItem="{Binding SelectedLocalizacao}"
                                       DisplayMemberPath="Display"/>
-                            <TextBlock Style="{StaticResource Label}" Text="PRÓXIMO DESTINO" Margin="0,12,0,2"/>
-                            <ComboBox ItemsSource="{Binding ProximoDestinos}" SelectedItem="{Binding SelectedProximoDestino}"
-                                      DisplayMemberPath="Label"/>
-                            <TextBlock Style="{StaticResource Subtle}" Margin="0,8,0,0" TextWrapping="Wrap"
-                                       Text="Sem divergências, a máquina segue para 'em andamento' (bancada). Havendo alertas, entra em 'aguardando aprovação' para um humano decidir em /aprovacoes."/>
+                            <TextBlock Style="{StaticResource Subtle}" Margin="0,10,0,0" TextWrapping="Wrap"
+                                       Text="Onde a máquina fica fisicamente agora. Depois do cadastro ela segue direto para a fila de testes (bancada): sem divergências vai para 'em andamento' e roda o teste; havendo alertas, entra em 'aguardando aprovação' em /aprovacoes."/>
                         </StackPanel>
                     </Border>
                 </StackPanel>
@@ -495,14 +492,15 @@
                             </Grid>
 
                             <Border Height="1" Background="{StaticResource Ink200Brush}" Margin="0,12"/>
-                            <TextBlock Style="{StaticResource Label}" Text="DESTINO" Margin="0,0,0,4"/>
+                            <TextBlock Style="{StaticResource Label}" Text="LOCALIZAÇÃO" Margin="0,0,0,4"/>
                             <Grid>
                                 <Grid.ColumnDefinitions><ColumnDefinition Width="180"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
                                 <Grid.RowDefinitions><RowDefinition/><RowDefinition/></Grid.RowDefinitions>
                                 <TextBlock Text="Localização" Foreground="{StaticResource Ink500Brush}"/>
                                 <TextBlock Grid.Column="1" Text="{Binding RevLocalizacao}" TextWrapping="Wrap"/>
-                                <TextBlock Grid.Row="1" Text="Próximo destino" Foreground="{StaticResource Ink500Brush}"/>
-                                <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding RevProximoDestino}" TextWrapping="Wrap"/>
+                                <TextBlock Grid.Row="1" Text="Fluxo" Foreground="{StaticResource Ink500Brush}"/>
+                                <TextBlock Grid.Row="1" Grid.Column="1" Text="Vai direto para a fila de testes (bancada)"
+                                           TextWrapping="Wrap" Foreground="{StaticResource Ink500Brush}" FontStyle="Italic"/>
                             </Grid>
                         </StackPanel>
                     </Border>
