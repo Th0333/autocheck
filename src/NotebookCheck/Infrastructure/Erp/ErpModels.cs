@@ -242,6 +242,15 @@ public sealed class ErpKanbanRetrocederResponse
     [JsonPropertyName("error")] public string? Error { get; set; }
 }
 
+/// <summary>Resposta do POST /api/integracao/confirmar-recebimento.</summary>
+public sealed class ErpConfirmarRecebimentoResponse
+{
+    [JsonPropertyName("ok")] public bool Ok { get; set; }
+    [JsonPropertyName("asset_id")] public string? AssetId { get; set; }
+    [JsonPropertyName("etapa_nova")] public string? EtapaNova { get; set; }
+    [JsonPropertyName("error")] public string? Error { get; set; }
+}
+
 /// <summary>Corpo do POST /api/integracao/autocheck (conclui a ordem de diagnóstico).</summary>
 public sealed class ErpAutocheckRequest
 {
