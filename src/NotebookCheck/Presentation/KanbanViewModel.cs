@@ -63,6 +63,9 @@ public sealed partial class KanbanCard : ObservableObject
     /// <summary>Check de entrada tem só "Assumir" — assumir avança a etapa.</summary>
     public bool MostraAssumir => Etapa == "check_entrada";
 
+    /// <summary>"Confirmar recebimento": máquina aguardando a mercadoria chegar.</summary>
+    public bool MostraConfirmar => Etapa == "aguardando_recebimento";
+
     /// <summary>
     /// Botão "OK" (rótulo) — só onde o avanço é uma AÇÃO especial que a seta não
     /// cobre: abrir o cadastro em "aguardando técnico" (e o plano B no check de
@@ -163,6 +166,7 @@ public sealed partial class KanbanViewModel : ObservableObject
     /// <summary>As 6 etapas do fluxo, sempre exibidas (mesmo vazias), nesta ordem.</summary>
     private static readonly (string Etapa, string Titulo, string Aviso)[] EtapasFixas =
     {
+        ("aguardando_recebimento", "Aguardando recebimento", "Confirme quando a mercadoria chegar."),
         ("check_entrada", "Check de entrada", ""),
         ("aguardando_tecnico", "Aguardando técnico", ""),
         ("em_andamento", "Em andamento", ""),
@@ -323,6 +327,39 @@ public sealed partial class KanbanViewModel : ObservableObject
         var avancou = await TryAvancarAsync(card, card.AssumidoPor).ConfigureAwait(true);
         if (avancou)
             StatusMessage = $"{card.NtbDisplay} assumida por {card.AssumidoPor} — movida para Aguardando técnico.";
+    }
+
+    /// <summary>Confirma que a mercadoria chegou: aguardando_recebimento → check de entrada.</summary>
+    [RelayCommand]
+    private async Task ConfirmarRecebimentoAsync(KanbanCard? card)
+    {
+        if (card is null || IsBusy) return;
+        IsBusy = true;
+        StatusMessage = $"Confirmando recebimento de {card.NtbDisplay}…";
+        try
+        {
+            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(40));
+            await _erp.ConfirmarRecebimentoAsync(card.Maquina.AssetId, cts.Token).ConfigureAwait(true);
+        }
+        catch (ErpException ex)
+        {
+            StatusMessage = ex.StatusCode == 404
+                ? "O ERP ainda não aceita confirmar recebimento (endpoint pendente)."
+                : $"Erro ao confirmar recebimento: {ex.Message}";
+            _logger.LogWarning(ex, "Falha confirmando recebimento de {Asset}", card.Maquina.AssetId);
+            IsBusy = false;
+            return;
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = $"Erro inesperado: {ex.Message}";
+            _logger.LogError(ex, "Erro inesperado confirmando recebimento");
+            IsBusy = false;
+            return;
+        }
+        IsBusy = false;
+        await RefreshAsync().ConfigureAwait(true);
+        StatusMessage = $"{card.NtbDisplay} confirmada — foi para o check de entrada.";
     }
 
     [RelayCommand]

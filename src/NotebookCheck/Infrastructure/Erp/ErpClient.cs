@@ -209,6 +209,29 @@ public sealed class ErpClient
     }
 
     /// <summary>
+    /// Confirma que a mercadoria chegou: a máquina sai de "aguardando recebimento"
+    /// e entra no check de entrada. Corpo: { asset_id }.
+    /// </summary>
+    public async Task<ErpConfirmarRecebimentoResponse> ConfirmarRecebimentoAsync(
+        string assetId, CancellationToken ct)
+    {
+        var url = $"{_config.BaseUrl}/api/integracao/confirmar-recebimento";
+        using var resp = await SendAuthedAsync(() => new HttpRequestMessage(HttpMethod.Post, url)
+        {
+            Content = JsonContent.Create(new { asset_id = assetId }, options: JsonOpts),
+        }, ct).ConfigureAwait(false);
+
+        var body = await resp.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
+        if (!resp.IsSuccessStatusCode)
+            throw new ErpException(await ExtractErrorAsync(body, resp), (int)resp.StatusCode);
+
+        var parsed = JsonSerializer.Deserialize<ErpConfirmarRecebimentoResponse>(body, JsonOpts);
+        if (parsed is null)
+            throw new ErpException("Resposta inválida da confirmação de recebimento.", (int)resp.StatusCode);
+        return parsed;
+    }
+
+    /// <summary>
     /// Volta a máquina uma etapa no kanban. Ao voltar para fila/check o ERP
     /// limpa o assumido_por (o chamador limpa o cache local de técnico também).
     /// </summary>

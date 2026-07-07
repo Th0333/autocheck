@@ -123,6 +123,12 @@
                                                                    Foreground="{StaticResource Ink700Brush}"
                                                                    Visibility="{Binding TemAssumido, Converter={StaticResource BoolVisConv}}"/>
                                                         <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                                                            <Button Content="Confirmar recebimento" Style="{StaticResource BtnPrimary}"
+                                                                    Padding="10,5" Margin="0,0,6,0"
+                                                                    ToolTip="A mercadoria chegou — mover para o check de entrada"
+                                                                    Visibility="{Binding MostraConfirmar, Converter={StaticResource BoolVisConv}}"
+                                                                    Command="{Binding DataContext.ConfirmarRecebimentoCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                                    CommandParameter="{Binding}"/>
                                                             <Button Content="Assumir" Style="{StaticResource BtnGhost}"
                                                                     Padding="10,5" Margin="0,0,6,0"
                                                                     Visibility="{Binding MostraAssumir, Converter={StaticResource BoolVisConv}}"
