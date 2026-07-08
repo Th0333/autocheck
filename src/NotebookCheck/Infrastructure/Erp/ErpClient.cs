@@ -260,8 +260,25 @@ public sealed class ErpClient
     }
 
     /// <summary>
-    /// Conclui a ordem de diagnóstico da máquina (check automático): ela sai da
-    /// fila/execução do kanban e abre a aprovação de entrada com o resultado.
+    /// Fila de teste completo da organização (ordens de diagnóstico na fila ou
+    /// em execução), independente do pedido de compra de origem.
+    /// </summary>
+    public async Task<IReadOnlyList<ErpFilaTesteMaquina>> GetFilaTesteAsync(CancellationToken ct)
+    {
+        var url = $"{_config.BaseUrl}/api/integracao/fila-teste";
+        using var resp = await SendAuthedAsync(() => new HttpRequestMessage(HttpMethod.Get, url), ct)
+            .ConfigureAwait(false);
+        if (!resp.IsSuccessStatusCode)
+            throw new ErpException(await ReadErrorAsync(resp, ct).ConfigureAwait(false), (int)resp.StatusCode);
+
+        var parsed = await resp.Content.ReadFromJsonAsync<ErpFilaTesteResponse>(JsonOpts, ct).ConfigureAwait(false);
+        return parsed?.Maquinas ?? new List<ErpFilaTesteMaquina>();
+    }
+
+    /// <summary>
+    /// Reporta o check automático (teste completo): specs + detalhe por teste. A
+    /// ordem de diagnóstico fica em <c>em_andamento</c> — quem a conclui é o
+    /// "Dar OK" no ERP, depois que alguém confere o que foi reportado.
     /// </summary>
     public async Task<ErpAutocheckResponse> CreateAutocheckAsync(
         ErpAutocheckRequest req, string idempotencyKey, CancellationToken ct)

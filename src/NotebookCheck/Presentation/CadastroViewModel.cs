@@ -175,19 +175,10 @@ public sealed partial class CadastroViewModel : ObservableObject
     public bool SemMaquinasInfo => MaquinasCarregadas && !TemMaquinas;
 
     public bool TemConfigAcordada => SelectedMaquina?.ConfigAcordada is not null;
-    public string MaquinaConfigAcordadaText
-    {
-        get
-        {
-            var c = SelectedMaquina?.ConfigAcordada;
-            if (c is null) return "";
-            var parts = new List<string>();
-            if (!string.IsNullOrWhiteSpace(c.Processador)) parts.Add(c.Processador!);
-            if (c.RamGb is int r) parts.Add($"{r} GB RAM");
-            if (c.StorageGb is int s) parts.Add($"{s} GB armazenamento");
-            return parts.Count == 0 ? "" : $"Config acordada: {string.Join(" · ", parts)}";
-        }
-    }
+    public string MaquinaConfigAcordadaText =>
+        ErpConfigComparer.Describe(SelectedMaquina?.ConfigAcordada) is { Length: > 0 } d
+            ? $"Config acordada: {d}"
+            : "";
 
     partial void OnSelectedMaquinaChanged(ErpPedidoMaquina? value)
     {
@@ -399,29 +390,8 @@ public sealed partial class CadastroViewModel : ObservableObject
     /// Diferenças entre a config acordada no pedido e o que foi coletado da
     /// máquina (RAM, armazenamento, processador). Vão como alerta na aprovação.
     /// </summary>
-    private List<string> BuildConfigDivergencias()
-    {
-        var divs = new List<string>();
-        var acordada = SelectedMaquina?.ConfigAcordada;
-        if (acordada is null || _specs is null) return divs;
-
-        if (acordada.RamGb is int ramAc && _specs.RamGb is int ramEnc && ramAc != ramEnc)
-            divs.Add($"RAM: acordado {ramAc} GB, encontrado {ramEnc} GB");
-
-        // Discos "512 GB" reportam ~477 GiB reais — tolerância para não gerar
-        // alerta falso; fora de 88%–130% do acordado é divergência de verdade.
-        if (acordada.StorageGb is int stAc && stAc > 0 && _specs.StorageGb is int stEnc &&
-            (stEnc < stAc * 0.88 || stEnc > stAc * 1.30))
-            divs.Add($"Armazenamento: acordado {stAc} GB, encontrado {stEnc} GB");
-
-        if (!string.IsNullOrWhiteSpace(acordada.Processador) && !string.IsNullOrWhiteSpace(_specs.Processador))
-        {
-            static string Norm(string s) => new(s.ToLowerInvariant().Where(char.IsLetterOrDigit).ToArray());
-            if (!Norm(_specs.Processador!).Contains(Norm(acordada.Processador!)))
-                divs.Add($"Processador: acordado {acordada.Processador}, encontrado {_specs.Processador}");
-        }
-        return divs;
-    }
+    private List<string> BuildConfigDivergencias() =>
+        ErpConfigComparer.Divergencias(SelectedMaquina?.ConfigAcordada, _specs);
 
     public IReadOnlyList<string> ConfigDivergencias => BuildConfigDivergencias();
     public bool TemConfigDivergencias => ConfigDivergencias.Count > 0;

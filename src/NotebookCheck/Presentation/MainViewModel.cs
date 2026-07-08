@@ -339,6 +339,28 @@ public sealed partial class MainViewModel : ObservableObject
         }
     }
 
+    /// <summary>
+    /// Abre o wizard de "Teste completo" (check automático): escolhe a máquina na
+    /// fila do ERP, roda os testes e reporta. Janela própria, fora do checklist.
+    /// </summary>
+    [RelayCommand]
+    private void OpenTesteCompleto()
+    {
+        try
+        {
+            var host = (System.Windows.Application.Current as App)?.Host;
+            if (host is null) return;
+            var window = host.Services.GetRequiredService<Views.TesteCompletoWindow>();
+            window.Owner = System.Windows.Application.Current?.MainWindow;
+            window.Show();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Falha abrindo janela de teste completo");
+            StatusMessage = $"Erro: {ex.Message}";
+        }
+    }
+
     /// <summary>Abre o kanban das máquinas dos pedidos de compra (ERP).</summary>
     [RelayCommand]
     private void OpenKanban()
