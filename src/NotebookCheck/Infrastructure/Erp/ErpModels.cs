@@ -251,13 +251,88 @@ public sealed class ErpConfirmarRecebimentoResponse
     [JsonPropertyName("error")] public string? Error { get; set; }
 }
 
-/// <summary>Corpo do POST /api/integracao/autocheck (conclui a ordem de diagnóstico).</summary>
+/// <summary>
+/// Máquina na fila de teste completo (GET /api/integracao/fila-teste). Difere da
+/// <see cref="ErpPedidoMaquina"/> por não depender de um pedido: traz a ordem de
+/// diagnóstico e os requisitos do pedido de origem já resolvidos.
+/// </summary>
+public sealed class ErpFilaTesteMaquina
+{
+    [JsonPropertyName("asset_id")] public string AssetId { get; set; } = "";
+    [JsonPropertyName("ntb")] public string? Ntb { get; set; }
+    [JsonPropertyName("codigo_interno")] public string? CodigoInterno { get; set; }
+    [JsonPropertyName("modelo")] public string? Modelo { get; set; }
+    [JsonPropertyName("linha")] public string? Linha { get; set; }
+    [JsonPropertyName("marca_nome")] public string? MarcaNome { get; set; }
+    [JsonPropertyName("serial_number")] public string? SerialNumber { get; set; }
+    [JsonPropertyName("status_operacional")] public string? StatusOperacional { get; set; }
+    [JsonPropertyName("service_order_id")] public string? ServiceOrderId { get; set; }
+    [JsonPropertyName("ordem_numero")] public int? OrdemNumero { get; set; }
+    [JsonPropertyName("etapa_kanban")] public string? EtapaKanban { get; set; }
+    [JsonPropertyName("assumido_por")] public string? AssumidoPor { get; set; }
+    [JsonPropertyName("config_acordada")] public ErpConfigAcordada? ConfigAcordada { get; set; }
+    [JsonPropertyName("acessorios_obrigatorios")] public List<string> AcessoriosObrigatorios { get; set; } = new();
+    [JsonPropertyName("condicao_minima")] public string? CondicaoMinima { get; set; }
+    [JsonPropertyName("pedido_numero")] public string? PedidoNumero { get; set; }
+    /// <summary>Já reportado; a ordem espera só o OK humano no ERP. Reportar de novo sobrescreve.</summary>
+    [JsonPropertyName("autocheck_reportado")] public bool AutocheckReportado { get; set; }
+
+    /// <summary>Texto exibido na lista ("NTB 11801 · Latitude 5420").</summary>
+    [JsonIgnore]
+    public string Display
+    {
+        get
+        {
+            var parts = new List<string>();
+            if (!string.IsNullOrWhiteSpace(Ntb)) parts.Add($"NTB {Ntb}");
+            else if (!string.IsNullOrWhiteSpace(CodigoInterno)) parts.Add(CodigoInterno!);
+            var nome = string.Join(" ", new[] { Linha, Modelo }
+                .Where(s => !string.IsNullOrWhiteSpace(s))
+                .Select(s => s!.Trim())
+                .Distinct(StringComparer.OrdinalIgnoreCase));
+            if (nome.Length > 0) parts.Add(nome);
+            return parts.Count == 0 ? AssetId : string.Join(" · ", parts);
+        }
+    }
+
+    public override string ToString() => Display;
+}
+
+/// <summary>Resposta do GET /api/integracao/fila-teste.</summary>
+public sealed class ErpFilaTesteResponse
+{
+    [JsonPropertyName("maquinas")] public List<ErpFilaTesteMaquina> Maquinas { get; set; } = new();
+}
+
+/// <summary>
+/// Um teste de hardware reportado ao ERP. <c>Resultado</c>: <c>aprovado</c>,
+/// <c>atencao</c>, <c>reprovado</c>, <c>nao_se_aplica</c> ou <c>nao_testado</c>.
+/// </summary>
+public sealed class ErpAutocheckTeste
+{
+    [JsonPropertyName("codigo")] public string Codigo { get; set; } = "";
+    [JsonPropertyName("label")] public string Label { get; set; } = "";
+    [JsonPropertyName("resultado")] public string Resultado { get; set; } = "";
+    [JsonPropertyName("detalhe")] public string? Detalhe { get; set; }
+    [JsonPropertyName("valor")] public string? Valor { get; set; }
+}
+
+/// <summary>
+/// Corpo do POST /api/integracao/autocheck: grava specs + detalhe por teste na
+/// ordem de diagnóstico, que fica em <c>em_andamento</c> esperando o OK humano
+/// no ERP (o app NÃO conclui mais a ordem).
+/// </summary>
 public sealed class ErpAutocheckRequest
 {
     [JsonPropertyName("asset_id")] public string AssetId { get; set; } = "";
     [JsonPropertyName("resultado")] public string Resultado { get; set; } = "";
     [JsonPropertyName("observacoes")] public string? Observacoes { get; set; }
     [JsonPropertyName("especificacoes")] public ErpEspecificacoes? Especificacoes { get; set; }
+    [JsonPropertyName("testes")] public List<ErpAutocheckTeste>? Testes { get; set; }
+    /// <summary>O técnico confirmou que a config bate com a acordada no pedido.</summary>
+    [JsonPropertyName("config_confere")] public bool? ConfigConfere { get; set; }
+    [JsonPropertyName("config_divergencias")] public List<string>? ConfigDivergencias { get; set; }
+    [JsonPropertyName("acessorios_faltantes")] public List<string>? AcessoriosFaltantes { get; set; }
 }
 
 /// <summary>Resposta do POST /api/integracao/autocheck.</summary>
@@ -267,6 +342,7 @@ public sealed class ErpAutocheckResponse
     [JsonPropertyName("idempotent")] public bool Idempotent { get; set; }
     [JsonPropertyName("asset_id")] public string? AssetId { get; set; }
     [JsonPropertyName("service_order_id")] public string? ServiceOrderId { get; set; }
+    [JsonPropertyName("ordem_numero")] public int? OrdemNumero { get; set; }
     [JsonPropertyName("approval_id")] public string? ApprovalId { get; set; }
     [JsonPropertyName("status")] public string? Status { get; set; }
     [JsonPropertyName("error")] public string? Error { get; set; }

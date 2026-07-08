@@ -142,6 +142,8 @@ public static class AppHostBuilder
                 services.AddTransient<Presentation.Views.CadastroWindow>();
                 services.AddTransient<Presentation.KanbanViewModel>();
                 services.AddTransient<Presentation.Views.KanbanWindow>();
+                services.AddTransient<Presentation.TesteCompletoViewModel>();
+                services.AddTransient<Presentation.Views.TesteCompletoWindow>();
                 services.AddSingleton<MainWindow>();
             })
             .Build();
