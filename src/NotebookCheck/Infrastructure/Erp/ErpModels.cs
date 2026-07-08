@@ -335,6 +335,18 @@ public sealed class ErpAutocheckRequest
     [JsonPropertyName("acessorios_faltantes")] public List<string>? AcessoriosFaltantes { get; set; }
 }
 
+/// <summary>Resposta do POST /api/integracao/autocheck/iniciar (assumir para teste).</summary>
+public sealed class ErpAutocheckIniciarResponse
+{
+    [JsonPropertyName("ok")] public bool Ok { get; set; }
+    [JsonPropertyName("asset_id")] public string? AssetId { get; set; }
+    [JsonPropertyName("service_order_id")] public string? ServiceOrderId { get; set; }
+    [JsonPropertyName("ordem_numero")] public int? OrdemNumero { get; set; }
+    [JsonPropertyName("etapa_anterior")] public string? EtapaAnterior { get; set; }
+    [JsonPropertyName("etapa")] public string? Etapa { get; set; }
+    [JsonPropertyName("error")] public string? Error { get; set; }
+}
+
 /// <summary>Resposta do POST /api/integracao/autocheck.</summary>
 public sealed class ErpAutocheckResponse
 {
