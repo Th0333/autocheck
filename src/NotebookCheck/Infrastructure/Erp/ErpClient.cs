@@ -304,6 +304,68 @@ public sealed class ErpClient
         return parsed;
     }
 
+    /// <summary>
+    /// Abre a sessão de fotos da máquina. A URL devolvida vira o QR code que o
+    /// celular lê; a webcam da bancada usa o mesmo token.
+    /// </summary>
+    public async Task<ErpFotoSessao> CreatePhotoSessionAsync(
+        string assetId, string etapa, CancellationToken ct)
+    {
+        var url = $"{_config.BaseUrl}/api/integracao/fotos/sessao";
+        using var resp = await SendAuthedAsync(() => new HttpRequestMessage(HttpMethod.Post, url)
+        {
+            Content = JsonContent.Create(new { asset_id = assetId, etapa }, options: JsonOpts),
+        }, ct).ConfigureAwait(false);
+
+        var body = await resp.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
+        if (!resp.IsSuccessStatusCode)
+            throw new ErpException(await ExtractErrorAsync(body, resp), (int)resp.StatusCode);
+
+        var parsed = JsonSerializer.Deserialize<ErpFotoSessao>(body, JsonOpts);
+        if (parsed is null || string.IsNullOrWhiteSpace(parsed.Token) || string.IsNullOrWhiteSpace(parsed.Url))
+            throw new ErpException("Resposta inválida ao abrir a sessão de fotos.", (int)resp.StatusCode);
+        return parsed;
+    }
+
+    /// <summary>Quantas fotos já chegaram na sessão (o app mostra enquanto o QR está na tela).</summary>
+    public async Task<ErpFotoSessaoStatus> GetPhotoSessionStatusAsync(string token, CancellationToken ct)
+    {
+        var url = $"{_config.BaseUrl}/api/integracao/fotos/sessao?token={Uri.EscapeDataString(token)}";
+        using var resp = await SendAuthedAsync(() => new HttpRequestMessage(HttpMethod.Get, url), ct)
+            .ConfigureAwait(false);
+        if (!resp.IsSuccessStatusCode)
+            throw new ErpException(await ReadErrorAsync(resp, ct).ConfigureAwait(false), (int)resp.StatusCode);
+
+        var parsed = await resp.Content.ReadFromJsonAsync<ErpFotoSessaoStatus>(JsonOpts, ct).ConfigureAwait(false);
+        return parsed ?? new ErpFotoSessaoStatus();
+    }
+
+    /// <summary>
+    /// Envia UMA foto da webcam para a sessão. Vai no endpoint público
+    /// <c>/api/foto/{token}</c> — o token é a credencial, então não leva Bearer.
+    /// </summary>
+    public async Task<ErpFotoUploadResponse> UploadPhotoAsync(
+        string token, byte[] jpeg, CancellationToken ct)
+    {
+        var url = $"{_config.BaseUrl}/api/foto/{Uri.EscapeDataString(token)}";
+        var client = _factory.CreateClient("erp");
+
+        using var content = new MultipartFormDataContent();
+        var arquivo = new ByteArrayContent(jpeg);
+        arquivo.Headers.ContentType = new MediaTypeHeaderValue("image/jpeg");
+        content.Add(arquivo, "foto", $"webcam-{DateTime.Now:yyyyMMdd-HHmmss}.jpg");
+
+        using var resp = await client.PostAsync(url, content, ct).ConfigureAwait(false);
+        var body = await resp.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
+        if (!resp.IsSuccessStatusCode)
+            throw new ErpException(await ExtractErrorAsync(body, resp), (int)resp.StatusCode);
+
+        var parsed = JsonSerializer.Deserialize<ErpFotoUploadResponse>(body, JsonOpts);
+        if (parsed is null)
+            throw new ErpException("Resposta inválida ao enviar a foto.", (int)resp.StatusCode);
+        return parsed;
+    }
+
     public async Task<ErpFornecedorResponse> CreateFornecedorAsync(ErpFornecedorRequest req, CancellationToken ct)
     {
         var url = $"{_config.BaseUrl}/api/integracao/fornecedores";

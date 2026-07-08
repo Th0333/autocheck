@@ -4,6 +4,8 @@ using System.Collections.ObjectModel;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Windows.Media.Imaging;
+using System.Windows.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.Logging;
@@ -12,11 +14,15 @@ using NotebookCheck.Domain.Abstractions;
 using NotebookCheck.Domain.Enums;
 using NotebookCheck.Domain.Models;
 using NotebookCheck.Infrastructure.Erp;
+using NotebookCheck.Infrastructure.Inspection;
 
 namespace NotebookCheck.Presentation;
 
 /// <summary>Etapas do wizard de teste completo (check automático).</summary>
-public enum TesteStep { Maquina = 0, Especificacoes = 1, Condicao = 2, Testes = 3, Revisao = 4 }
+public enum TesteStep { Maquina = 0, Especificacoes = 1, Condicao = 2, Fotos = 3, Testes = 4, Revisao = 5 }
+
+/// <summary>Como as fotos da máquina vão ser tiradas.</summary>
+public enum FotoModo { NaoEscolhido = 0, Webcam = 1, QrCode = 2 }
 
 /// <summary>Linha da grade de testes executados nesta sessão.</summary>
 public sealed partial class TesteLinha : ObservableObject
@@ -55,6 +61,7 @@ public sealed partial class TesteCompletoViewModel : ObservableObject
     private readonly ITestEngine _engine;
     private readonly AppConfig _config;
     private readonly ILogger<TesteCompletoViewModel> _logger;
+    private readonly Dispatcher _dispatcher;
 
     /// <summary>Disparado quando o usuário pede para fechar a janela.</summary>
     public event EventHandler? CloseRequested;
@@ -71,19 +78,22 @@ public sealed partial class TesteCompletoViewModel : ObservableObject
         _engine = engine;
         _config = config;
         _logger = logger;
+        // os frames da webcam chegam numa thread do pool; a UI só aceita da dela
+        _dispatcher = System.Windows.Application.Current?.Dispatcher ?? Dispatcher.CurrentDispatcher;
     }
 
     // ---------------------------------------------------------------- step ---
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsMaquina), nameof(IsEspecificacoes), nameof(IsCondicao),
-        nameof(IsTestes), nameof(IsRevisao), nameof(StepTitle), nameof(StepNumberLabel),
+        nameof(IsFotos), nameof(IsTestes), nameof(IsRevisao), nameof(StepTitle), nameof(StepNumberLabel),
         nameof(CanGoBack), nameof(NextLabel), nameof(IsLastStep))]
     private TesteStep step = TesteStep.Maquina;
 
     public bool IsMaquina => Step == TesteStep.Maquina;
     public bool IsEspecificacoes => Step == TesteStep.Especificacoes;
     public bool IsCondicao => Step == TesteStep.Condicao;
+    public bool IsFotos => Step == TesteStep.Fotos;
     public bool IsTestes => Step == TesteStep.Testes;
     public bool IsRevisao => Step == TesteStep.Revisao;
     public bool IsLastStep => Step == TesteStep.Revisao;
@@ -95,11 +105,12 @@ public sealed partial class TesteCompletoViewModel : ObservableObject
         TesteStep.Maquina => "Máquina",
         TesteStep.Especificacoes => "Especificações",
         TesteStep.Condicao => "Condição",
+        TesteStep.Fotos => "Fotos",
         TesteStep.Testes => "Testes",
         _ => "Revisão",
     };
 
-    public string StepNumberLabel => $"Etapa {(int)Step + 1} de 5";
+    public string StepNumberLabel => $"Etapa {(int)Step + 1} de 6";
 
     // -------------------------------------------------------------- estado ---
 
@@ -160,6 +171,44 @@ public sealed partial class TesteCompletoViewModel : ObservableObject
     {
         RebuildAcessorios(value);
         RaiseCondicaoFields();
+
+        // a sessão de fotos vale para UMA máquina — trocar a máquina invalida o QR
+        if (_sessaoFotos is not null)
+        {
+            PararPolling();
+            _sessaoFotos = null;
+            QrImagem = null;
+            QrUrl = "";
+            FotoModo = FotoModo.NaoEscolhido;
+            FotosEnviadas = 0;
+        }
+    }
+
+    /// <summary>Sair da etapa de fotos solta a câmera — outro app pode precisar dela.</summary>
+    partial void OnStepChanged(TesteStep value)
+    {
+        if (value == TesteStep.Fotos) return;
+
+        PararPolling();
+        if (CameraLigada) _ = PararWebcamAsync();
+        // o celular pode ter mandado foto depois do último poll
+        if (value == TesteStep.Revisao && _sessaoFotos is not null) _ = AtualizarContagemFotosAsync();
+    }
+
+    private async Task AtualizarContagemFotosAsync()
+    {
+        try
+        {
+            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+            var status = await _erp.GetPhotoSessionStatusAsync(_sessaoFotos!.Token, cts.Token)
+                .ConfigureAwait(true);
+            FotosEnviadas = status.FotosEnviadas;
+            OnPropertyChanged(nameof(RevFotos));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "Falha atualizando a contagem de fotos");
+        }
     }
 
     // --------------------------------------- Etapa 2: Especificações ---------
@@ -268,7 +317,244 @@ public sealed partial class TesteCompletoViewModel : ObservableObject
         ConfigConfere = !TemConfigDivergencias;
     }
 
-    // ------------------------------------------------- Etapa 4: Testes -------
+    // -------------------------------------------------- Etapa 4: Fotos -------
+
+    private readonly WebcamCapture _webcam = new();
+    private ErpFotoSessao? _sessaoFotos;
+    private CancellationTokenSource? _pollCts;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(EscolheuModo), nameof(UsandoWebcam), nameof(UsandoQr))]
+    private FotoModo fotoModo = FotoModo.NaoEscolhido;
+
+    public bool EscolheuModo => FotoModo != FotoModo.NaoEscolhido;
+    public bool UsandoWebcam => FotoModo == FotoModo.Webcam;
+    public bool UsandoQr => FotoModo == FotoModo.QrCode;
+
+    [ObservableProperty] private string fotoErro = "";
+
+    /// <summary>Total de fotos desta máquina já registradas no ERP (webcam + celular).</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(TemFotos), nameof(FotosResumo))]
+    private int fotosEnviadas;
+
+    public bool TemFotos => FotosEnviadas > 0;
+    public string FotosResumo => FotosEnviadas == 0
+        ? "Nenhuma foto — a etapa é opcional"
+        : $"{FotosEnviadas} foto(s) no ERP";
+
+    // --- webcam
+    public ObservableCollection<CameraOption> Cameras { get; } = new();
+
+    [ObservableProperty] private CameraOption? selectedCamera;
+    [ObservableProperty] private BitmapSource? cameraFrame;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(PodeTirarFoto))]
+    private bool cameraLigada;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(PodeTirarFoto))]
+    private bool enviandoFoto;
+
+    public bool PodeTirarFoto => CameraLigada && !EnviandoFoto;
+
+    // --- QR
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(TemQr))]
+    private BitmapSource? qrImagem;
+
+    [ObservableProperty] private string qrUrl = "";
+
+    public bool TemQr => QrImagem is not null;
+
+    /// <summary>
+    /// Abre (uma vez) a sessão de fotos da máquina no ERP. O token dela é a
+    /// credencial: vale para esta máquina, expira em 2h e só serve para enviar
+    /// foto — é o que vai dentro do QR e o que a webcam usa.
+    /// </summary>
+    private async Task<ErpFotoSessao?> GarantirSessaoAsync()
+    {
+        if (_sessaoFotos is not null) return _sessaoFotos;
+        if (SelectedMaquina is null) return null;
+
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        _sessaoFotos = await _erp.CreatePhotoSessionAsync(SelectedMaquina.AssetId, "teste", cts.Token)
+            .ConfigureAwait(true);
+        return _sessaoFotos;
+    }
+
+    [RelayCommand]
+    private async Task UsarQrAsync()
+    {
+        FotoErro = "";
+        await PararWebcamAsync().ConfigureAwait(true);
+        FotoModo = FotoModo.QrCode;
+
+        try
+        {
+            var sessao = await GarantirSessaoAsync().ConfigureAwait(true);
+            if (sessao is null) { FotoErro = "Escolha a máquina primeiro."; return; }
+
+            QrUrl = sessao.Url;
+            QrImagem = QrCodeFactory.Create(sessao.Url, pixelsPerModule: 6);
+            OnPropertyChanged(nameof(TemQr));
+            IniciarPolling(sessao.Token);
+        }
+        catch (ErpException ex)
+        {
+            FotoErro = ex.StatusCode == 404
+                ? "O ERP ainda não expõe as sessões de foto (endpoint pendente). Atualize o ERP."
+                : $"Não consegui gerar o QR: {ex.Message}";
+        }
+        catch (Exception ex)
+        {
+            FotoErro = $"Erro inesperado: {ex.Message}";
+            _logger.LogWarning(ex, "Falha gerando o QR de fotos");
+        }
+    }
+
+    /// <summary>Pergunta ao ERP, de tempos em tempos, quantas fotos o celular já mandou.</summary>
+    private void IniciarPolling(string token)
+    {
+        _pollCts?.Cancel();
+        _pollCts = new CancellationTokenSource();
+        var ct = _pollCts.Token;
+
+        _ = Task.Run(async () =>
+        {
+            while (!ct.IsCancellationRequested)
+            {
+                try
+                {
+                    await Task.Delay(TimeSpan.FromSeconds(3), ct).ConfigureAwait(false);
+                    var status = await _erp.GetPhotoSessionStatusAsync(token, ct).ConfigureAwait(false);
+                    _dispatcher.Invoke(() => FotosEnviadas = status.FotosEnviadas);
+                }
+                catch (OperationCanceledException) { return; }
+                catch (Exception ex)
+                {
+                    _logger.LogDebug(ex, "Falha consultando a sessão de fotos (segue tentando)");
+                }
+            }
+        }, ct);
+    }
+
+    private void PararPolling()
+    {
+        _pollCts?.Cancel();
+        _pollCts?.Dispose();
+        _pollCts = null;
+    }
+
+    [RelayCommand]
+    private async Task UsarWebcamAsync()
+    {
+        FotoErro = "";
+        PararPolling();
+        FotoModo = FotoModo.Webcam;
+        QrImagem = null;
+
+        try
+        {
+            var sessao = await GarantirSessaoAsync().ConfigureAwait(true);
+            if (sessao is null) { FotoErro = "Escolha a máquina primeiro."; return; }
+
+            if (Cameras.Count == 0)
+            {
+                foreach (var c in await WebcamCapture.ListarCamerasAsync().ConfigureAwait(true))
+                    Cameras.Add(c);
+            }
+            if (Cameras.Count == 0)
+            {
+                FotoErro = "Nenhuma câmera encontrada. Ligue a webcam da bancada ou use o QR code.";
+                return;
+            }
+            SelectedCamera ??= Cameras[0];
+
+            _webcam.FrameReady -= OnFrameReady;
+            _webcam.FrameReady += OnFrameReady;
+            await _webcam.IniciarAsync(SelectedCamera!.Id).ConfigureAwait(true);
+            CameraLigada = true;
+        }
+        catch (InvalidOperationException ex)
+        {
+            CameraLigada = false;
+            FotoErro = ex.Message;
+        }
+        catch (ErpException ex)
+        {
+            FotoErro = $"Não consegui abrir a sessão de fotos: {ex.Message}";
+        }
+        catch (Exception ex)
+        {
+            CameraLigada = false;
+            FotoErro = $"Erro inesperado: {ex.Message}";
+            _logger.LogWarning(ex, "Falha iniciando a webcam");
+        }
+    }
+
+    private void OnFrameReady(object? sender, BitmapSource frame) =>
+        _dispatcher.BeginInvoke(() => CameraFrame = frame);
+
+    [RelayCommand]
+    private async Task TrocarCameraAsync()
+    {
+        if (SelectedCamera is null) return;
+        await PararWebcamAsync().ConfigureAwait(true);
+        await UsarWebcamAsync().ConfigureAwait(true);
+    }
+
+    [RelayCommand]
+    private async Task TirarFotoAsync()
+    {
+        if (!PodeTirarFoto || _sessaoFotos is null) return;
+
+        EnviandoFoto = true;
+        FotoErro = "";
+        try
+        {
+            var jpeg = await _webcam.TirarFotoJpegAsync().ConfigureAwait(true);
+            if (jpeg is null || jpeg.Length == 0)
+            {
+                FotoErro = "A câmera ainda não entregou imagem. Espere um instante e tente de novo.";
+                return;
+            }
+
+            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(40));
+            var resp = await _erp.UploadPhotoAsync(_sessaoFotos.Token, jpeg, cts.Token).ConfigureAwait(true);
+            FotosEnviadas = resp.FotosEnviadas;
+        }
+        catch (ErpException ex)
+        {
+            FotoErro = ex.StatusCode == 409
+                ? $"Limite de fotos atingido nesta sessão."
+                : $"Falha ao enviar a foto: {ex.Message}";
+        }
+        catch (Exception ex)
+        {
+            FotoErro = $"Erro inesperado: {ex.Message}";
+            _logger.LogWarning(ex, "Falha enviando foto da webcam");
+        }
+        finally { EnviandoFoto = false; }
+    }
+
+    private async Task PararWebcamAsync()
+    {
+        _webcam.FrameReady -= OnFrameReady;
+        await _webcam.PararAsync().ConfigureAwait(true);
+        CameraLigada = false;
+        CameraFrame = null;
+    }
+
+    /// <summary>Solta a câmera e o polling. A janela chama ao fechar.</summary>
+    public async Task LiberarRecursosAsync()
+    {
+        PararPolling();
+        await PararWebcamAsync().ConfigureAwait(true);
+    }
+
+    // ------------------------------------------------- Etapa 5: Testes -------
 
     public ObservableCollection<TesteLinha> Testes { get; } = new();
 
@@ -331,6 +617,7 @@ public sealed partial class TesteCompletoViewModel : ObservableObject
     public string RevAcessoriosFaltantes =>
         AcessoriosFaltando.Count == 0 ? "Nenhum" : string.Join(", ", AcessoriosFaltando);
     public string RevTestes => Testes.Count == 0 ? "Nenhum teste executado" : TestesResumo;
+    public string RevFotos => FotosResumo;
     public string RevObservacoes => Trimmed(Observacoes, "—");
 
     public bool PodeEnviar => SelectedMaquina is not null && SpecsProntas && !TestesRodando && !IsDone;
@@ -493,7 +780,7 @@ public sealed partial class TesteCompletoViewModel : ObservableObject
     private void GoToStep(string? index)
     {
         if (IsBusy || IsDone || TestesRodando) return;
-        if (!int.TryParse(index, out var i) || i < 0 || i > 4) return;
+        if (!int.TryParse(index, out var i) || i < 0 || i > 5) return;
         if (i > (int)TesteStep.Maquina && !ValidateMaquina())
         {
             Step = TesteStep.Maquina;
@@ -703,7 +990,7 @@ public sealed partial class TesteCompletoViewModel : ObservableObject
     }
 
     [RelayCommand]
-    private void NovoTeste()
+    private async Task NovoTesteAsync()
     {
         IsDone = false;
         ResultText = "";
@@ -712,9 +999,19 @@ public sealed partial class TesteCompletoViewModel : ObservableObject
         SelectedMaquina = null;
         Testes.Clear();
         TestesExecutados = 0;
+
+        // a sessão de fotos é de UMA máquina: a próxima começa do zero
+        await LiberarRecursosAsync().ConfigureAwait(true);
+        _sessaoFotos = null;
+        FotoModo = FotoModo.NaoEscolhido;
+        FotosEnviadas = 0;
+        QrImagem = null;
+        QrUrl = "";
+        FotoErro = "";
+
         Step = TesteStep.Maquina;
         OnPropertyChanged(nameof(TestesResumo));
-        _ = RecarregarFilaAsync();
+        await RecarregarFilaAsync().ConfigureAwait(true);
     }
 
     [RelayCommand]
@@ -726,6 +1023,7 @@ public sealed partial class TesteCompletoViewModel : ObservableObject
         {
             nameof(RevMaquina), nameof(RevOrdem), nameof(RevPedido), nameof(RevConfigAcordada),
             nameof(RevConfigConfere), nameof(RevAcessoriosFaltantes), nameof(RevTestes),
+            nameof(RevFotos), nameof(FotosResumo), nameof(TemFotos),
             nameof(RevObservacoes), nameof(TestesResumo), nameof(PodeEnviar),
             nameof(ConfigDivergencias), nameof(TemConfigDivergencias), nameof(ConfigDivergenciasText),
             nameof(TemAcessoriosFaltando), nameof(AcessoriosAvisoText),

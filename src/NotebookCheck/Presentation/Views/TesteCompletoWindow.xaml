@@ -41,10 +41,12 @@
                             Command="{Binding GoToStepCommand}" CommandParameter="1"/>
                     <Button Content="③ Condição" Style="{StaticResource BtnGhost}" Margin="0,0,6,0"
                             Command="{Binding GoToStepCommand}" CommandParameter="2"/>
-                    <Button Content="④ Testes" Style="{StaticResource BtnGhost}" Margin="0,0,6,0"
+                    <Button Content="④ Fotos" Style="{StaticResource BtnGhost}" Margin="0,0,6,0"
                             Command="{Binding GoToStepCommand}" CommandParameter="3"/>
-                    <Button Content="⑤ Revisão" Style="{StaticResource BtnGhost}"
+                    <Button Content="⑤ Testes" Style="{StaticResource BtnGhost}" Margin="0,0,6,0"
                             Command="{Binding GoToStepCommand}" CommandParameter="4"/>
+                    <Button Content="⑥ Revisão" Style="{StaticResource BtnGhost}"
+                            Command="{Binding GoToStepCommand}" CommandParameter="5"/>
                 </ItemsControl>
             </StackPanel>
         </Border>
@@ -219,7 +221,119 @@
                     </Border>
                 </StackPanel>
 
-                <!-- =================== ETAPA 4: TESTES ======================== -->
+                <!-- =================== ETAPA 4: FOTOS ========================= -->
+                <StackPanel Visibility="{Binding IsFotos, Converter={StaticResource BoolVisConv}}">
+                    <Border Style="{StaticResource Card}">
+                        <StackPanel>
+                            <TextBlock Style="{StaticResource H2}" Text="📸 Fotos da máquina"/>
+                            <TextBlock Style="{StaticResource Subtle}" Margin="0,4,0,12" TextWrapping="Wrap"
+                                       Text="As fotos vão direto para o ERP, junto da máquina. Etapa opcional — dá para pular."/>
+
+                            <TextBlock Text="Como você quer tirar as fotos?" FontWeight="SemiBold" Margin="0,0,0,8"/>
+                            <UniformGrid Columns="2">
+                                <Border CornerRadius="10" Margin="0,0,6,0" Padding="2"
+                                        BorderBrush="{StaticResource Ink200Brush}" BorderThickness="1">
+                                    <Button Background="Transparent" BorderThickness="0" Padding="14" Cursor="Hand"
+                                            HorizontalContentAlignment="Stretch"
+                                            Command="{Binding UsarWebcamCommand}">
+                                        <StackPanel>
+                                            <TextBlock Text="📷" FontSize="24" HorizontalAlignment="Center"/>
+                                            <TextBlock Style="{StaticResource H2}" HorizontalAlignment="Center"
+                                                       Text="Webcam" Margin="0,6,0,4"/>
+                                            <TextBlock Style="{StaticResource Subtle}" TextWrapping="Wrap"
+                                                       TextAlignment="Center"
+                                                       Text="A câmera da bancada, apontada para a máquina."/>
+                                        </StackPanel>
+                                    </Button>
+                                </Border>
+                                <Border CornerRadius="10" Margin="6,0,0,0" Padding="2"
+                                        BorderBrush="{StaticResource Ink200Brush}" BorderThickness="1">
+                                    <Button Background="Transparent" BorderThickness="0" Padding="14" Cursor="Hand"
+                                            HorizontalContentAlignment="Stretch"
+                                            Command="{Binding UsarQrCommand}">
+                                        <StackPanel>
+                                            <TextBlock Text="📱" FontSize="24" HorizontalAlignment="Center"/>
+                                            <TextBlock Style="{StaticResource H2}" HorizontalAlignment="Center"
+                                                       Text="QR code" Margin="0,6,0,4"/>
+                                            <TextBlock Style="{StaticResource Subtle}" TextWrapping="Wrap"
+                                                       TextAlignment="Center"
+                                                       Text="Leia com o celular e tire as fotos por lá."/>
+                                        </StackPanel>
+                                    </Button>
+                                </Border>
+                            </UniformGrid>
+
+                            <Border Margin="0,12,0,0" Padding="12" CornerRadius="6"
+                                    Background="White" BorderThickness="1" BorderBrush="{StaticResource BadBrush}"
+                                    Visibility="{Binding FotoErro, Converter={StaticResource NotEmptyVisConv}}">
+                                <TextBlock Text="{Binding FotoErro}" TextWrapping="Wrap"
+                                           Foreground="{StaticResource BadBrush}"/>
+                            </Border>
+
+                            <TextBlock Margin="0,12,0,0" FontWeight="SemiBold" Text="{Binding FotosResumo}"
+                                       Visibility="{Binding EscolheuModo, Converter={StaticResource BoolVisConv}}"/>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Webcam -->
+                    <Border Style="{StaticResource Card}" Margin="0,14,0,0"
+                            Visibility="{Binding UsandoWebcam, Converter={StaticResource BoolVisConv}}">
+                        <StackPanel>
+                            <TextBlock Style="{StaticResource H2}" Text="Câmera"/>
+                            <ComboBox Margin="0,8,0,0" ItemsSource="{Binding Cameras}"
+                                      SelectedItem="{Binding SelectedCamera}" DisplayMemberPath="Nome"
+                                      Visibility="{Binding CameraLigada, Converter={StaticResource BoolVisConv}}"/>
+                            <Button Content="Trocar para esta câmera" Style="{StaticResource BtnGhost}"
+                                    HorizontalAlignment="Left" Margin="0,6,0,0"
+                                    Command="{Binding TrocarCameraCommand}"
+                                    Visibility="{Binding CameraLigada, Converter={StaticResource BoolVisConv}}"/>
+
+                            <Border Margin="0,10,0,0" CornerRadius="8" Background="{StaticResource Ink900Brush}"
+                                    MinHeight="240"
+                                    Visibility="{Binding CameraLigada, Converter={StaticResource BoolVisConv}}">
+                                <Image Source="{Binding CameraFrame}" Stretch="Uniform" MaxHeight="360"/>
+                            </Border>
+
+                            <Button Content="📸 Tirar foto e enviar" Style="{StaticResource BtnPrimary}"
+                                    Margin="0,10,0,0" HorizontalAlignment="Left"
+                                    Command="{Binding TirarFotoCommand}"
+                                    IsEnabled="{Binding PodeTirarFoto}"/>
+                            <ProgressBar Width="140" Height="4" IsIndeterminate="True" HorizontalAlignment="Left"
+                                         Margin="0,6,0,0" Background="Transparent"
+                                         Foreground="{StaticResource BrandBrush}" BorderThickness="0"
+                                         Visibility="{Binding EnviandoFoto, Converter={StaticResource BoolVisConv}}"/>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- QR code -->
+                    <Border Style="{StaticResource Card}" Margin="0,14,0,0"
+                            Visibility="{Binding UsandoQr, Converter={StaticResource BoolVisConv}}">
+                        <StackPanel>
+                            <TextBlock Style="{StaticResource H2}" Text="Leia com o celular"/>
+                            <TextBlock Style="{StaticResource Subtle}" Margin="0,4,0,10" TextWrapping="Wrap"
+                                       Text="Abra a câmera do celular e aponte. A página abre sem login e as fotos vão direto para o ERP. O link vale 2 horas e é só desta máquina."/>
+
+                            <Border HorizontalAlignment="Center" Padding="12" CornerRadius="8" Background="White"
+                                    BorderBrush="{StaticResource Ink200Brush}" BorderThickness="1"
+                                    Visibility="{Binding TemQr, Converter={StaticResource BoolVisConv}}">
+                                <Image Source="{Binding QrImagem}" Width="240" Height="240"
+                                       RenderOptions.BitmapScalingMode="NearestNeighbor"/>
+                            </Border>
+
+                            <TextBox Margin="0,10,0,0" Text="{Binding QrUrl, Mode=OneWay}" IsReadOnly="True"
+                                     TextWrapping="Wrap" FontFamily="{StaticResource MonoFont}" FontSize="11"
+                                     BorderThickness="0" Background="Transparent"
+                                     HorizontalAlignment="Center" TextAlignment="Center"/>
+
+                            <TextBlock Margin="0,10,0,0" HorizontalAlignment="Center"
+                                       Text="{Binding FotosResumo}" FontWeight="SemiBold"/>
+                            <TextBlock Style="{StaticResource Subtle}" HorizontalAlignment="Center"
+                                       Text="Atualiza sozinho conforme as fotos chegam."/>
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+
+                <!-- =================== ETAPA 5: TESTES ======================== -->
                 <StackPanel Visibility="{Binding IsTestes, Converter={StaticResource BoolVisConv}}">
                     <Border Style="{StaticResource Card}">
                         <StackPanel>
@@ -275,7 +389,7 @@
                     </Border>
                 </StackPanel>
 
-                <!-- =================== ETAPA 5: REVISÃO ======================= -->
+                <!-- =================== ETAPA 6: REVISÃO ======================= -->
                 <StackPanel Visibility="{Binding IsRevisao, Converter={StaticResource BoolVisConv}}">
                     <Border Style="{StaticResource Card}">
                         <StackPanel>
@@ -317,6 +431,10 @@
                             <Border Height="1" Background="{StaticResource Ink200Brush}" Margin="0,12"/>
                             <TextBlock Style="{StaticResource Label}" Text="TESTES" Margin="0,0,0,4"/>
                             <TextBlock Text="{Binding RevTestes}"/>
+
+                            <Border Height="1" Background="{StaticResource Ink200Brush}" Margin="0,12"/>
+                            <TextBlock Style="{StaticResource Label}" Text="FOTOS" Margin="0,0,0,4"/>
+                            <TextBlock Text="{Binding RevFotos}"/>
 
                             <Border Margin="0,14,0,0" Padding="12" CornerRadius="6"
                                     Background="{StaticResource Ink50Brush}">
