@@ -415,6 +415,41 @@ public sealed class ErpRecebimentoResponse
     [JsonPropertyName("error")] public string? Error { get; set; }
 }
 
+/// <summary>
+/// Sessão de upload de fotos de uma máquina (POST /api/integracao/fotos/sessao).
+/// O app põe a <c>Url</c> num QR code; o celular abre e envia as fotos. A mesma
+/// sessão serve para a webcam da bancada.
+/// </summary>
+public sealed class ErpFotoSessao
+{
+    [JsonPropertyName("ok")] public bool Ok { get; set; }
+    [JsonPropertyName("token")] public string Token { get; set; } = "";
+    [JsonPropertyName("url")] public string Url { get; set; } = "";
+    [JsonPropertyName("expires_at")] public DateTimeOffset? ExpiresAt { get; set; }
+    [JsonPropertyName("asset_id")] public string? AssetId { get; set; }
+    [JsonPropertyName("max_fotos")] public int MaxFotos { get; set; } = 20;
+    [JsonPropertyName("error")] public string? Error { get; set; }
+}
+
+/// <summary>Quantas fotos já chegaram nesta sessão (GET /api/integracao/fotos/sessao?token=…).</summary>
+public sealed class ErpFotoSessaoStatus
+{
+    [JsonPropertyName("valida")] public bool Valida { get; set; }
+    [JsonPropertyName("motivo")] public string? Motivo { get; set; }
+    [JsonPropertyName("fotos_enviadas")] public int FotosEnviadas { get; set; }
+    [JsonPropertyName("max_fotos")] public int MaxFotos { get; set; }
+}
+
+/// <summary>Resposta do envio de uma foto (POST /api/foto/{token}).</summary>
+public sealed class ErpFotoUploadResponse
+{
+    [JsonPropertyName("ok")] public bool Ok { get; set; }
+    [JsonPropertyName("photo_id")] public string? PhotoId { get; set; }
+    [JsonPropertyName("fotos_enviadas")] public int FotosEnviadas { get; set; }
+    [JsonPropertyName("max_fotos")] public int MaxFotos { get; set; }
+    [JsonPropertyName("error")] public string? Error { get; set; }
+}
+
 /// <summary>Corpo do POST /api/integracao/fornecedores.</summary>
 public sealed class ErpFornecedorRequest
 {

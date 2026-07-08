@@ -11,5 +11,7 @@ public partial class TesteCompletoWindow : Window
         DataContext = vm;
         vm.CloseRequested += (_, _) => Close();
         Loaded += async (_, _) => await vm.InitializeAsync();
+        // a webcam fica em ExclusiveControl: sem soltar, nenhum outro app abre a câmera
+        Closed += async (_, _) => await vm.LiberarRecursosAsync();
     }
 }
