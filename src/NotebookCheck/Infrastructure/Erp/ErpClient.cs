@@ -276,6 +276,30 @@ public sealed class ErpClient
     }
 
     /// <summary>
+    /// Avisa o ERP que o teste completo COMEÇOU: a ordem sai da fila
+    /// (<c>aguardando_tecnico</c>) e vai para <c>em_andamento</c>, para o kanban não
+    /// mostrar na fila uma máquina que já está na bancada. Idempotente.
+    /// </summary>
+    public async Task<ErpAutocheckIniciarResponse> StartAutocheckAsync(
+        string assetId, string? tecnico, CancellationToken ct)
+    {
+        var url = $"{_config.BaseUrl}/api/integracao/autocheck/iniciar";
+        using var resp = await SendAuthedAsync(() => new HttpRequestMessage(HttpMethod.Post, url)
+        {
+            Content = JsonContent.Create(new { asset_id = assetId, tecnico }, options: JsonOpts),
+        }, ct).ConfigureAwait(false);
+
+        var body = await resp.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
+        if (!resp.IsSuccessStatusCode)
+            throw new ErpException(await ExtractErrorAsync(body, resp), (int)resp.StatusCode);
+
+        var parsed = JsonSerializer.Deserialize<ErpAutocheckIniciarResponse>(body, JsonOpts);
+        if (parsed is null)
+            throw new ErpException("Resposta inválida ao iniciar o teste.", (int)resp.StatusCode);
+        return parsed;
+    }
+
+    /// <summary>
     /// Reporta o check automático (teste completo): specs + detalhe por teste. A
     /// ordem de diagnóstico fica em <c>em_andamento</c> — quem a conclui é o
     /// "Dar OK" no ERP, depois que alguém confere o que foi reportado.

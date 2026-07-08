@@ -477,6 +477,11 @@ public sealed partial class TesteCompletoViewModel : ObservableObject
 
         try
         {
+            // a máquina sai da fila JÁ — quem olhar o kanban tem que ver "em andamento"
+            ProgressoTexto = "Assumindo a máquina no ERP…";
+            await AssumirNoErpAsync().ConfigureAwait(true);
+            if (!string.IsNullOrEmpty(ErroExecucao)) return;
+
             ProgressoTexto = "Lendo as especificações da máquina…";
             if (_coleta is not null) await _coleta.ConfigureAwait(true);
             if (_specs is null) await CollectHardwareAsync().ConfigureAwait(true);
@@ -505,6 +510,36 @@ public sealed partial class TesteCompletoViewModel : ObservableObject
             ProgressoTexto = "";
             OnPropertyChanged(nameof(StepTitle));
             OnPropertyChanged(nameof(CanGoBack));
+        }
+    }
+
+    /// <summary>
+    /// Tira a ordem da fila e põe em execução no kanban do ERP, antes de gastar os
+    /// minutos da bateria de testes. Se já estava em execução, o ERP não faz nada.
+    /// </summary>
+    private async Task AssumirNoErpAsync()
+    {
+        if (SelectedMaquina is null) return;
+        try
+        {
+            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+            var resp = await _erp.StartAutocheckAsync(SelectedMaquina.AssetId, Environment.UserName, cts.Token)
+                .ConfigureAwait(true);
+
+            SelectedMaquina.EtapaKanban = resp.Etapa ?? "em_andamento";
+            OnPropertyChanged(nameof(MaquinaEtapa));
+        }
+        catch (ErpException ex)
+        {
+            // 409 = a máquina saiu da fase de teste (alguém mexeu no kanban)
+            ErroExecucao = ex.StatusCode == 409
+                ? ex.Message
+                : $"Não consegui assumir a máquina no ERP: {ex.Message}";
+        }
+        catch (Exception ex)
+        {
+            ErroExecucao = $"Erro inesperado ao assumir a máquina: {ex.Message}";
+            _logger.LogWarning(ex, "Falha assumindo a máquina no ERP");
         }
     }
 
@@ -564,6 +599,15 @@ public sealed partial class TesteCompletoViewModel : ObservableObject
             linha.Status = StatusDisplay(r.Status);
             linha.Detalhe = r.Details ?? "";
             linha.ResultadoErp = MapStatus(r.Status);
+
+            // a bateria merece mais que "desgaste X%": quem lê no ERP quer saber
+            // quanto sobrou também
+            if (codigo == "bateria")
+            {
+                if (DescreverBateria(_battery) is { Length: > 0 } detalhe) linha.Detalhe = detalhe;
+                if (_battery?.HealthPercent is decimal saude) linha.Valor = $"{saude:F0}% de saúde";
+            }
+
             OnPropertyChanged(nameof(TestesResumo));
         }
     }
@@ -942,6 +986,29 @@ public sealed partial class TesteCompletoViewModel : ObservableObject
     private void Fechar() => CloseRequested?.Invoke(this, EventArgs.Empty);
 
     // ----------------------------------------------------------- helpers ----
+
+    /// <summary>
+    /// "Resta 68% da capacidade original · 32% de desgaste · 45.100 de 66.000 mWh ·
+    /// 123 ciclos". O motor de testes só reporta o desgaste; quem confere no ERP
+    /// quer os dois lados do número.
+    /// </summary>
+    private static string DescreverBateria(BatteryInfo? b)
+    {
+        if (b?.HealthPercent is not decimal saude) return "";
+
+        var partes = new List<string>
+        {
+            $"Resta {saude:F1}% da capacidade original",
+            $"{(b.WearPercent ?? (100m - saude)):F1}% de desgaste",
+        };
+
+        if (b.FullChargeCapacityMwh is int cheia && b.DesignCapacityMwh is int projeto && projeto > 0)
+            partes.Add($"{cheia:N0} de {projeto:N0} mWh");
+        if (b.CycleCount is int ciclos && ciclos > 0)
+            partes.Add($"{ciclos} ciclos");
+
+        return string.Join(" · ", partes);
+    }
 
     /// <summary>Vocabulário do motor de testes → vocabulário do ERP.</summary>
     private static string MapStatus(AutoStatus s) => s switch
