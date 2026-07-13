@@ -45,6 +45,7 @@ public sealed partial class MainViewModel : ObservableObject
     private readonly IReportArchive _archive;
     private readonly IOfflineQueue _queue;
     private readonly IApiClient _api;
+    private readonly Infrastructure.Erp.ErpClient _erp;
     private readonly OfflineSyncService _sync;
     private readonly IRetestController _retest;
     private readonly Application.Orchestration.PostRepairRetest _postRepairRetest;
@@ -234,8 +235,10 @@ public sealed partial class MainViewModel : ObservableObject
         Application.Bench.BenchmarkSuite stress,
         Application.Humanization.HumanizationRunner humanization,
         Infrastructure.Hardware.CrystalDiskInfoRunner crystalDiskInfo,
+        Infrastructure.Erp.ErpClient erp,
         ILogger<MainViewModel> logger)
     {
+        _erp = erp;
         _collector = collector;
         _serialNtb = serialNtb;
         _machineIdentity = machineIdentity;
@@ -2222,29 +2225,60 @@ public sealed partial class MainViewModel : ObservableObject
             // O progresso conta só as fotos principais; defeitos são opcionais.
             InspectionTotalCount = Domain.Models.InspectionCatalog.MainItemsForMode(_session.Mode).Count;
 
-            // URL da página de inspeção no site (Vercel). O celular precisa de
-            // internet para abrir. As fotos vão direto pro MongoDB, vinculadas
-            // ao serial pelo slug desta sessão.
             var serial = _session.Machine?.Serial ?? "";
             var machineName = string.Join(" ",
                 new[] { _session.Machine?.Manufacturer, _session.Machine?.Model }
                 .Where(s => !string.IsNullOrWhiteSpace(s)));
             if (string.IsNullOrWhiteSpace(machineName)) machineName = _session.Machine?.Hostname ?? "Equipamento";
-
-            var baseUrl = Bootstrap.AppDefaults.ApiBaseUrl.TrimEnd('/');
-            // kind diz ao site qual catálogo de fotos usar no celular.
             var kind = _session.Mode == ChecklistMode.Desktop ? "desktop" : "notebook";
-            var qs = $"?serial={Uri.EscapeDataString(serial)}&machine={Uri.EscapeDataString(machineName)}&kind={kind}";
-            var url = $"{baseUrl}/inspecao/{_session.InspectionSlug}{qs}";
 
-            InspectionUrl = url;
-            InspectionQr = Infrastructure.Inspection.QrCodeFactory.Create(url);
-            InspectionStatus = InspectionQr is null
-                ? $"Falha ao gerar o QR. Abra no celular: {url}"
-                : "Escaneie o QR com o celular (com internet) e tire as fotos. Elas salvam no relatório pelo serial.";
+            // A inspeção agora mora no ERP (aposentadoria do painel antigo):
+            // cria a sessão lá e o QR aponta para /inspecao/{token} do ERP.
+            // Se o ERP estiver fora, cai para a página do painel antigo.
+            InspectionStatus = "Criando sessão de inspeção no ERP…";
+            _ = Task.Run(async () =>
+            {
+                string url;
+                string statusUrl;
+                string? erpToken = null;
+                try
+                {
+                    var sess = await _erp.CreateInspectionSessionAsync(
+                        kind, _session.NtbCode, serial, machineName, CancellationToken.None)
+                        .ConfigureAwait(false);
+                    erpToken = sess.Token;
+                    url = sess.Url;
+                    // /inspecao/{token} → /api/inspecao/{token} (status + fotos)
+                    statusUrl = sess.Url.Replace("/inspecao/", "/api/inspecao/");
+                    _session.AdoptInspectionSlug(sess.Token);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "ERP indisponível para a inspeção — usando o painel antigo");
+                    var baseUrl = Bootstrap.AppDefaults.ApiBaseUrl.TrimEnd('/');
+                    var qs = $"?serial={Uri.EscapeDataString(serial)}&machine={Uri.EscapeDataString(machineName)}&kind={kind}";
+                    url = $"{baseUrl}/inspecao/{_session.InspectionSlug}{qs}";
+                    statusUrl = $"{baseUrl}/api/inspecao/{_session.InspectionSlug}";
+                }
 
-            // Começa a sincronizar o estado (fotos recebidas) periodicamente.
-            StartInspectionPolling();
+                var disp = System.Windows.Application.Current?.Dispatcher;
+                if (disp is null) return;
+                _ = disp.BeginInvoke(() =>
+                {
+                    _inspErpToken = erpToken;
+                    _inspStatusUrl = statusUrl;
+                    InspectionUrl = url;
+                    InspectionQr = Infrastructure.Inspection.QrCodeFactory.Create(url);
+                    InspectionStatus = InspectionQr is null
+                        ? $"Falha ao gerar o QR. Abra no celular: {url}"
+                        : erpToken is null
+                            ? "ERP fora do ar — QR apontando para o painel antigo."
+                            : "Escaneie o QR com o celular e tire as fotos — elas vão direto para o ERP.";
+
+                    // Começa a sincronizar o estado (fotos recebidas) periodicamente.
+                    StartInspectionPolling();
+                });
+            });
         }
         catch (Exception ex)
         {
@@ -2255,6 +2289,12 @@ public sealed partial class MainViewModel : ObservableObject
     }
 
     private System.Threading.Timer? _inspectionPollTimer;
+
+    /// <summary>Token da sessão de inspeção no ERP (null = fallback painel antigo).</summary>
+    private string? _inspErpToken;
+
+    /// <summary>URL de status da inspeção (ERP ou painel antigo, decidido no start).</summary>
+    private string _inspStatusUrl = "";
 
     /// <summary>
     /// Consulta o estado da inspeção no site a cada poucos segundos para
@@ -2267,10 +2307,10 @@ public sealed partial class MainViewModel : ObservableObject
         {
             try
             {
-                var slug = _session.InspectionSlug;
-                var baseUrl = Bootstrap.AppDefaults.ApiBaseUrl.TrimEnd('/');
+                var statusUrl = _inspStatusUrl;
+                if (string.IsNullOrWhiteSpace(statusUrl)) return;
                 using var http = new System.Net.Http.HttpClient { Timeout = TimeSpan.FromSeconds(8) };
-                var json = await http.GetStringAsync($"{baseUrl}/api/inspecao/{slug}").ConfigureAwait(false);
+                var json = await http.GetStringAsync(statusUrl).ConfigureAwait(false);
                 using var doc = System.Text.Json.JsonDocument.Parse(json);
                 var root = doc.RootElement;
                 var doneKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -2305,9 +2345,8 @@ public sealed partial class MainViewModel : ObservableObject
                         }
                         if (doneKeys.Contains(row.Key))
                         {
-                            // URL da foto no site (JPEG) + cache-buster para atualizar.
-                            var bu = Bootstrap.AppDefaults.ApiBaseUrl.TrimEnd('/');
-                            row.PhotoUrl = $"{bu}/api/inspecao/{_session.InspectionSlug}/photo/{row.Key}?t={DateTimeOffset.UtcNow.ToUnixTimeSeconds()}";
+                            // URL da foto (ERP ou painel antigo) + cache-buster.
+                            row.PhotoUrl = $"{_inspStatusUrl}/photo/{row.Key}?t={DateTimeOffset.UtcNow.ToUnixTimeSeconds()}";
                         }
                         else if (!local)
                         {
@@ -2468,6 +2507,20 @@ public sealed partial class MainViewModel : ObservableObject
                 item.Key, Convert.ToBase64String(jpeg), null, DateTime.UtcNow);
             item.HasPhoto = true;
             RecountInspectionLocal();
+
+            // sessão no ERP ativa → sobe a foto pra lá também (o polling
+            // confirma o "done" e o ERP guarda a imagem no storage)
+            if (_inspErpToken is { } erpToken)
+            {
+                try
+                {
+                    await _erp.UploadInspectionPhotoAsync(erpToken, item.Key, jpeg, CancellationToken.None);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Foto da webcam não subiu pro ERP (fica só no relatório)");
+                }
+            }
             // avança para o próximo item principal sem foto
             InspecaoItemSelecionado = InspectionItems.FirstOrDefault(i => !i.HasPhoto && !i.IsOptional)
                 ?? InspectionItems.FirstOrDefault(i => !i.HasPhoto);
@@ -2996,6 +3049,21 @@ public sealed partial class MainViewModel : ObservableObject
 
     private async Task TrySendAsync(ApiPayload payload)
     {
+        // Aposentadoria do painel antigo: o relatório COMPLETO também vai pro
+        // ERP (reenvio com o mesmo test_id substitui lá). Dual-write até o
+        // painel antigo ser desligado — falha no ERP não bloqueia o fluxo.
+        try
+        {
+            var json = System.Text.Json.JsonSerializer.Serialize(payload);
+            await _erp.SendChecklistReportAsync(json, CancellationToken.None);
+            StatusMessage += " — salvo no ERP.";
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Checklist completo não subiu pro ERP (segue só no painel)");
+            StatusMessage += " — ERP indisponível (checklist só no painel antigo).";
+        }
+
         try
         {
             var r = await _api.SendAsync(payload, CancellationToken.None);

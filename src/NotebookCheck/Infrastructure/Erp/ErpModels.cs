@@ -462,6 +462,21 @@ public sealed class ErpFotoUploadResponse
     [JsonPropertyName("error")] public string? Error { get; set; }
 }
 
+/// <summary>
+/// Sessão de INSPEÇÃO FÍSICA por QR no ERP (POST /api/integracao/inspecao/sessao)
+/// — substitui a página do painel antigo. A <c>Url</c> vai no QR; o celular
+/// envia uma foto POR ITEM do catálogo e o app acompanha pelo status.
+/// </summary>
+public sealed class ErpInspecaoSessao
+{
+    [JsonPropertyName("ok")] public bool Ok { get; set; }
+    [JsonPropertyName("token")] public string Token { get; set; } = "";
+    [JsonPropertyName("url")] public string Url { get; set; } = "";
+    [JsonPropertyName("expires_at")] public DateTimeOffset? ExpiresAt { get; set; }
+    [JsonPropertyName("kind")] public string? Kind { get; set; }
+    [JsonPropertyName("error")] public string? Error { get; set; }
+}
+
 /// <summary>Corpo do POST /api/integracao/fornecedores.</summary>
 public sealed class ErpFornecedorRequest
 {
