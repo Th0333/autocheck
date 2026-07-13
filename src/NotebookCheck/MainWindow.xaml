@@ -1147,6 +1147,10 @@
                                         </Border>
                                         <TextBlock Text="{Binding InspectionUrl}" FontSize="11" Margin="0,8,0,0"
                                                    TextWrapping="Wrap" Foreground="{StaticResource Ink500Brush}"/>
+                                        <Button Style="{StaticResource BtnGhost}" Content="🔄 Regenerar QR"
+                                                HorizontalAlignment="Left" Margin="0,8,0,0"
+                                                ToolTip="Link deu problema ou expirou? Gera uma sessão nova e um QR limpo."
+                                                Command="{Binding RegenerarQrInspecaoCommand}"/>
                                     </StackPanel>
 
                                     <!-- Painel webcam (câmera da bancada) -->
