@@ -1,0 +1,182 @@
+<Window x:Class="NotebookCheck.Presentation.Views.TesteComponentesWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Teste de componentes"
+        Width="1000" Height="780"
+        WindowStartupLocation="CenterOwner"
+        Background="{StaticResource Ink50Brush}">
+    <Grid>
+        <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="24">
+            <StackPanel MaxWidth="900">
+                <TextBlock Style="{StaticResource H1}" Text="Teste de componentes"/>
+                <TextBlock Style="{StaticResource Subtle}" Margin="0,4,0,16" TextWrapping="Wrap"
+                           Text="Testes avulsos de bancada, sem vínculo com checklist ou fila do ERP. O laudo pode ser salvo em JSON no fim."/>
+
+                <!-- ============================== MEMÓRIA ============================== -->
+                <Border Style="{StaticResource Card}" Margin="0,0,0,14">
+                    <StackPanel>
+                        <TextBlock Style="{StaticResource H2}" Text="🧠 Memória (QuickMemoryTestOK)"/>
+                        <TextBlock Style="{StaticResource Subtle}" Margin="0,2,0,8" Text="{Binding MemoriaInfo}"/>
+
+                        <ItemsControl ItemsSource="{Binding Modulos}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <TextBlock Margin="0,1" FontSize="13" Text="{Binding Display}"/>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+
+                        <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
+                            <Button Style="{StaticResource BtnPrimary}" Content="Abrir QuickMemoryTest"
+                                    Command="{Binding AbrirQuickMemoryTestCommand}"/>
+                            <TextBlock VerticalAlignment="Center" Margin="12,0,0,0" Style="{StaticResource Subtle}"
+                                       TextWrapping="Wrap" MaxWidth="520" Text="{Binding MemoriaStatus}"/>
+                        </StackPanel>
+
+                        <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
+                            <TextBlock Text="Resultado do teste:" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                            <RadioButton GroupName="memres" Content="Aprovada" Margin="0,0,12,0"
+                                         VerticalAlignment="Center" IsChecked="{Binding MemoriaAprovada}"/>
+                            <RadioButton GroupName="memres" Content="Com erros" VerticalAlignment="Center"
+                                         IsChecked="{Binding MemoriaReprovada}"/>
+                        </StackPanel>
+                        <TextBox Margin="0,8,0,0" Padding="8" MinHeight="34"
+                                 Text="{Binding MemoriaObs, UpdateSourceTrigger=PropertyChanged}"
+                                 TextWrapping="Wrap"
+                                 ToolTip="Observações (ex.: erro no padrão 2 com os dois pentes)"/>
+                    </StackPanel>
+                </Border>
+
+                <!-- ================================ SSD ================================ -->
+                <Border Style="{StaticResource Card}" Margin="0,0,0,14">
+                    <StackPanel>
+                        <TextBlock Style="{StaticResource H2}" Text="💾 SSD / armazenamento (CrystalDiskInfo)"/>
+                        <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                            <Button Style="{StaticResource BtnPrimary}" Content="Ler SMART"
+                                    Command="{Binding LerSmartCommand}"/>
+                            <Button Style="{StaticResource BtnGhost}" Content="Abrir CrystalDiskInfo" Margin="8,0,0,0"
+                                    Command="{Binding AbrirCrystalDiskInfoCommand}"/>
+                            <TextBlock VerticalAlignment="Center" Margin="12,0,0,0" Style="{StaticResource Subtle}"
+                                       Text="{Binding SsdStatus}"/>
+                        </StackPanel>
+                        <ProgressBar Height="4" Margin="0,8,0,0" IsIndeterminate="True"
+                                     Visibility="{Binding LendoSmart, Converter={StaticResource BoolVisConv}}"/>
+
+                        <ItemsControl ItemsSource="{Binding Discos}" Margin="0,10,0,0">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Border BorderBrush="{StaticResource Ink200Brush}" BorderThickness="0,0,0,1" Padding="0,6">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+                                            <StackPanel>
+                                                <TextBlock FontWeight="SemiBold">
+                                                    <Run Text="{Binding Modelo, Mode=OneWay}"/>
+                                                    <Run Text=" · "/>
+                                                    <Run Text="{Binding Tamanho, Mode=OneWay}"/>
+                                                </TextBlock>
+                                                <TextBlock Style="{StaticResource Subtle}" Text="{Binding Detalhe}"/>
+                                            </StackPanel>
+                                            <TextBlock Grid.Column="1" VerticalAlignment="Center" FontWeight="Bold"
+                                                       Text="{Binding Saude}">
+                                                <TextBlock.Style>
+                                                    <Style TargetType="TextBlock">
+                                                        <Setter Property="Foreground" Value="#16A34A"/>
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding Tone}" Value="warn">
+                                                                <Setter Property="Foreground" Value="#D97706"/>
+                                                            </DataTrigger>
+                                                            <DataTrigger Binding="{Binding Tone}" Value="bad">
+                                                                <Setter Property="Foreground" Value="#DC2626"/>
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </TextBlock.Style>
+                                            </TextBlock>
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+                </Border>
+
+                <!-- ============================== BATERIA ============================== -->
+                <Border Style="{StaticResource Card}" Margin="0,0,0,14">
+                    <StackPanel>
+                        <TextBlock Style="{StaticResource H2}" Text="🔋 Bateria — perícia de recondicionada"/>
+                        <TextBlock Style="{StaticResource Subtle}" Margin="0,2,0,8" TextWrapping="Wrap"
+                                   Text="Bateria recondicionada com controlador resetado aparece como 'boa' em qualquer leitor. A perícia cruza os registros entre si e contra a descarga real — a física não mente."/>
+
+                        <StackPanel Orientation="Horizontal">
+                            <Button Style="{StaticResource BtnPrimary}" Content="Analisar registros"
+                                    Command="{Binding AnalisarBateriaCommand}"/>
+                            <TextBlock VerticalAlignment="Center" Margin="12,0,0,0" FontWeight="Bold"
+                                       Text="{Binding BateriaNivel}">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="Foreground" Value="#16A34A"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding BateriaTone}" Value="warn">
+                                                <Setter Property="Foreground" Value="#D97706"/>
+                                            </DataTrigger>
+                                            <DataTrigger Binding="{Binding BateriaTone}" Value="bad">
+                                                <Setter Property="Foreground" Value="#DC2626"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
+                        </StackPanel>
+
+                        <TextBlock Margin="0,10,0,0" FontFamily="Consolas" FontSize="12.5"
+                                   TextWrapping="Wrap" Text="{Binding BateriaResumo}"/>
+
+                        <ItemsControl ItemsSource="{Binding BateriaSinais}" Margin="0,8,0,0">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Border CornerRadius="8" Padding="10" Margin="0,4"
+                                            Background="#FDF2F2" BorderThickness="1" BorderBrush="#FECACA">
+                                        <StackPanel>
+                                            <TextBlock FontWeight="SemiBold" Text="{Binding Titulo}"/>
+                                            <TextBlock Style="{StaticResource Subtle}" TextWrapping="Wrap" Text="{Binding Detalhe}"/>
+                                        </StackPanel>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+
+                        <Separator Margin="0,12"/>
+
+                        <StackPanel Orientation="Horizontal">
+                            <Button Style="{StaticResource BtnPrimary}" Content="Teste de descarga (5 min)"
+                                    Command="{Binding IniciarDescargaCommand}"
+                                    IsEnabled="{Binding BateriaAnalisada}"/>
+                            <Button Style="{StaticResource BtnGhost}" Content="Cancelar" Margin="8,0,0,0"
+                                    Command="{Binding CancelarDescargaCommand}"
+                                    Visibility="{Binding DescargaRodando, Converter={StaticResource BoolVisConv}}"/>
+                        </StackPanel>
+                        <ProgressBar Height="6" Margin="0,10,0,0" Minimum="0" Maximum="100"
+                                     Value="{Binding DescargaProgresso, Mode=OneWay}"
+                                     Visibility="{Binding DescargaRodando, Converter={StaticResource BoolVisConv}}"/>
+                        <TextBlock Style="{StaticResource Subtle}" Margin="0,6,0,0" Text="{Binding DescargaStatus}"/>
+                        <TextBlock Margin="0,6,0,0" TextWrapping="Wrap" FontWeight="SemiBold"
+                                   Text="{Binding DescargaResultado}"/>
+                    </StackPanel>
+                </Border>
+
+                <!-- =============================== LAUDO =============================== -->
+                <Border Style="{StaticResource Card}" Margin="0,0,0,24">
+                    <StackPanel Orientation="Horizontal">
+                        <Button Style="{StaticResource BtnSuccess}" Content="💾 Salvar laudo (JSON)"
+                                Command="{Binding SalvarRelatorioCommand}"/>
+                        <TextBlock VerticalAlignment="Center" Margin="12,0,0,0" Style="{StaticResource Subtle}"
+                                   TextWrapping="Wrap" MaxWidth="600" Text="{Binding SalvarStatus}"/>
+                    </StackPanel>
+                </Border>
+            </StackPanel>
+        </ScrollViewer>
+    </Grid>
+</Window>

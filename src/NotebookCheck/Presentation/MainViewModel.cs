@@ -361,6 +361,28 @@ public sealed partial class MainViewModel : ObservableObject
         }
     }
 
+    /// <summary>
+    /// Abre os testes avulsos de componentes (memória, SSD, bateria) —
+    /// independentes do checklist e da fila do ERP.
+    /// </summary>
+    [RelayCommand]
+    private void OpenTesteComponentes()
+    {
+        try
+        {
+            var host = (System.Windows.Application.Current as App)?.Host;
+            if (host is null) return;
+            var window = host.Services.GetRequiredService<Views.TesteComponentesWindow>();
+            window.Owner = System.Windows.Application.Current?.MainWindow;
+            window.Show();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Falha abrindo janela de teste de componentes");
+            StatusMessage = $"Erro: {ex.Message}";
+        }
+    }
+
     /// <summary>Abre o kanban das máquinas dos pedidos de compra (ERP).</summary>
     [RelayCommand]
     private void OpenKanban()
@@ -2272,15 +2294,22 @@ public sealed partial class MainViewModel : ObservableObject
                     var defects = 0;    // slots opcionais de defeito
                     foreach (var row in InspectionItems)
                     {
-                        row.HasPhoto = doneKeys.Contains(row.Key);
+                        // Remota (celular via QR) OU local (webcam da bancada,
+                        // guardada em base64 na sessão) — o polling não pode
+                        // apagar a marca de uma foto tirada pela webcam.
+                        var local = _session.InspectionPhotos.ContainsKey(row.Key);
+                        row.HasPhoto = doneKeys.Contains(row.Key) || local;
                         if (row.HasPhoto)
                         {
                             if (row.IsOptional) defects++; else done++;
+                        }
+                        if (doneKeys.Contains(row.Key))
+                        {
                             // URL da foto no site (JPEG) + cache-buster para atualizar.
                             var bu = Bootstrap.AppDefaults.ApiBaseUrl.TrimEnd('/');
                             row.PhotoUrl = $"{bu}/api/inspecao/{_session.InspectionSlug}/photo/{row.Key}?t={DateTimeOffset.UtcNow.ToUnixTimeSeconds()}";
                         }
-                        else
+                        else if (!local)
                         {
                             row.PhotoUrl = null;
                         }
@@ -2306,6 +2335,184 @@ public sealed partial class MainViewModel : ObservableObject
     {
         _inspectionPollTimer?.Dispose();
         _inspectionPollTimer = null;
+    }
+
+    // ---- Inspeção física: escolha webcam × QR ------------------------------
+    // O QR continua sendo o caminho padrão (celular fotografa e sobe pro site);
+    // a webcam captura direto na bancada e salva a foto em base64 DENTRO do
+    // relatório (ChecklistSession.InspectionPhotos → ApiPayload.inspection_photos),
+    // caminho que já existia no payload e estava sem uso.
+
+    private readonly Infrastructure.Inspection.WebcamCapture _inspWebcam = new();
+    private bool _inspWebcamHooked;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(InspecaoEscolheuModo), nameof(InspecaoUsandoWebcam), nameof(InspecaoUsandoQr))]
+    private FotoModo inspecaoModo = FotoModo.NaoEscolhido;
+
+    public bool InspecaoEscolheuModo => InspecaoModo != FotoModo.NaoEscolhido;
+    public bool InspecaoUsandoWebcam => InspecaoModo == FotoModo.Webcam;
+    public bool InspecaoUsandoQr => InspecaoModo == FotoModo.QrCode;
+
+    public ObservableCollection<Infrastructure.Inspection.CameraOption> InspecaoCameras { get; } = new();
+
+    [ObservableProperty] private Infrastructure.Inspection.CameraOption? inspecaoCameraSelecionada;
+    [ObservableProperty] private System.Windows.Media.Imaging.BitmapSource? inspecaoCameraFrame;
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(PodeTirarFotoInspecao))]
+    private bool inspecaoCameraLigada;
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(PodeTirarFotoInspecao))]
+    private bool inspecaoEnviandoFoto;
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(PodeTirarFotoInspecao))]
+    private InspectionItemRow? inspecaoItemSelecionado;
+    [ObservableProperty] private string inspecaoFotoErro = "";
+
+    public bool PodeTirarFotoInspecao =>
+        InspecaoCameraLigada && !InspecaoEnviandoFoto && InspecaoItemSelecionado is not null;
+
+    /// <summary>Volta para o QR (modo padrão) e solta a webcam.</summary>
+    [RelayCommand]
+    private async Task InspecaoUsarQrAsync()
+    {
+        InspecaoModo = FotoModo.QrCode;
+        InspecaoFotoErro = "";
+        await PararWebcamInspecaoAsync();
+    }
+
+    [RelayCommand]
+    private async Task InspecaoUsarWebcamAsync()
+    {
+        InspecaoModo = FotoModo.Webcam;
+        InspecaoFotoErro = "";
+        try
+        {
+            if (InspecaoCameras.Count == 0)
+            {
+                foreach (var cam in await Infrastructure.Inspection.WebcamCapture.ListarCamerasAsync())
+                    InspecaoCameras.Add(cam);
+            }
+            if (InspecaoCameras.Count == 0)
+            {
+                InspecaoFotoErro = "Nenhuma webcam encontrada — use o QR code.";
+                return;
+            }
+            InspecaoCameraSelecionada ??= InspecaoCameras[0];
+            if (!_inspWebcamHooked)
+            {
+                _inspWebcam.FrameReady += OnInspecaoFrameReady;
+                _inspWebcamHooked = true;
+            }
+            await _inspWebcam.IniciarAsync(InspecaoCameraSelecionada!.Id);
+            InspecaoCameraLigada = true;
+            // pré-seleciona o primeiro item ainda sem foto
+            InspecaoItemSelecionado ??= InspectionItems.FirstOrDefault(i => !i.HasPhoto && !i.IsOptional)
+                ?? InspectionItems.FirstOrDefault();
+        }
+        catch (InvalidOperationException ex)
+        {
+            InspecaoFotoErro = ex.Message; // sem câmera / privacidade / em uso
+            InspecaoCameraLigada = false;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Falha ligando webcam da inspeção");
+            InspecaoFotoErro = $"Erro ao ligar a webcam: {ex.Message}";
+            InspecaoCameraLigada = false;
+        }
+    }
+
+    [RelayCommand]
+    private async Task InspecaoTrocarCameraAsync()
+    {
+        if (InspecaoCameraSelecionada is null) return;
+        try
+        {
+            await _inspWebcam.PararAsync();
+            await _inspWebcam.IniciarAsync(InspecaoCameraSelecionada.Id);
+            InspecaoCameraLigada = true;
+        }
+        catch (Exception ex)
+        {
+            InspecaoFotoErro = $"Erro trocando de câmera: {ex.Message}";
+            InspecaoCameraLigada = false;
+        }
+    }
+
+    /// <summary>
+    /// Captura o frame atual e grava no relatório como a foto do item
+    /// selecionado. Sem rede envolvida: a foto viaja em base64 dentro do
+    /// checklist quando ele for enviado.
+    /// </summary>
+    [RelayCommand]
+    private async Task InspecaoTirarFotoAsync()
+    {
+        var item = InspecaoItemSelecionado;
+        if (item is null)
+        {
+            InspecaoFotoErro = "Escolha qual parte está sendo fotografada.";
+            return;
+        }
+        InspecaoEnviandoFoto = true;
+        InspecaoFotoErro = "";
+        try
+        {
+            var jpeg = await _inspWebcam.TirarFotoJpegAsync();
+            if (jpeg is null || jpeg.Length == 0)
+            {
+                InspecaoFotoErro = "A câmera ainda não entregou um frame — tente de novo.";
+                return;
+            }
+            _session.InspectionPhotos[item.Key] = new Domain.Models.InspectionPhoto(
+                item.Key, Convert.ToBase64String(jpeg), null, DateTime.UtcNow);
+            item.HasPhoto = true;
+            RecountInspectionLocal();
+            // avança para o próximo item principal sem foto
+            InspecaoItemSelecionado = InspectionItems.FirstOrDefault(i => !i.HasPhoto && !i.IsOptional)
+                ?? InspectionItems.FirstOrDefault(i => !i.HasPhoto);
+            InspectionStatus = $"Foto de \"{item.Label}\" capturada pela webcam e anexada ao relatório.";
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Falha capturando foto da inspeção pela webcam");
+            InspecaoFotoErro = $"Erro na captura: {ex.Message}";
+        }
+        finally
+        {
+            InspecaoEnviandoFoto = false;
+        }
+    }
+
+    private void OnInspecaoFrameReady(object? sender, System.Windows.Media.Imaging.BitmapSource frame)
+    {
+        var disp = System.Windows.Application.Current?.Dispatcher;
+        _ = disp?.BeginInvoke(() => InspecaoCameraFrame = frame);
+    }
+
+    private async Task PararWebcamInspecaoAsync()
+    {
+        try
+        {
+            await _inspWebcam.PararAsync();
+        }
+        catch
+        {
+            // soltar a câmera nunca pode derrubar o fluxo
+        }
+        InspecaoCameraLigada = false;
+        InspecaoCameraFrame = null;
+    }
+
+    /// <summary>Recalcula o progresso contando fotos locais (webcam) + remotas.</summary>
+    private void RecountInspectionLocal()
+    {
+        var done = 0;
+        foreach (var row in InspectionItems)
+        {
+            if (row.HasPhoto && !row.IsOptional) done++;
+        }
+        InspectionDoneCount = done;
     }
 
     private void OnInspectionPhotoReceived(string itemKey)
@@ -2824,10 +3031,11 @@ public sealed partial class MainViewModel : ObservableObject
         {
             StopPortsAutoRefresh();
         }
-        // Para o polling de inspeção ao sair da etapa Manual.
+        // Para o polling de inspeção e solta a webcam ao sair da etapa Manual.
         if (CurrentStep == WizardStep.Manual && step != WizardStep.Manual)
         {
             StopInspectionPolling();
+            _ = PararWebcamInspecaoAsync();
         }
         CurrentStep = step;
         if ((int)step > HighWaterMark) HighWaterMark = (int)step;

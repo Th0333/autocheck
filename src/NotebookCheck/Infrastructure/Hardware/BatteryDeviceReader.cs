@@ -25,7 +25,8 @@ public sealed record BatteryDeviceData(
     bool OnLine,
     bool Charging,
     bool Discharging,
-    bool Critical);
+    bool Critical,
+    DateTime? ManufactureDate = null);
 
 /// <summary>
 /// Leitor da API nativa de bateria do Windows. Totalmente isolado em P/Invoke
@@ -55,6 +56,7 @@ public static class BatteryDeviceReader
     // BATTERY_QUERY_INFORMATION_LEVEL
     private const int BatteryInformation = 0;
     private const int BatteryDeviceName = 4;
+    private const int BatteryManufactureDate = 5;
     private const int BatteryManufactureName = 6;
     private const int BatterySerialNumber = 8;
 
@@ -161,6 +163,9 @@ public static class BatteryDeviceReader
         var manufacturer = QueryString(h, tag, BatteryManufactureName);
         var serial = QueryString(h, tag, BatterySerialNumber);
 
+        // 5. Data de fabricação (nem todo pack expõe — null é normal).
+        var manufactureDate = QueryManufactureDate(h, tag);
+
         return new BatteryDeviceData(
             Name: name,
             Manufacturer: manufacturer,
@@ -175,7 +180,58 @@ public static class BatteryDeviceReader
             OnLine: onLine,
             Charging: charging,
             Discharging: discharging,
-            Critical: critical);
+            Critical: critical,
+            ManufactureDate: manufactureDate);
+    }
+
+    /// <summary>
+    /// BATTERY_MANUFACTURE_DATE (nível 5). Sinal importante na perícia de
+    /// bateria recondicionada: data antiga com contador de ciclos zerado
+    /// indica controlador resetado.
+    /// </summary>
+    private static DateTime? QueryManufactureDate(SafeFileHandle h, uint tag)
+    {
+        var q = new BATTERY_QUERY_INFORMATION
+        {
+            BatteryTag = tag,
+            InformationLevel = BatteryManufactureDate,
+            AtRate = 0,
+        };
+        int size = Marshal.SizeOf<BATTERY_MANUFACTURE_DATE>();
+        var inPtr = Marshal.AllocHGlobal(Marshal.SizeOf<BATTERY_QUERY_INFORMATION>());
+        var outPtr = Marshal.AllocHGlobal(size);
+        try
+        {
+            Marshal.StructureToPtr(q, inPtr, false);
+            if (!DeviceIoControl(h, IOCTL_BATTERY_QUERY_INFORMATION,
+                    inPtr, (uint)Marshal.SizeOf<BATTERY_QUERY_INFORMATION>(),
+                    outPtr, (uint)size, out var returned, IntPtr.Zero) || returned == 0)
+            {
+                return null;
+            }
+            var d = Marshal.PtrToStructure<BATTERY_MANUFACTURE_DATE>(outPtr);
+            if (d.Year < 1990 || d.Year > 2100 || d.Month is < 1 or > 12 || d.Day is < 1 or > 31)
+            {
+                return null; // pack não preenche ou devolve lixo
+            }
+            try
+            {
+                return new DateTime(d.Year, d.Month, d.Day, 0, 0, 0, DateTimeKind.Utc);
+            }
+            catch
+            {
+                return null; // dia inválido para o mês (ex.: 31/02)
+            }
+        }
+        catch
+        {
+            return null;
+        }
+        finally
+        {
+            Marshal.FreeHGlobal(inPtr);
+            Marshal.FreeHGlobal(outPtr);
+        }
     }
 
     private static BATTERY_INFORMATION? QueryInformation(SafeFileHandle h, uint tag)
@@ -343,6 +399,14 @@ public static class BatteryDeviceReader
         public uint DefaultAlert2;
         public uint CriticalBias;
         public uint CycleCount;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct BATTERY_MANUFACTURE_DATE
+    {
+        public byte Day;
+        public byte Month;
+        public ushort Year;
     }
 
     [StructLayout(LayoutKind.Sequential)]
