@@ -2211,10 +2211,18 @@ public sealed partial class MainViewModel : ObservableObject
     /// IP da LAN. Funciona sem internet — basta o celular estar na mesma rede
     /// WiFi. As fotos são salvas no checklist atual (marcadas pelo serial).
     /// </summary>
-    private void StartInspection()
+    private void StartInspection(bool forceNew = false)
     {
         try
         {
+            // Sessão já criada nesta máquina? Voltar para a etapa só religa o
+            // polling — não cria outra. "Regenerar QR" força uma sessão nova.
+            if (!forceNew && _inspErpToken is not null && !string.IsNullOrWhiteSpace(_inspStatusUrl))
+            {
+                StartInspectionPolling();
+                return;
+            }
+
             // Popula a lista de itens (uma vez), conforme o modo (Desktop usa
             // 3 fotos de carcaça + 1 interna; notebook usa o catálogo padrão).
             if (InspectionItems.Count == 0)
@@ -2289,6 +2297,19 @@ public sealed partial class MainViewModel : ObservableObject
     }
 
     private System.Threading.Timer? _inspectionPollTimer;
+
+    /// <summary>
+    /// Gera um QR NOVO (sessão nova no ERP): saída limpa quando o link antigo
+    /// expirou ou deu problema. As fotos já enviadas continuam no relatório.
+    /// </summary>
+    [RelayCommand]
+    private void RegenerarQrInspecao()
+    {
+        StopInspectionPolling();
+        InspectionQr = null;
+        InspectionStatus = "Gerando um QR novo…";
+        StartInspection(forceNew: true);
+    }
 
     /// <summary>Token da sessão de inspeção no ERP (null = fallback painel antigo).</summary>
     private string? _inspErpToken;
