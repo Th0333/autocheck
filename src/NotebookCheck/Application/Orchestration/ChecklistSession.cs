@@ -62,6 +62,15 @@ public sealed class ChecklistSession
     /// </summary>
     public void AdoptTestId(Guid existing) => TestId = existing;
 
+    /// <summary>
+    /// Adota o token da sessão de inspeção criada no ERP como slug — assim o
+    /// relatório carrega a referência certa e o ERP consegue ligar as fotos.
+    /// </summary>
+    public void AdoptInspectionSlug(string slug)
+    {
+        if (!string.IsNullOrWhiteSpace(slug)) InspectionSlug = slug;
+    }
+
     public string TechnicianName { get; set; } = "";
     public string GeneralNotes { get; set; } = "";
     public string AssetTag { get; set; } = "";

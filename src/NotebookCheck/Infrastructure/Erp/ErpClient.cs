@@ -432,6 +432,106 @@ public sealed class ErpClient
         return parsed;
     }
 
+    // ---------------------------------------------- checklists no ERP -------
+    // Aposentadoria do painel antigo: laudos e relatórios passam a ir pro ERP.
+
+    /// <summary>Envia o laudo avulso de componentes (memória/SSD/bateria).</summary>
+    public async Task<string?> SendComponentCheckAsync(
+        object payload, string idempotencyKey, CancellationToken ct)
+    {
+        var url = $"{_config.BaseUrl}/api/integracao/checklists-componentes";
+        using var resp = await SendAuthedAsync(() =>
+        {
+            var m = new HttpRequestMessage(HttpMethod.Post, url)
+            {
+                Content = JsonContent.Create(payload, options: JsonOpts),
+            };
+            m.Headers.TryAddWithoutValidation("Idempotency-Key", idempotencyKey);
+            return m;
+        }, ct).ConfigureAwait(false);
+
+        var body = await resp.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
+        if (!resp.IsSuccessStatusCode)
+            throw new ErpException(await ExtractErrorAsync(body, resp), (int)resp.StatusCode);
+
+        try
+        {
+            using var doc = JsonDocument.Parse(body);
+            return doc.RootElement.TryGetProperty("component_check_id", out var id)
+                ? id.GetString()
+                : null;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Envia o relatório COMPLETO do checklist (o mesmo JSON do painel antigo).
+    /// Reenvio com o mesmo test_id substitui no ERP.
+    /// </summary>
+    public async Task SendChecklistReportAsync(string payloadJson, CancellationToken ct)
+    {
+        var url = $"{_config.BaseUrl}/api/integracao/checklists";
+        using var resp = await SendAuthedAsync(() => new HttpRequestMessage(HttpMethod.Post, url)
+        {
+            Content = new StringContent(payloadJson, System.Text.Encoding.UTF8, "application/json"),
+        }, ct).ConfigureAwait(false);
+
+        if (!resp.IsSuccessStatusCode)
+        {
+            var body = await resp.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
+            throw new ErpException(await ExtractErrorAsync(body, resp), (int)resp.StatusCode);
+        }
+    }
+
+    /// <summary>
+    /// Cria a sessão de INSPEÇÃO FÍSICA por QR no ERP (substitui a página do
+    /// painel antigo). Devolve token + URL pública para o QR.
+    /// </summary>
+    public async Task<ErpInspecaoSessao> CreateInspectionSessionAsync(
+        string kind, string? ntb, string? serial, string? machine, CancellationToken ct)
+    {
+        var url = $"{_config.BaseUrl}/api/integracao/inspecao/sessao";
+        using var resp = await SendAuthedAsync(() => new HttpRequestMessage(HttpMethod.Post, url)
+        {
+            Content = JsonContent.Create(new { kind, ntb, serial, machine }, options: JsonOpts),
+        }, ct).ConfigureAwait(false);
+
+        var body = await resp.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
+        if (!resp.IsSuccessStatusCode)
+            throw new ErpException(await ExtractErrorAsync(body, resp), (int)resp.StatusCode);
+
+        var parsed = JsonSerializer.Deserialize<ErpInspecaoSessao>(body, JsonOpts);
+        if (parsed is null || string.IsNullOrWhiteSpace(parsed.Token))
+            throw new ErpException("Resposta inválida da sessão de inspeção.", (int)resp.StatusCode);
+        return parsed;
+    }
+
+    /// <summary>
+    /// Sobe a foto de UM item da inspeção (webcam da bancada). Endpoint público:
+    /// o token da sessão é a credencial, sem Bearer.
+    /// </summary>
+    public async Task UploadInspectionPhotoAsync(
+        string token, string itemKey, byte[] jpeg, CancellationToken ct)
+    {
+        var url = $"{_config.BaseUrl}/api/inspecao/{Uri.EscapeDataString(token)}/foto/{Uri.EscapeDataString(itemKey)}";
+        var client = _factory.CreateClient("erp");
+
+        using var content = new MultipartFormDataContent();
+        var arquivo = new ByteArrayContent(jpeg);
+        arquivo.Headers.ContentType = new MediaTypeHeaderValue("image/jpeg");
+        content.Add(arquivo, "foto", $"webcam-{DateTime.Now:yyyyMMdd-HHmmss}.jpg");
+
+        using var resp = await client.PostAsync(url, content, ct).ConfigureAwait(false);
+        if (!resp.IsSuccessStatusCode)
+        {
+            var body = await resp.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
+            throw new ErpException(await ExtractErrorAsync(body, resp), (int)resp.StatusCode);
+        }
+    }
+
     private static Task<string> ExtractErrorAsync(string body, HttpResponseMessage resp)
     {
         try

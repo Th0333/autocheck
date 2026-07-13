@@ -38,6 +38,7 @@ public sealed partial class TesteComponentesViewModel : ObservableObject
     private readonly QuickMemoryTestRunner _qmt;
     private readonly CrystalDiskInfoRunner _cdi;
     private readonly IWmiQueryRunner _wmi;
+    private readonly Infrastructure.Erp.ErpClient _erp;
     private readonly ILogger<TesteComponentesViewModel> _logger;
 
     private CancellationTokenSource? _descargaCts;
@@ -46,11 +47,13 @@ public sealed partial class TesteComponentesViewModel : ObservableObject
         QuickMemoryTestRunner qmt,
         CrystalDiskInfoRunner cdi,
         IWmiQueryRunner wmi,
+        Infrastructure.Erp.ErpClient erp,
         ILogger<TesteComponentesViewModel> logger)
     {
         _qmt = qmt;
         _cdi = cdi;
         _wmi = wmi;
+        _erp = erp;
         _logger = logger;
     }
 
@@ -460,6 +463,32 @@ public sealed partial class TesteComponentesViewModel : ObservableObject
 
     [ObservableProperty] private string salvarStatus = "";
 
+    /// <summary>Resultado consolidado do laudo (o pior componente manda).</summary>
+    private string ResultadoConsolidado()
+    {
+        if (MemoriaReprovada || BateriaTone == "bad" || Discos.Any(d => d.Tone == "bad"))
+            return "reprovado";
+        if (MemoriaAprovada) return "aprovado";
+        return BateriaAnalisada || Discos.Count > 0 ? "atencao" : "nao_testado";
+    }
+
+    private string ResumoConsolidado()
+    {
+        var partes = new List<string>();
+        if (Modulos.Count > 0)
+        {
+            var caps = string.Join("+", Modulos.Select(m => m.Capacidade.Replace(" GB", "")));
+            partes.Add($"{Modulos.Count}× RAM {caps} GB");
+        }
+        if (Discos.Count > 0) partes.Add($"{Discos.Count} disco(s)");
+        if (!string.IsNullOrWhiteSpace(BateriaNivel)) partes.Add($"bateria: {BateriaNivel.ToLowerInvariant()}");
+        return partes.Count > 0 ? string.Join(" · ", partes) : "laudo de componentes";
+    }
+
+    /// <summary>
+    /// Envia o laudo para o ERP (aba Checklists → Componentes, de onde pode
+    /// virar entrada no estoque de produtos) e guarda uma cópia local em JSON.
+    /// </summary>
     [RelayCommand]
     private async Task SalvarRelatorioAsync()
     {
@@ -467,7 +496,9 @@ public sealed partial class TesteComponentesViewModel : ObservableObject
         {
             var relatorio = new
             {
-                tipo = "teste_componentes",
+                tipo = "completo",
+                resumo = ResumoConsolidado(),
+                resultado = ResultadoConsolidado(),
                 gerado_em = DateTime.Now,
                 memoria = new
                 {
@@ -487,18 +518,30 @@ public sealed partial class TesteComponentesViewModel : ObservableObject
                     descarga = DescargaResultado,
                 },
             };
+
+            // cópia local sempre (pendrive leva o histórico mesmo sem rede)
             var json = System.Text.Json.JsonSerializer.Serialize(relatorio,
                 new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
-
             var dir = AppPaths.ResolveWritable(Path.Combine(AppPaths.ExeDir, "componentes"));
             var arquivo = Path.Combine(dir, $"COMPONENTES_{DateTime.Now:yyyyMMdd_HHmmss}.json");
             await File.WriteAllTextAsync(arquivo, json);
-            SalvarStatus = $"Laudo salvo: {arquivo}";
+
+            SalvarStatus = "Enviando laudo ao ERP…";
+            try
+            {
+                await _erp.SendComponentCheckAsync(relatorio, Guid.NewGuid().ToString(), CancellationToken.None);
+                SalvarStatus = $"Laudo enviado ao ERP (Checklists → Componentes) — cópia local em {arquivo}";
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Laudo de componentes não subiu pro ERP");
+                SalvarStatus = $"ERP indisponível ({ex.Message}) — laudo salvo localmente em {arquivo}";
+            }
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Falha salvando laudo de componentes");
-            SalvarStatus = $"Erro ao salvar: {ex.Message}";
+            _logger.LogError(ex, "Falha gerando laudo de componentes");
+            SalvarStatus = $"Erro ao gerar o laudo: {ex.Message}";
         }
     }
 
