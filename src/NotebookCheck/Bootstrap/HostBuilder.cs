@@ -69,6 +69,7 @@ public static class AppHostBuilder
                 services.AddSingleton<IWmiQueryRunner, WmiQueryRunner>();
                 services.AddSingleton<IKeyboardBacklightDetector, KeyboardBacklightDetector>();
                 services.AddSingleton<CrystalDiskInfoRunner>();
+                services.AddSingleton<QuickMemoryTestRunner>();
                 services.AddSingleton<IHardwareCollector, WmiHardwareCollector>();
                 services.AddSingleton<IPortCollector, PortCollector>();
                 services.AddSingleton<INetworkProbe, HttpNetworkProbe>();
@@ -144,6 +145,8 @@ public static class AppHostBuilder
                 services.AddTransient<Presentation.Views.KanbanWindow>();
                 services.AddTransient<Presentation.TesteCompletoViewModel>();
                 services.AddTransient<Presentation.Views.TesteCompletoWindow>();
+                services.AddTransient<Presentation.TesteComponentesViewModel>();
+                services.AddTransient<Presentation.Views.TesteComponentesWindow>();
                 services.AddSingleton<MainWindow>();
             })
             .Build();

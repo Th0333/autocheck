@@ -316,6 +316,30 @@
                                 </Button>
                             </Border>
 
+                            <!-- Fluxo separado: testes avulsos de componentes (memória, SSD, bateria) -->
+                            <Border CornerRadius="10" Margin="0,6,0,0" Padding="2"
+                                    BorderBrush="{StaticResource Ink200Brush}" BorderThickness="1">
+                                <Button Background="Transparent" BorderThickness="0" Padding="16" Cursor="Hand"
+                                        HorizontalContentAlignment="Stretch"
+                                        Command="{Binding OpenTesteComponentesCommand}">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Text="🔩" FontSize="26" VerticalAlignment="Center" Margin="0,0,14,0"/>
+                                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                            <TextBlock Style="{StaticResource H2}" Text="Teste de componentes"/>
+                                            <TextBlock Style="{StaticResource Subtle}" TextWrapping="Wrap"
+                                                       Text="Testes avulsos por componente: memória (QuickMemoryTest), SSD (CrystalDiskInfo) e bateria com detecção de recondicionada."/>
+                                        </StackPanel>
+                                        <TextBlock Grid.Column="2" Text="→" FontSize="22" VerticalAlignment="Center"
+                                                   Foreground="{StaticResource Ink400Brush}" Margin="12,0,4,0"/>
+                                    </Grid>
+                                </Button>
+                            </Border>
+
                             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,20,0,0">
                                 <Button Content="Voltar" Style="{StaticResource BtnGhost}" Command="{Binding GoBackCommand}"/>
                             </StackPanel>
@@ -1085,17 +1109,70 @@
                                     <ColumnDefinition Width="*"/>
                                 </Grid.ColumnDefinitions>
 
-                                <!-- QR + instruções -->
-                                <StackPanel Grid.Column="0" Width="260" Margin="0,0,20,0">
+                                <!-- Fotos: escolha webcam × QR + painel do modo escolhido -->
+                                <StackPanel Grid.Column="0" Width="280" Margin="0,0,20,0">
                                     <TextBlock Style="{StaticResource H2}" Text="Inspeção física por foto"/>
-                                    <TextBlock Style="{StaticResource Subtle}" Margin="0,4,0,12" TextWrapping="Wrap"
-                                               Text="Escaneie o QR com o celular e tire as fotos: 4 principais + até 5 de defeitos. Todas são OPCIONAIS — envie as que fizerem sentido; dá para finalizar sem completar a lista."/>
-                                    <Border Background="White" CornerRadius="10" Padding="10" HorizontalAlignment="Left">
-                                        <Image Source="{Binding InspectionQr}" Width="200" Height="200"
-                                               RenderOptions.BitmapScalingMode="NearestNeighbor"/>
-                                    </Border>
-                                    <TextBlock Text="{Binding InspectionUrl}" FontSize="11" Margin="0,8,0,0"
-                                               TextWrapping="Wrap" Foreground="{StaticResource Ink500Brush}"/>
+                                    <TextBlock Style="{StaticResource Subtle}" Margin="0,4,0,10" TextWrapping="Wrap"
+                                               Text="4 fotos principais + até 5 de defeitos, todas OPCIONAIS. Escolha como fotografar:"/>
+
+                                    <!-- Seletor de modo (igual ao do Teste completo) -->
+                                    <UniformGrid Columns="2" Margin="0,0,0,10">
+                                        <Border CornerRadius="10" Margin="0,0,4,0" Padding="2"
+                                                BorderBrush="{StaticResource Ink200Brush}" BorderThickness="1">
+                                            <Button Background="Transparent" BorderThickness="0" Padding="8" Cursor="Hand"
+                                                    Command="{Binding InspecaoUsarWebcamCommand}">
+                                                <StackPanel>
+                                                    <TextBlock Text="📷" FontSize="18" HorizontalAlignment="Center"/>
+                                                    <TextBlock Text="Webcam" FontSize="12" FontWeight="SemiBold" HorizontalAlignment="Center"/>
+                                                </StackPanel>
+                                            </Button>
+                                        </Border>
+                                        <Border CornerRadius="10" Margin="4,0,0,0" Padding="2"
+                                                BorderBrush="{StaticResource Ink200Brush}" BorderThickness="1">
+                                            <Button Background="Transparent" BorderThickness="0" Padding="8" Cursor="Hand"
+                                                    Command="{Binding InspecaoUsarQrCommand}">
+                                                <StackPanel>
+                                                    <TextBlock Text="📱" FontSize="18" HorizontalAlignment="Center"/>
+                                                    <TextBlock Text="QR code" FontSize="12" FontWeight="SemiBold" HorizontalAlignment="Center"/>
+                                                </StackPanel>
+                                            </Button>
+                                        </Border>
+                                    </UniformGrid>
+
+                                    <!-- Painel QR (modo celular) -->
+                                    <StackPanel Visibility="{Binding InspecaoUsandoQr, Converter={StaticResource BoolVisConv}}">
+                                        <Border Background="White" CornerRadius="10" Padding="10" HorizontalAlignment="Left">
+                                            <Image Source="{Binding InspectionQr}" Width="200" Height="200"
+                                                   RenderOptions.BitmapScalingMode="NearestNeighbor"/>
+                                        </Border>
+                                        <TextBlock Text="{Binding InspectionUrl}" FontSize="11" Margin="0,8,0,0"
+                                                   TextWrapping="Wrap" Foreground="{StaticResource Ink500Brush}"/>
+                                    </StackPanel>
+
+                                    <!-- Painel webcam (câmera da bancada) -->
+                                    <StackPanel Visibility="{Binding InspecaoUsandoWebcam, Converter={StaticResource BoolVisConv}}">
+                                        <ComboBox ItemsSource="{Binding InspecaoCameras}"
+                                                  SelectedItem="{Binding InspecaoCameraSelecionada}"
+                                                  DisplayMemberPath="Nome" Margin="0,0,0,6"/>
+                                        <Button Style="{StaticResource BtnGhost}" Content="Trocar câmera"
+                                                HorizontalAlignment="Left" Margin="0,0,0,6"
+                                                Command="{Binding InspecaoTrocarCameraCommand}"/>
+                                        <Border Background="Black" CornerRadius="10" Height="180">
+                                            <Image Source="{Binding InspecaoCameraFrame}" Stretch="Uniform"/>
+                                        </Border>
+                                        <TextBlock Text="Qual parte está na câmera?" FontSize="12" Margin="0,8,0,2"
+                                                   Foreground="{StaticResource Ink700Brush}"/>
+                                        <ComboBox ItemsSource="{Binding InspectionItems}"
+                                                  SelectedItem="{Binding InspecaoItemSelecionado}"
+                                                  DisplayMemberPath="Label"/>
+                                        <Button Style="{StaticResource BtnPrimary}" Margin="0,8,0,0"
+                                                Content="📸 Tirar foto desta parte"
+                                                Command="{Binding InspecaoTirarFotoCommand}"
+                                                IsEnabled="{Binding PodeTirarFotoInspecao}"/>
+                                        <TextBlock Text="{Binding InspecaoFotoErro}" FontSize="11.5" Margin="0,6,0,0"
+                                                   TextWrapping="Wrap" Foreground="#DC2626"/>
+                                    </StackPanel>
+
                                     <TextBlock Text="{Binding InspectionStatus}" FontSize="12" Margin="0,8,0,0"
                                                TextWrapping="Wrap" FontWeight="SemiBold" Foreground="{StaticResource BrandBrush}"/>
                                     <TextBlock Margin="0,6,0,0" FontSize="12" Foreground="{StaticResource Ink700Brush}">

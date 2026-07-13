@@ -83,6 +83,12 @@
     <EmbeddedResource Include="Assets\CrystalDiskInfo.zip">
       <LogicalName>NotebookCheck.Assets.CrystalDiskInfo.zip</LogicalName>
     </EmbeddedResource>
+    <!-- QuickMemoryTestOK portátil (freeware, uso comercial permitido) para o
+         teste avulso de memória. Mesmo padrão do CrystalDiskInfo: extraído em
+         runtime para %TEMP%\NotebookCheck\qmt e aberto em GUI. -->
+    <EmbeddedResource Include="Assets\QuickMemoryTest.zip">
+      <LogicalName>NotebookCheck.Assets.QuickMemoryTest.zip</LogicalName>
+    </EmbeddedResource>
   </ItemGroup>
 
 </Project>
