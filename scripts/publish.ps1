@@ -14,13 +14,13 @@
 #               e no assembly. Se omitido, usa a versão atual do AppDefaults.cs.
 #   -Changelog  Lista de linhas do changelog mostradas na tela inicial do app.
 #   -RepoSlug   user/repo do GitHub para montar a URL do .exe no Release.
-#               Default: GabrielArthur/notebook  (AJUSTE para o seu repositório)
+#               Default: Th0333/autocheck  (AJUSTE para o seu repositório)
 
 param(
     [string]   $Version,
     [string[]] $Changelog,
     [string]   $ChangelogFile,
-    [string]   $RepoSlug = 'CEBOLAGG/notebook',
+    [string]   $RepoSlug = 'Th0333/autocheck',
     [switch]   $CreateRelease,
     [string]   $ApiBaseUrl = 'https://notebook-gamma-seven.vercel.app',
     [string]   $IngestToken = 'segredaotop',
