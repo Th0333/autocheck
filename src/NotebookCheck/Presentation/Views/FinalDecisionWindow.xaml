@@ -10,7 +10,7 @@
         SizeToContent="Manual"
         ResizeMode="CanResize"
         WindowStyle="None"
-        Background="{StaticResource Ink50Brush}">
+        Background="{DynamicResource Ink50Brush}">
     <shell:WindowChrome.WindowChrome>
         <shell:WindowChrome CaptionHeight="36" ResizeBorderThickness="6"
                             CornerRadius="0" GlassFrameThickness="0"

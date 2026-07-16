@@ -8,7 +8,7 @@
         MinWidth="620" MinHeight="600"
         WindowStartupLocation="CenterOwner"
         WindowStyle="None"
-        Background="{StaticResource Ink50Brush}">
+        Background="{DynamicResource Ink50Brush}">
     <shell:WindowChrome.WindowChrome>
         <shell:WindowChrome CaptionHeight="36" ResizeBorderThickness="6"
                             CornerRadius="0" GlassFrameThickness="0"
@@ -26,7 +26,7 @@
         <controls:ModalTitleBar Grid.Row="0" Title="Teste completo (check automático)"/>
 
         <!-- Cabeçalho -->
-        <Border Grid.Row="1" Background="White" BorderBrush="{StaticResource Ink200Brush}"
+        <Border Grid.Row="1" Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource Ink200Brush}"
                 BorderThickness="0,0,0,1" Padding="22,16">
             <StackPanel>
                 <TextBlock Style="{StaticResource Label}" Text="{Binding StepNumberLabel}"/>
@@ -72,23 +72,23 @@
                                       DisplayMemberPath="Display"/>
 
                             <Border Margin="0,12,0,0" Padding="14" CornerRadius="8"
-                                    Background="{StaticResource Ink50Brush}"
+                                    Background="{DynamicResource Ink50Brush}"
                                     Visibility="{Binding MaquinaSelecionada, Converter={StaticResource BoolVisConv}}">
                                 <StackPanel>
                                     <Grid>
                                         <Grid.ColumnDefinitions><ColumnDefinition Width="160"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
                                         <Grid.RowDefinitions><RowDefinition/><RowDefinition/><RowDefinition/></Grid.RowDefinitions>
-                                        <TextBlock Text="Etapa no kanban" Foreground="{StaticResource Ink500Brush}"/>
+                                        <TextBlock Text="Etapa no kanban" Foreground="{DynamicResource Ink500Brush}"/>
                                         <TextBlock Grid.Column="1" Text="{Binding MaquinaEtapa}"/>
-                                        <TextBlock Grid.Row="1" Text="Config acordada" Foreground="{StaticResource Ink500Brush}"/>
+                                        <TextBlock Grid.Row="1" Text="Config acordada" Foreground="{DynamicResource Ink500Brush}"/>
                                         <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding ConfigAcordadaText}" TextWrapping="Wrap"/>
-                                        <TextBlock Grid.Row="2" Text="Serial desta máquina" Foreground="{StaticResource Ink500Brush}"/>
+                                        <TextBlock Grid.Row="2" Text="Serial desta máquina" Foreground="{DynamicResource Ink500Brush}"/>
                                         <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding SpecSerial}"
                                                    FontFamily="{StaticResource MonoFont}"/>
                                     </Grid>
 
                                     <Border Margin="0,10,0,0" Padding="10" CornerRadius="6"
-                                            Background="White" BorderThickness="1" BorderBrush="{StaticResource WarnBrush}"
+                                            Background="{DynamicResource SurfaceBrush}" BorderThickness="1" BorderBrush="{StaticResource WarnBrush}"
                                             Visibility="{Binding JaReportado, Converter={StaticResource BoolVisConv}}">
                                         <TextBlock Text="{Binding JaReportadoAviso}" TextWrapping="Wrap"
                                                    Foreground="{StaticResource WarnBrush}"/>
@@ -110,7 +110,7 @@
                         <StackPanel>
                             <TextBlock Style="{StaticResource H2}" Text="⚙️ Rodando"/>
                             <TextBlock Margin="0,6,0,0" Text="{Binding ProgressoTexto}"
-                                       Foreground="{StaticResource Ink600Brush}"/>
+                                       Foreground="{DynamicResource Ink600Brush}"/>
                             <ProgressBar Height="4" IsIndeterminate="True" Margin="0,8,0,0"
                                          Background="Transparent" Foreground="{StaticResource BrandBrush}"
                                          BorderThickness="0"/>
@@ -165,7 +165,7 @@
                         <ItemsControl ItemsSource="{Binding Testes}">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>
-                                    <Border BorderBrush="{StaticResource Ink200Brush}" BorderThickness="0,0,0,1"
+                                    <Border BorderBrush="{DynamicResource Ink200Brush}" BorderThickness="0,0,0,1"
                                             Padding="0,8">
                                         <Grid>
                                             <Grid.ColumnDefinitions>
@@ -175,13 +175,13 @@
                                             <StackPanel>
                                                 <TextBlock Text="{Binding Label}" FontWeight="SemiBold"/>
                                                 <TextBlock Text="{Binding Detalhe}" TextWrapping="Wrap" FontSize="12"
-                                                           Foreground="{StaticResource Ink500Brush}"/>
+                                                           Foreground="{DynamicResource Ink500Brush}"/>
                                             </StackPanel>
                                             <Border Grid.Column="1" VerticalAlignment="Center" CornerRadius="999"
                                                     Padding="9,3" Margin="10,0,0,0"
-                                                    Background="{StaticResource Ink100Brush}">
+                                                    Background="{DynamicResource Ink100Brush}">
                                                 <TextBlock Text="{Binding Status}" FontSize="12" FontWeight="SemiBold"
-                                                           Foreground="{StaticResource Ink700Brush}"/>
+                                                           Foreground="{DynamicResource Ink700Brush}"/>
                                             </Border>
                                         </Grid>
                                     </Border>
@@ -239,7 +239,7 @@
 
                             <UniformGrid Columns="2">
                                 <Border CornerRadius="10" Margin="0,0,6,0" Padding="2"
-                                        BorderBrush="{StaticResource Ink200Brush}" BorderThickness="1">
+                                        BorderBrush="{DynamicResource Ink200Brush}" BorderThickness="1">
                                     <Button Background="Transparent" BorderThickness="0" Padding="14" Cursor="Hand"
                                             HorizontalContentAlignment="Stretch"
                                             Command="{Binding UsarWebcamCommand}">
@@ -254,7 +254,7 @@
                                     </Button>
                                 </Border>
                                 <Border CornerRadius="10" Margin="6,0,0,0" Padding="2"
-                                        BorderBrush="{StaticResource Ink200Brush}" BorderThickness="1">
+                                        BorderBrush="{DynamicResource Ink200Brush}" BorderThickness="1">
                                     <Button Background="Transparent" BorderThickness="0" Padding="14" Cursor="Hand"
                                             HorizontalContentAlignment="Stretch"
                                             Command="{Binding UsarQrCommand}">
@@ -271,7 +271,7 @@
                             </UniformGrid>
 
                             <Border Margin="0,12,0,0" Padding="12" CornerRadius="6"
-                                    Background="White" BorderThickness="1" BorderBrush="{StaticResource BadBrush}"
+                                    Background="{DynamicResource SurfaceBrush}" BorderThickness="1" BorderBrush="{StaticResource BadBrush}"
                                     Visibility="{Binding FotoErro, Converter={StaticResource NotEmptyVisConv}}">
                                 <TextBlock Text="{Binding FotoErro}" TextWrapping="Wrap"
                                            Foreground="{StaticResource BadBrush}"/>
@@ -294,7 +294,7 @@
                                     Command="{Binding TrocarCameraCommand}"
                                     Visibility="{Binding CameraLigada, Converter={StaticResource BoolVisConv}}"/>
 
-                            <Border Margin="0,10,0,0" CornerRadius="8" Background="{StaticResource Ink900Brush}"
+                            <Border Margin="0,10,0,0" CornerRadius="8" Background="{StaticResource DarkPanelBrush}"
                                     MinHeight="240"
                                     Visibility="{Binding CameraLigada, Converter={StaticResource BoolVisConv}}">
                                 <Image Source="{Binding CameraFrame}" Stretch="Uniform" MaxHeight="360"/>
@@ -319,8 +319,8 @@
                             <TextBlock Style="{StaticResource Subtle}" Margin="0,4,0,10" TextWrapping="Wrap"
                                        Text="Abra a câmera do celular e aponte. A página abre sem login e as fotos vão direto para o ERP. O link vale 2 horas e é só desta máquina."/>
 
-                            <Border HorizontalAlignment="Center" Padding="12" CornerRadius="8" Background="White"
-                                    BorderBrush="{StaticResource Ink200Brush}" BorderThickness="1"
+                            <Border HorizontalAlignment="Center" Padding="12" CornerRadius="8" Background="{DynamicResource SurfaceBrush}"
+                                    BorderBrush="{DynamicResource Ink200Brush}" BorderThickness="1"
                                     Visibility="{Binding TemQr, Converter={StaticResource BoolVisConv}}">
                                 <Image Source="{Binding QrImagem}" Width="240" Height="240"
                                        RenderOptions.BitmapScalingMode="NearestNeighbor"/>
@@ -348,9 +348,9 @@
                 <TextBlock Text="✅" FontSize="56" HorizontalAlignment="Center"/>
                 <TextBlock Style="{StaticResource H1}" HorizontalAlignment="Center" TextAlignment="Center"
                            Margin="0,12,0,8" Text="Check automático concluído"/>
-                <TextBlock TextWrapping="Wrap" TextAlignment="Center" Foreground="{StaticResource Ink600Brush}"
+                <TextBlock TextWrapping="Wrap" TextAlignment="Center" Foreground="{DynamicResource Ink600Brush}"
                            Text="{Binding ReportadoTexto}"/>
-                <TextBlock Margin="0,6,0,0" TextAlignment="Center" Foreground="{StaticResource Ink500Brush}"
+                <TextBlock Margin="0,6,0,0" TextAlignment="Center" Foreground="{DynamicResource Ink500Brush}"
                            Text="{Binding FotosResumo}"/>
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,22,0,0">
                     <Button Content="Testar outra" Style="{StaticResource BtnPrimary}" Margin="0,0,10,0"
@@ -362,7 +362,7 @@
         </Border>
 
         <!-- Rodapé -->
-        <Border Grid.Row="3" Background="White" BorderBrush="{StaticResource Ink200Brush}"
+        <Border Grid.Row="3" Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource Ink200Brush}"
                 BorderThickness="0,1,0,0" Padding="22,12"
                 Visibility="{Binding IsDone, Converter={StaticResource BoolVisConv}, ConverterParameter=invert}">
             <Grid>
@@ -371,7 +371,7 @@
                     <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
                 <StackPanel VerticalAlignment="Center">
-                    <TextBlock Text="{Binding StatusMessage}" TextWrapping="Wrap" Foreground="{StaticResource Ink600Brush}"/>
+                    <TextBlock Text="{Binding StatusMessage}" TextWrapping="Wrap" Foreground="{DynamicResource Ink600Brush}"/>
                     <ProgressBar Width="140" Height="4" IsIndeterminate="True" HorizontalAlignment="Left" Margin="0,6,0,0"
                                  Background="Transparent" Foreground="{StaticResource BrandBrush}" BorderThickness="0"
                                  Visibility="{Binding IsBusy, Converter={StaticResource BoolVisConv}}"/>

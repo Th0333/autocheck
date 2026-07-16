@@ -18,6 +18,7 @@ public static class PayloadBuilder
     {
         var machinePayload = MapMachine(r.Machine);
         machinePayload.HasNumericKeypad = r.HasNumericKeypad;
+        machinePayload.HasTouchScreen = r.HasTouchScreen;
         return new ApiPayload
         {
             TestId = r.TestId.ToString("D"),

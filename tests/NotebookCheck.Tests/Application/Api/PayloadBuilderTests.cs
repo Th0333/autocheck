@@ -56,6 +56,7 @@ public class PayloadBuilderTests
         StressSnapshot? stress = null,
         IReadOnlyList<InspectionPhoto>? inspectionPhotos = null,
         bool? hasNumericKeypad = null,
+        bool? hasTouchScreen = null,
         ChecklistMode mode = ChecklistMode.Padrao) => new(
         TestId: testId ?? Guid.NewGuid(),
         TestedAt: testedAt ?? new DateTime(2026, 1, 1, 12, 30, 0, DateTimeKind.Utc),
@@ -72,7 +73,8 @@ public class PayloadBuilderTests
         Mode: mode,
         Stress: stress,
         InspectionPhotos: inspectionPhotos,
-        HasNumericKeypad: hasNumericKeypad);
+        HasNumericKeypad: hasNumericKeypad,
+        HasTouchScreen: hasTouchScreen);
 
     // ---- Build(ChecklistReport) — campos básicos ---------------------------------
 
@@ -214,7 +216,7 @@ public class PayloadBuilderTests
         {
             ["tela"] = new ManualCheckItem("tela", ManualStatus.OK, ""),
         };
-        var report = CreateChecklistReport(storage: storage, tests: tests, manualChecklist: manual, hasNumericKeypad: true);
+        var report = CreateChecklistReport(storage: storage, tests: tests, manualChecklist: manual, hasNumericKeypad: true, hasTouchScreen: true);
 
         var payload = PayloadBuilder.Build(report);
 
@@ -231,6 +233,7 @@ public class PayloadBuilderTests
         payload.ManualChecklist["tela"].Notes.Should().Be("");
 
         payload.Machine.HasNumericKeypad.Should().BeTrue();
+        payload.Machine.HasTouchScreen.Should().BeTrue();
     }
 
     [Fact]

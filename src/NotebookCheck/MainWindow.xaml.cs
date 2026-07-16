@@ -10,6 +10,20 @@ public partial class MainWindow : Window
     {
         InitializeComponent();
         StateChanged += (_, _) => UpdateMaximizeIcon();
+        UpdateThemeIcon();
+    }
+
+    /// <summary>Alterna claro/escuro pelo botão da barra de título.</summary>
+    private void OnToggleTheme(object sender, RoutedEventArgs e)
+    {
+        ThemeManager.Toggle();
+        UpdateThemeIcon();
+    }
+
+    private void UpdateThemeIcon()
+    {
+        ThemeIcon.Text = ThemeManager.IsDark ? "☀" : "☾";
+        ThemeBtn.ToolTip = ThemeManager.IsDark ? "Mudar para modo claro" : "Mudar para modo escuro";
     }
 
     /// <summary>

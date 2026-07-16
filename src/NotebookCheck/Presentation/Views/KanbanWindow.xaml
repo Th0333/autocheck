@@ -8,7 +8,7 @@
         MinWidth="720" MinHeight="480"
         WindowStartupLocation="CenterOwner"
         WindowStyle="None"
-        Background="{StaticResource Ink50Brush}">
+        Background="{DynamicResource Ink50Brush}">
     <shell:WindowChrome.WindowChrome>
         <shell:WindowChrome CaptionHeight="36" ResizeBorderThickness="6"
                             CornerRadius="0" GlassFrameThickness="0"
@@ -26,7 +26,7 @@
         <controls:ModalTitleBar Grid.Row="0" Title="Kanban — máquinas dos pedidos de compra"/>
 
         <!-- Cabeçalho -->
-        <Border Grid.Row="1" Background="White" BorderBrush="{StaticResource Ink200Brush}"
+        <Border Grid.Row="1" Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource Ink200Brush}"
                 BorderThickness="0,0,0,1" Padding="22,14">
             <Grid>
                 <Grid.ColumnDefinitions>
@@ -61,32 +61,32 @@
                 <ItemsControl.ItemTemplate>
                     <DataTemplate>
                         <Border Width="280" Margin="6,0" CornerRadius="12"
-                                Background="{StaticResource Ink100Brush}" Padding="10">
+                                Background="{DynamicResource Ink100Brush}" Padding="10">
                             <DockPanel>
                                 <StackPanel DockPanel.Dock="Top" Margin="6,2,6,10">
                                     <TextBlock Text="{Binding Titulo}" FontWeight="Bold" FontSize="14"
-                                               Foreground="{StaticResource Ink800Brush}"/>
+                                               Foreground="{DynamicResource Ink800Brush}"/>
                                     <TextBlock Text="{Binding ContagemLabel}" FontSize="11"
-                                               Foreground="{StaticResource Ink500Brush}"/>
+                                               Foreground="{DynamicResource Ink500Brush}"/>
                                 </StackPanel>
                                 <!-- Aviso da etapa (componente/aprovação puláveis) -->
                                 <Border DockPanel.Dock="Bottom" Margin="0,8,0,0" Padding="10,8" CornerRadius="8"
-                                        Background="#FFFBEB" BorderBrush="{StaticResource WarnBrush}" BorderThickness="1"
+                                        Background="{DynamicResource WarnTintBrush}" BorderBrush="{StaticResource WarnBrush}" BorderThickness="1"
                                         Visibility="{Binding TemAviso, Converter={StaticResource BoolVisConv}}">
                                     <StackPanel Orientation="Horizontal">
                                         <TextBlock Text="⚠" Margin="0,0,6,0" VerticalAlignment="Top"
                                                    Foreground="{StaticResource WarnBrush}"/>
                                         <TextBlock Text="{Binding Aviso}" TextWrapping="Wrap" MaxWidth="210"
-                                                   FontSize="12" Foreground="{StaticResource Ink800Brush}"/>
+                                                   FontSize="12" Foreground="{DynamicResource Ink800Brush}"/>
                                     </StackPanel>
                                 </Border>
                                 <ScrollViewer VerticalScrollBarVisibility="Auto">
                                     <ItemsControl ItemsSource="{Binding Maquinas}">
                                         <ItemsControl.ItemTemplate>
                                             <DataTemplate>
-                                                <Border Background="White" CornerRadius="10" Padding="12"
+                                                <Border Background="{DynamicResource SurfaceBrush}" CornerRadius="10" Padding="12"
                                                         Margin="0,0,0,8" BorderThickness="1"
-                                                        BorderBrush="{StaticResource Ink200Brush}">
+                                                        BorderBrush="{DynamicResource Ink200Brush}">
                                                     <StackPanel>
                                                         <!-- NTB + controles (retroceder / avançar / remover) -->
                                                         <Grid>
@@ -115,12 +115,12 @@
                                                             </StackPanel>
                                                         </Grid>
                                                         <TextBlock Text="{Binding ModeloDisplay}" TextWrapping="Wrap"
-                                                                   Margin="0,2,0,0" Foreground="{StaticResource Ink700Brush}"/>
+                                                                   Margin="0,2,0,0" Foreground="{DynamicResource Ink700Brush}"/>
                                                         <TextBlock Text="{Binding PedidoLabel}" FontSize="11"
-                                                                   Margin="0,2,0,0" Foreground="{StaticResource Ink500Brush}"/>
+                                                                   Margin="0,2,0,0" Foreground="{DynamicResource Ink500Brush}"/>
                                                         <TextBlock Text="{Binding AssumidoLabel}" FontSize="12"
                                                                    Margin="0,4,0,0" FontWeight="SemiBold"
-                                                                   Foreground="{StaticResource Ink700Brush}"
+                                                                   Foreground="{DynamicResource Ink700Brush}"
                                                                    Visibility="{Binding TemAssumido, Converter={StaticResource BoolVisConv}}"/>
                                                         <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
                                                             <Button Content="Confirmar recebimento" Style="{StaticResource BtnPrimary}"
@@ -155,11 +155,11 @@
         </ScrollViewer>
 
         <!-- Rodapé: status -->
-        <Border Grid.Row="3" Background="White" BorderBrush="{StaticResource Ink200Brush}"
+        <Border Grid.Row="3" Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource Ink200Brush}"
                 BorderThickness="0,1,0,0" Padding="22,10">
             <StackPanel>
                 <TextBlock Text="{Binding StatusMessage}" TextWrapping="Wrap"
-                           Foreground="{StaticResource Ink600Brush}"/>
+                           Foreground="{DynamicResource Ink600Brush}"/>
                 <ProgressBar Width="140" Height="4" IsIndeterminate="True" HorizontalAlignment="Left" Margin="0,6,0,0"
                              Background="Transparent" Foreground="{StaticResource BrandBrush}" BorderThickness="0"
                              Visibility="{Binding IsBusy, Converter={StaticResource BoolVisConv}}"/>

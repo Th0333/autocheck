@@ -7,7 +7,7 @@
         Width="640" Height="520"
         MinWidth="520" MinHeight="420"
         WindowStartupLocation="CenterOwner"
-        Background="{StaticResource Ink50Brush}"
+        Background="{DynamicResource Ink50Brush}"
         WindowStyle="None"
         AllowsTransparency="False">
     <shell:WindowChrome.WindowChrome>
@@ -41,7 +41,7 @@
                     <ListBox.ItemTemplate>
                         <DataTemplate>
                             <TextBlock Text="{Binding Label}" Padding="8,10" FontSize="13"
-                                       Foreground="{StaticResource Ink900Brush}"/>
+                                       Foreground="{DynamicResource Ink900Brush}"/>
                         </DataTemplate>
                     </ListBox.ItemTemplate>
                 </ListBox>

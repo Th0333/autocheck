@@ -4,7 +4,7 @@
         Title="Atualizando Notelet"
         Width="460" Height="240"
         WindowStartupLocation="CenterScreen"
-        Background="{StaticResource Ink900Brush}"
+        Background="{StaticResource DarkPanelBrush}"
         WindowStyle="None" ResizeMode="NoResize"
         AllowsTransparency="False" Topmost="True">
     <Border Padding="36">

@@ -47,7 +47,8 @@ public record ChecklistReport(
     StressSnapshot? Stress = null,
     IReadOnlyList<InspectionPhoto>? InspectionPhotos = null,
     string? InspectionSlug = null,
-    bool? HasNumericKeypad = null);
+    bool? HasNumericKeypad = null,
+    bool? HasTouchScreen = null);
 
 /// <summary>
 /// Snapshot do resultado da nova benchmark suite, propagado para o payload

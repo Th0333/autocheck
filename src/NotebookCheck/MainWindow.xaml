@@ -8,7 +8,7 @@
         Height="780" Width="1180"
         MinHeight="640" MinWidth="980"
         WindowStartupLocation="CenterScreen"
-        Background="{StaticResource Ink50Brush}"
+        Background="{DynamicResource Ink50Brush}"
         TextOptions.TextFormattingMode="Ideal"
         UseLayoutRounding="True"
         WindowStyle="None"
@@ -30,7 +30,7 @@
         </Grid.RowDefinitions>
 
         <!-- ============================ Title bar custom ============================ -->
-        <Border Grid.Row="0" Background="{StaticResource Ink900Brush}" Height="36"
+        <Border Grid.Row="0" Background="{StaticResource DarkPanelBrush}" Height="36"
                 shell:WindowChrome.IsHitTestVisibleInChrome="False">
             <Grid>
                 <Grid.ColumnDefinitions>
@@ -56,6 +56,9 @@
                 <!-- Window control buttons -->
                 <StackPanel Grid.Column="2" Orientation="Horizontal"
                             shell:WindowChrome.IsHitTestVisibleInChrome="True">
+                    <Button x:Name="ThemeBtn" Click="OnToggleTheme" Style="{StaticResource WinCtrlBtn}" ToolTip="Alternar modo claro/escuro">
+                        <TextBlock x:Name="ThemeIcon" Text="☾" FontSize="17" FontWeight="SemiBold" Foreground="White"/>
+                    </Button>
                     <Button x:Name="MinBtn" Click="OnMinimize" Style="{StaticResource WinCtrlBtn}" ToolTip="Minimizar">
                         <Path Data="M 0,4 H 10" Stroke="White" StrokeThickness="1"/>
                     </Button>
@@ -77,10 +80,10 @@
         </Grid.ColumnDefinitions>
 
         <!-- ============================ Sidebar ============================ -->
-        <Border Grid.Column="0" Background="White" BorderBrush="{StaticResource Ink200Brush}" BorderThickness="0,0,1,0">
+        <Border Grid.Column="0" Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource Ink200Brush}" BorderThickness="0,0,1,0">
             <DockPanel LastChildFill="True">
                 <!-- Pendentes (rodapé) -->
-                <Border DockPanel.Dock="Bottom" Padding="22,16" BorderBrush="{StaticResource Ink100Brush}" BorderThickness="0,1,0,0">
+                <Border DockPanel.Dock="Bottom" Padding="22,16" BorderBrush="{DynamicResource Ink100Brush}" BorderThickness="0,1,0,0">
                     <Grid>
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*"/>
@@ -94,9 +97,9 @@
                             </TextBlock>
                         </StackPanel>
                         <Border Grid.Column="1" CornerRadius="999" Padding="10,3"
-                                Background="{StaticResource Ink100Brush}"
+                                Background="{DynamicResource Ink100Brush}"
                                 Visibility="{Binding PendingCount, Converter={StaticResource CountVisConv}}">
-                            <TextBlock Text="{Binding PendingCount}" FontWeight="SemiBold" FontSize="12" Foreground="{StaticResource Ink700Brush}"/>
+                            <TextBlock Text="{Binding PendingCount}" FontWeight="SemiBold" FontSize="12" Foreground="{DynamicResource Ink700Brush}"/>
                         </Border>
                     </Grid>
                 </Border>
@@ -115,7 +118,7 @@
         <!-- ============================ Área principal ============================ -->
         <DockPanel Grid.Column="1" LastChildFill="True">
             <!-- Header -->
-            <Border DockPanel.Dock="Top" Background="White" BorderBrush="{StaticResource Ink200Brush}" BorderThickness="0,0,0,1" Padding="32,20">
+            <Border DockPanel.Dock="Top" Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource Ink200Brush}" BorderThickness="0,0,0,1" Padding="32,20">
                 <Grid>
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*"/>
@@ -139,13 +142,13 @@
             </Border>
 
             <!-- Status bar -->
-            <Border DockPanel.Dock="Bottom" Background="White" BorderBrush="{StaticResource Ink200Brush}" BorderThickness="0,1,0,0" Padding="32,12">
+            <Border DockPanel.Dock="Bottom" Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource Ink200Brush}" BorderThickness="0,1,0,0" Padding="32,12">
                 <Grid>
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*"/>
                         <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
-                    <TextBlock Text="{Binding StatusMessage}" TextWrapping="Wrap" Foreground="{StaticResource Ink600Brush}"/>
+                    <TextBlock Text="{Binding StatusMessage}" TextWrapping="Wrap" Foreground="{DynamicResource Ink600Brush}"/>
                     <ProgressBar Grid.Column="1" Width="120" Height="4" IsIndeterminate="True"
                                  Background="Transparent" Foreground="{StaticResource BrandBrush}" BorderThickness="0"
                                  Visibility="{Binding IsBusy, Converter={StaticResource BoolVisConv}}"/>
@@ -176,15 +179,15 @@
 
                             <!-- Novidades / changelog da versão mais recente -->
                             <Border Margin="0,28,0,0" Padding="18" CornerRadius="12"
-                                    Background="{StaticResource Ink50Brush}" BorderBrush="{StaticResource Ink200Brush}" BorderThickness="1"
+                                    Background="{DynamicResource Ink50Brush}" BorderBrush="{DynamicResource Ink200Brush}" BorderThickness="1"
                                     Visibility="{Binding HasChangelog, Converter={StaticResource BoolVisConv}}">
                                 <StackPanel>
                                     <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
                                         <TextBlock Text="✨" FontSize="16" VerticalAlignment="Center"/>
                                         <TextBlock Text="Novidades desta versão" FontWeight="SemiBold" FontSize="14"
-                                                   Foreground="{StaticResource Ink900Brush}" Margin="8,0,0,0" VerticalAlignment="Center"/>
+                                                   Foreground="{DynamicResource Ink900Brush}" Margin="8,0,0,0" VerticalAlignment="Center"/>
                                         <TextBlock Text="{Binding Version, StringFormat=v{0}}" FontSize="12"
-                                                   Foreground="{StaticResource Ink500Brush}" Margin="8,0,0,0" VerticalAlignment="Center"/>
+                                                   Foreground="{DynamicResource Ink500Brush}" Margin="8,0,0,0" VerticalAlignment="Center"/>
                                     </StackPanel>
                                     <ItemsControl ItemsSource="{Binding Changelog}">
                                         <ItemsControl.ItemTemplate>
@@ -192,7 +195,7 @@
                                                 <StackPanel Orientation="Horizontal" Margin="0,2">
                                                     <TextBlock Text="•" Foreground="{StaticResource BrandBrush}" Margin="0,0,8,0" VerticalAlignment="Top"/>
                                                     <TextBlock Text="{Binding}" TextWrapping="Wrap"
-                                                               Foreground="{StaticResource Ink600Brush}" MaxWidth="520"/>
+                                                               Foreground="{DynamicResource Ink600Brush}" MaxWidth="520"/>
                                                 </StackPanel>
                                             </DataTemplate>
                                         </ItemsControl.ItemTemplate>
@@ -210,7 +213,7 @@
                             <TextBlock Style="{StaticResource H2}" Text="Escolha o modo do checklist"/>
                             <TextBlock Margin="0,4,0,20" TextWrapping="Wrap">
                                 <Run Text="O modo determina quais testes adicionais serão executados depois dos testes essenciais."
-                                     FontSize="13" Foreground="{StaticResource Ink500Brush}"/>
+                                     FontSize="13" Foreground="{DynamicResource Ink500Brush}"/>
                                 <LineBreak/>
                                 <Run Text="● Seleção obrigatória — clique em um dos modos para continuar."
                                      FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource BadBrush}"/>
@@ -270,7 +273,7 @@
 
                             <!-- Fluxo separado: cadastro no ERP de estoque (não é um checklist) -->
                             <Border CornerRadius="10" Margin="0,6,0,0" Padding="2"
-                                    BorderBrush="{StaticResource Ink200Brush}" BorderThickness="1">
+                                    BorderBrush="{DynamicResource Ink200Brush}" BorderThickness="1">
                                 <Button Background="Transparent" BorderThickness="0" Padding="16" Cursor="Hand"
                                         HorizontalContentAlignment="Stretch"
                                         Command="{Binding OpenCadastroCommand}">
@@ -287,14 +290,14 @@
                                                        Text="Sem testes — só registra a máquina no estoque: origem, identificação, condição e destino. Cria uma aprovação pendente."/>
                                         </StackPanel>
                                         <TextBlock Grid.Column="2" Text="→" FontSize="22" VerticalAlignment="Center"
-                                                   Foreground="{StaticResource Ink400Brush}" Margin="12,0,4,0"/>
+                                                   Foreground="{DynamicResource Ink400Brush}" Margin="12,0,4,0"/>
                                     </Grid>
                                 </Button>
                             </Border>
 
                             <!-- Fluxo separado: teste completo das máquinas na fila do ERP -->
                             <Border CornerRadius="10" Margin="0,6,0,0" Padding="2"
-                                    BorderBrush="{StaticResource Ink200Brush}" BorderThickness="1">
+                                    BorderBrush="{DynamicResource Ink200Brush}" BorderThickness="1">
                                 <Button Background="Transparent" BorderThickness="0" Padding="16" Cursor="Hand"
                                         HorizontalContentAlignment="Stretch"
                                         Command="{Binding OpenTesteCompletoCommand}">
@@ -311,14 +314,14 @@
                                                        Text="Escolhe a máquina na fila do ERP, roda a bateria de testes automáticos e reporta specs + resultado. O OK final é dado no ERP."/>
                                         </StackPanel>
                                         <TextBlock Grid.Column="2" Text="→" FontSize="22" VerticalAlignment="Center"
-                                                   Foreground="{StaticResource Ink400Brush}" Margin="12,0,4,0"/>
+                                                   Foreground="{DynamicResource Ink400Brush}" Margin="12,0,4,0"/>
                                     </Grid>
                                 </Button>
                             </Border>
 
                             <!-- Fluxo separado: testes avulsos de componentes (memória, SSD, bateria) -->
                             <Border CornerRadius="10" Margin="0,6,0,0" Padding="2"
-                                    BorderBrush="{StaticResource Ink200Brush}" BorderThickness="1">
+                                    BorderBrush="{DynamicResource Ink200Brush}" BorderThickness="1">
                                 <Button Background="Transparent" BorderThickness="0" Padding="16" Cursor="Hand"
                                         HorizontalContentAlignment="Stretch"
                                         Command="{Binding OpenTesteComponentesCommand}">
@@ -335,7 +338,7 @@
                                                        Text="Testes avulsos por componente: memória (QuickMemoryTest), SSD (CrystalDiskInfo) e bateria com detecção de recondicionada."/>
                                         </StackPanel>
                                         <TextBlock Grid.Column="2" Text="→" FontSize="22" VerticalAlignment="Center"
-                                                   Foreground="{StaticResource Ink400Brush}" Margin="12,0,4,0"/>
+                                                   Foreground="{DynamicResource Ink400Brush}" Margin="12,0,4,0"/>
                                     </Grid>
                                 </Button>
                             </Border>
@@ -372,9 +375,9 @@
                                     <!-- NTB -->
                                     <StackPanel Grid.Row="0" Grid.Column="0">
                                         <TextBlock>
-                                            <Run Text="Apelido / código NTB" FontWeight="SemiBold" Foreground="{StaticResource Ink700Brush}"/>
+                                            <Run Text="Apelido / código NTB" FontWeight="SemiBold" Foreground="{DynamicResource Ink700Brush}"/>
                                             <Run Text=" *" Foreground="{StaticResource BadBrush}" FontWeight="Bold"/>
-                                            <Run Text=" obrigatório" FontSize="11" Foreground="{StaticResource Ink500Brush}"/>
+                                            <Run Text=" obrigatório" FontSize="11" Foreground="{DynamicResource Ink500Brush}"/>
                                         </TextBlock>
                                         <TextBox Margin="0,6,0,0" MaxLength="50"
                                                  Text="{Binding NtbCode, UpdateSourceTrigger=PropertyChanged}"
@@ -410,9 +413,9 @@
                                     <!-- Técnico (obrigatório) -->
                                     <StackPanel Grid.Row="4" Grid.Column="0">
                                         <TextBlock>
-                                            <Run Text="Técnico responsável" FontWeight="SemiBold" Foreground="{StaticResource Ink700Brush}"/>
+                                            <Run Text="Técnico responsável" FontWeight="SemiBold" Foreground="{DynamicResource Ink700Brush}"/>
                                             <Run Text=" *" Foreground="{StaticResource BadBrush}" FontWeight="Bold"/>
-                                            <Run Text=" obrigatório" FontSize="11" Foreground="{StaticResource Ink500Brush}"/>
+                                            <Run Text=" obrigatório" FontSize="11" Foreground="{DynamicResource Ink500Brush}"/>
                                         </TextBlock>
                                         <TextBox Margin="0,6,0,0" MaxLength="100"
                                                  Text="{Binding TechnicianName, UpdateSourceTrigger=PropertyChanged}"
@@ -474,7 +477,7 @@
                                                     </Grid.ColumnDefinitions>
                                                     <TextBlock Style="{StaticResource Label}" Text="{Binding Label}" VerticalAlignment="Top"/>
                                                     <TextBlock Grid.Column="1" Text="{Binding Value}" TextWrapping="Wrap"
-                                                               Foreground="{StaticResource Ink900Brush}" FontWeight="Medium"/>
+                                                               Foreground="{DynamicResource Ink900Brush}" FontWeight="Medium"/>
                                                 </Grid>
                                             </DataTemplate>
                                         </ItemsControl.ItemTemplate>
@@ -496,7 +499,7 @@
                                                     </Grid.ColumnDefinitions>
                                                     <TextBlock Style="{StaticResource Label}" Text="{Binding Label}" VerticalAlignment="Top"/>
                                                     <TextBlock Grid.Column="1" Text="{Binding Value}" TextWrapping="Wrap"
-                                                               Foreground="{StaticResource Ink900Brush}" FontWeight="Medium"/>
+                                                               Foreground="{DynamicResource Ink900Brush}" FontWeight="Medium"/>
                                                 </Grid>
                                             </DataTemplate>
                                         </ItemsControl.ItemTemplate>
@@ -518,7 +521,7 @@
                                                     </Grid.ColumnDefinitions>
                                                     <TextBlock Style="{StaticResource Label}" Text="{Binding Label}" VerticalAlignment="Top"/>
                                                     <TextBlock Grid.Column="1" Text="{Binding Value}" TextWrapping="Wrap"
-                                                               Foreground="{StaticResource Ink900Brush}" FontWeight="Medium"/>
+                                                               Foreground="{DynamicResource Ink900Brush}" FontWeight="Medium"/>
                                                 </Grid>
                                             </DataTemplate>
                                         </ItemsControl.ItemTemplate>
@@ -551,7 +554,7 @@
                                                     </Grid.ColumnDefinitions>
                                                     <TextBlock Style="{StaticResource Label}" Text="{Binding Label}" VerticalAlignment="Top"/>
                                                     <TextBlock Grid.Column="1" Text="{Binding Value}" TextWrapping="Wrap"
-                                                               Foreground="{StaticResource Ink900Brush}" FontWeight="Medium"/>
+                                                               Foreground="{DynamicResource Ink900Brush}" FontWeight="Medium"/>
                                                 </Grid>
                                             </DataTemplate>
                                         </ItemsControl.ItemTemplate>
@@ -568,10 +571,10 @@
                                             <DataTemplate>
                                                 <StackPanel Margin="0,0,0,12">
                                                     <TextBlock Text="{Binding Label}" TextWrapping="Wrap"
-                                                               Foreground="{StaticResource Ink900Brush}"
+                                                               Foreground="{DynamicResource Ink900Brush}"
                                                                FontWeight="SemiBold" FontSize="13"/>
                                                     <TextBlock Text="{Binding Value}" TextWrapping="Wrap"
-                                                               Foreground="{StaticResource Ink500Brush}"
+                                                               Foreground="{DynamicResource Ink500Brush}"
                                                                FontSize="12" Margin="0,3,0,0"/>
                                                 </StackPanel>
                                             </DataTemplate>
@@ -595,7 +598,7 @@
                                     <!-- Barra de carga atual -->
                                     <Grid Margin="0,8,0,14"
                                           Visibility="{Binding BatteryHasCharge, Converter={StaticResource BoolVisConv}}">
-                                        <Border Height="22" CornerRadius="11" Background="{StaticResource Ink100Brush}"/>
+                                        <Border Height="22" CornerRadius="11" Background="{DynamicResource Ink100Brush}"/>
                                         <Border Height="22" CornerRadius="11" HorizontalAlignment="Left"
                                                 Background="{StaticResource BrandBrush}">
                                             <Border.Width>
@@ -607,7 +610,7 @@
                                         </Border>
                                         <TextBlock Text="{Binding BatteryChargeText}" HorizontalAlignment="Center"
                                                    VerticalAlignment="Center" FontSize="12" FontWeight="SemiBold"
-                                                   Foreground="{StaticResource Ink900Brush}"/>
+                                                   Foreground="{DynamicResource Ink900Brush}"/>
                                     </Grid>
 
                                     <ItemsControl ItemsSource="{Binding BatteryFields}">
@@ -620,7 +623,7 @@
                                                     </Grid.ColumnDefinitions>
                                                     <TextBlock Style="{StaticResource Label}" Text="{Binding Label}" VerticalAlignment="Top"/>
                                                     <TextBlock Grid.Column="1" Text="{Binding Value}" TextWrapping="Wrap"
-                                                               Foreground="{StaticResource Ink900Brush}" FontWeight="Medium"/>
+                                                               Foreground="{DynamicResource Ink900Brush}" FontWeight="Medium"/>
                                                 </Grid>
                                             </DataTemplate>
                                         </ItemsControl.ItemTemplate>
@@ -674,7 +677,7 @@
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate>
                                             <Border Margin="0,0,8,8" Padding="12,10" CornerRadius="8"
-                                                    Background="{StaticResource Ink50Brush}">
+                                                    Background="{DynamicResource Ink50Brush}">
                                                 <Grid>
                                                     <Grid.RowDefinitions>
                                                         <RowDefinition Height="Auto"/>
@@ -694,7 +697,7 @@
                                                                        Foreground="{Binding Status, Converter={StaticResource StatusFgConv}}"/>
                                                         </Border>
                                                         <TextBlock Text="{Binding Label}" FontWeight="SemiBold" VerticalAlignment="Center"
-                                                                   Foreground="{StaticResource Ink900Brush}"/>
+                                                                   Foreground="{DynamicResource Ink900Brush}"/>
                                                         <TextBlock Text=" (modificado)" FontSize="11" VerticalAlignment="Center"
                                                                    Foreground="{StaticResource WarnBrush}"
                                                                    Visibility="{Binding IsOverridden, Converter={StaticResource BoolVisConv}}"/>
@@ -709,14 +712,14 @@
 
                                                     <!-- Detalhes -->
                                                     <TextBlock Grid.Row="1" Grid.ColumnSpan="2" Text="{Binding Details}" TextWrapping="Wrap"
-                                                               FontSize="12" Foreground="{StaticResource Ink700Brush}" Margin="0,6,0,0"/>
+                                                               FontSize="12" Foreground="{DynamicResource Ink700Brush}" Margin="0,6,0,0"/>
 
                                                     <!-- Balão de comentário do técnico -->
                                                     <Border Grid.Row="2" Grid.ColumnSpan="2" Margin="0,6,0,0" Padding="8,5" CornerRadius="6"
-                                                            Background="{StaticResource Ink100Brush}"
+                                                            Background="{DynamicResource Ink100Brush}"
                                                             Visibility="{Binding HasComment, Converter={StaticResource BoolVisConv}}">
                                                         <TextBlock Text="{Binding Comment}" TextWrapping="Wrap" FontSize="11.5"
-                                                                   Foreground="{StaticResource Ink700Brush}"/>
+                                                                   Foreground="{DynamicResource Ink700Brush}"/>
                                                     </Border>
                                                 </Grid>
                                             </Border>
@@ -789,13 +792,13 @@
                                         <TextBlock Style="{StaticResource H2}" Text="🌡 Térmica (ao vivo)"/>
                                         <TextBlock Style="{StaticResource Subtle}" Margin="0,4,0,12" TextWrapping="Wrap"
                                                    Text="Teste ao vivo que precisa do técnico presente: roda carga máxima na CPU por ~60s e verifica se o clock cai sob calor (throttling térmico)."/>
-                                        <Border Style="{StaticResource Card}" Background="{StaticResource Ink50Brush}" Padding="14">
+                                        <Border Style="{StaticResource Card}" Background="{DynamicResource Ink50Brush}" Padding="14">
                                             <StackPanel>
                                                 <TextBlock Text="🌡 Throttling térmico" FontWeight="Bold" FontSize="14"
-                                                           Foreground="{StaticResource Ink900Brush}"/>
+                                                           Foreground="{DynamicResource Ink900Brush}"/>
                                                 <TextBlock Text="{Binding ThrottleResult}" Margin="0,6,0,10"
                                                            TextWrapping="Wrap" FontSize="12"
-                                                           Foreground="{StaticResource Ink700Brush}" MinHeight="34"/>
+                                                           Foreground="{DynamicResource Ink700Brush}" MinHeight="34"/>
                                                 <Button Content="Abrir teste de throttling" Style="{StaticResource BtnBase}"
                                                         HorizontalAlignment="Left"
                                                         Command="{Binding RunThrottleTestCommand}"/>
@@ -839,9 +842,9 @@
                                             <Border Style="{StaticResource Card}" Margin="0,0,8,0" Padding="14">
                                                 <StackPanel>
                                                     <TextBlock Text="🧠 CPU" FontWeight="Bold" FontSize="14"
-                                                               Foreground="{StaticResource Ink900Brush}"/>
+                                                               Foreground="{DynamicResource Ink900Brush}"/>
                                                     <TextBlock Text="{Binding CpuBenchText}" Margin="0,6,0,10" TextWrapping="Wrap"
-                                                               FontSize="12" Foreground="{StaticResource Ink700Brush}" MinHeight="34"/>
+                                                               FontSize="12" Foreground="{DynamicResource Ink700Brush}" MinHeight="34"/>
                                                     <Button Content="{Binding CpuBenchButton}" Style="{StaticResource BtnBase}"
                                                             HorizontalAlignment="Stretch" Command="{Binding RunCpuBenchCommand}"/>
                                                 </StackPanel>
@@ -850,9 +853,9 @@
                                             <Border Style="{StaticResource Card}" Margin="0,0,8,0" Padding="14">
                                                 <StackPanel>
                                                     <TextBlock Text="🎮 GPU" FontWeight="Bold" FontSize="14"
-                                                               Foreground="{StaticResource Ink900Brush}"/>
+                                                               Foreground="{DynamicResource Ink900Brush}"/>
                                                     <TextBlock Text="{Binding GpuBenchText}" Margin="0,6,0,10" TextWrapping="Wrap"
-                                                               FontSize="12" Foreground="{StaticResource Ink700Brush}" MinHeight="34"/>
+                                                               FontSize="12" Foreground="{DynamicResource Ink700Brush}" MinHeight="34"/>
                                                     <Button Content="{Binding GpuBenchButton}" Style="{StaticResource BtnBase}"
                                                             HorizontalAlignment="Stretch" Command="{Binding RunGpuBenchCommand}"/>
                                                 </StackPanel>
@@ -861,9 +864,9 @@
                                             <Border Style="{StaticResource Card}" Margin="0,0,8,0" Padding="14">
                                                 <StackPanel>
                                                     <TextBlock Text="💾 Disco" FontWeight="Bold" FontSize="14"
-                                                               Foreground="{StaticResource Ink900Brush}"/>
+                                                               Foreground="{DynamicResource Ink900Brush}"/>
                                                     <TextBlock Text="{Binding DiskBenchText}" Margin="0,6,0,10" TextWrapping="Wrap"
-                                                               FontSize="12" Foreground="{StaticResource Ink700Brush}" MinHeight="34"/>
+                                                               FontSize="12" Foreground="{DynamicResource Ink700Brush}" MinHeight="34"/>
                                                     <Button Content="{Binding DiskBenchButton}" Style="{StaticResource BtnBase}"
                                                             HorizontalAlignment="Stretch" Command="{Binding RunDiskBenchCommand}"/>
                                                 </StackPanel>
@@ -872,9 +875,9 @@
                                             <Border Style="{StaticResource Card}" Margin="0,0,8,0" Padding="14">
                                                 <StackPanel>
                                                     <TextBlock Text="🧬 VRAM" FontWeight="Bold" FontSize="14"
-                                                               Foreground="{StaticResource Ink900Brush}"/>
+                                                               Foreground="{DynamicResource Ink900Brush}"/>
                                                     <TextBlock Text="{Binding VramBenchText}" Margin="0,6,0,10" TextWrapping="Wrap"
-                                                               FontSize="12" Foreground="{StaticResource Ink700Brush}" MinHeight="34"/>
+                                                               FontSize="12" Foreground="{DynamicResource Ink700Brush}" MinHeight="34"/>
                                                     <Button Content="{Binding VramBenchButton}" Style="{StaticResource BtnBase}"
                                                             HorizontalAlignment="Stretch" Command="{Binding RunVramBenchCommand}"/>
                                                 </StackPanel>
@@ -883,9 +886,9 @@
                                             <Border Style="{StaticResource Card}" Padding="14">
                                                 <StackPanel>
                                                     <TextBlock Text="📦 RAM" FontWeight="Bold" FontSize="14"
-                                                               Foreground="{StaticResource Ink900Brush}"/>
+                                                               Foreground="{DynamicResource Ink900Brush}"/>
                                                     <TextBlock Text="{Binding RamBenchText}" Margin="0,6,0,10" TextWrapping="Wrap"
-                                                               FontSize="12" Foreground="{StaticResource Ink700Brush}" MinHeight="34"/>
+                                                               FontSize="12" Foreground="{DynamicResource Ink700Brush}" MinHeight="34"/>
                                                     <Button Content="{Binding RamBenchButton}" Style="{StaticResource BtnBase}"
                                                             HorizontalAlignment="Stretch" Command="{Binding RunRamBenchCommand}"/>
                                                 </StackPanel>
@@ -899,18 +902,18 @@
                                                 <ColumnDefinition Width="Auto"/>
                                             </Grid.ColumnDefinitions>
                                             <TextBlock Text="{Binding StressPhase}" FontWeight="SemiBold"
-                                                       Foreground="{StaticResource Ink900Brush}"/>
+                                                       Foreground="{DynamicResource Ink900Brush}"/>
                                             <TextBlock Grid.Column="1" Text="{Binding StressProgress, StringFormat={}{0}%}"
                                                        FontWeight="SemiBold" Foreground="{StaticResource BrandBrush}"/>
                                         </Grid>
                                         <ProgressBar Maximum="100" Height="10" Value="{Binding StressProgress}"
                                                      Foreground="{StaticResource BrandBrush}"
-                                                     Background="{StaticResource Ink100Brush}" BorderThickness="0"/>
+                                                     Background="{DynamicResource Ink100Brush}" BorderThickness="0"/>
                                         <TextBlock Text="{Binding LiveTelemetryText}" FontSize="12" Margin="0,8,0,0"
-                                                   Foreground="{StaticResource Ink500Brush}"/>
+                                                   Foreground="{DynamicResource Ink500Brush}"/>
 
                                         <!-- Rodar todos + nota final -->
-                                        <Border Margin="0,14,0,0" Padding="14" CornerRadius="8" Background="{StaticResource Ink50Brush}">
+                                        <Border Margin="0,14,0,0" Padding="14" CornerRadius="8" Background="{DynamicResource Ink50Brush}">
                                             <Grid>
                                                 <Grid.ColumnDefinitions>
                                                     <ColumnDefinition Width="Auto"/>
@@ -924,7 +927,7 @@
                                                     <TextBlock Text="{Binding FinalBenchScore}" FontSize="26" FontWeight="Bold"
                                                                Foreground="{StaticResource BrandBrush}"/>
                                                     <TextBlock Text="{Binding FinalBenchText}" FontSize="11"
-                                                               Foreground="{StaticResource Ink500Brush}"/>
+                                                               Foreground="{DynamicResource Ink500Brush}"/>
                                                 </StackPanel>
                                             </Grid>
                                         </Border>
@@ -942,7 +945,7 @@
                                                 HorizontalAlignment="Left"
                                                 Command="{Binding OpenUserBenchmarkCommand}"/>
                                         <TextBlock Text="{Binding UserBenchmarkStatus}" FontSize="12" Margin="0,8,0,0"
-                                                   TextWrapping="Wrap" Foreground="{StaticResource Ink500Brush}"/>
+                                                   TextWrapping="Wrap" Foreground="{DynamicResource Ink500Brush}"/>
                                     </StackPanel>
                                 </Border>
 
@@ -962,7 +965,7 @@
                                                     IsEnabled="{Binding HumanizationRunning}"/>
                                         </StackPanel>
                                         <TextBlock Text="{Binding HumanizationStatus}" FontSize="13"
-                                                   Foreground="{StaticResource Ink700Brush}" TextWrapping="Wrap"/>
+                                                   Foreground="{DynamicResource Ink700Brush}" TextWrapping="Wrap"/>
                                     </StackPanel>
                                 </Border>
 
@@ -1024,7 +1027,7 @@
                                                            Foreground="{Binding IsActive, Converter={StaticResource PortLabelConv}}"/>
                                                 <TextBlock Text="{Binding Detail}" FontSize="11"
                                                            HorizontalAlignment="Center" Margin="0,2,0,0"
-                                                           Foreground="{StaticResource Ink500Brush}"
+                                                           Foreground="{DynamicResource Ink500Brush}"
                                                            TextTrimming="CharacterEllipsis" MaxWidth="140"/>
                                             </StackPanel>
                                         </Border>
@@ -1053,12 +1056,12 @@
                             <StackPanel>
                                 <!-- Aviso de pendências (bem visível) -->
                                 <Border Margin="0,0,0,14" Padding="14,10" CornerRadius="8"
-                                        Background="#FDECEC" BorderBrush="#E53935" BorderThickness="1"
+                                        Background="{DynamicResource DangerBgBrush}" BorderBrush="{DynamicResource DangerBorderBrush}" BorderThickness="1"
                                         Visibility="{Binding ManualWarning, Converter={StaticResource NotEmptyVisConv}}">
                                     <StackPanel Orientation="Horizontal">
-                                        <TextBlock Text="⚠" FontSize="18" Foreground="#C62828" VerticalAlignment="Center"/>
+                                        <TextBlock Text="⚠" FontSize="18" Foreground="{DynamicResource DangerFgBrush}" VerticalAlignment="Center"/>
                                         <TextBlock Text="{Binding ManualWarning}" Margin="10,0,0,0" TextWrapping="Wrap"
-                                                   FontWeight="SemiBold" Foreground="#C62828" VerticalAlignment="Center"/>
+                                                   FontWeight="SemiBold" Foreground="{DynamicResource DangerFgBrush}" VerticalAlignment="Center"/>
                                     </StackPanel>
                                 </Border>
 
@@ -1067,12 +1070,12 @@
                                 <StackPanel Orientation="Horizontal">
                                     <TextBlock Style="{StaticResource H2}" Text="Teclado retroiluminado"/>
                                     <TextBlock Text="● obrigatório" Margin="10,0,0,0" VerticalAlignment="Center"
-                                               FontWeight="SemiBold" FontSize="12" Foreground="#C62828"
+                                               FontWeight="SemiBold" FontSize="12" Foreground="{DynamicResource DangerFgBrush}"
                                                Visibility="{Binding KeyboardBacklightInvalid, Converter={StaticResource BoolVisConv}}"/>
                                 </StackPanel>
                                 <TextBlock Style="{StaticResource Subtle}" Margin="0,4,0,12">
                                     <Run Text="Detecção automática:"/>
-                                    <Run FontWeight="SemiBold" Foreground="{StaticResource Ink800Brush}" Text="{Binding KeyboardBacklightDetected}"/>
+                                    <Run FontWeight="SemiBold" Foreground="{DynamicResource Ink800Brush}" Text="{Binding KeyboardBacklightDetected}"/>
                                     <Run Text="— confirme abaixo"/>
                                 </TextBlock>
                                 <Border Padding="6" CornerRadius="6" BorderThickness="2"
@@ -1085,7 +1088,7 @@
                                 <StackPanel Orientation="Horizontal" Margin="0,16,0,0">
                                     <TextBlock Style="{StaticResource H2}" Text="Teclado numérico (numpad)"/>
                                     <TextBlock Text="● obrigatório" Margin="10,0,0,0" VerticalAlignment="Center"
-                                               FontWeight="SemiBold" FontSize="12" Foreground="#C62828"
+                                               FontWeight="SemiBold" FontSize="12" Foreground="{DynamicResource DangerFgBrush}"
                                                Visibility="{Binding NumericKeypadInvalid, Converter={StaticResource BoolVisConv}}"/>
                                 </StackPanel>
                                 <TextBlock Style="{StaticResource Subtle}" Margin="0,4,0,8" Text="O teclado possui bloco numérico à direita?"/>
@@ -1094,6 +1097,20 @@
                                     <StackPanel Orientation="Horizontal">
                                         <RadioButton Content="Sim" GroupName="Numpad" IsChecked="{Binding NumericKeypadSim}"/>
                                         <RadioButton Content="Não" GroupName="Numpad" IsChecked="{Binding NumericKeypadNao}" Margin="16,0,0,0"/>
+                                    </StackPanel>
+                                </Border>
+                                <StackPanel Orientation="Horizontal" Margin="0,16,0,0">
+                                    <TextBlock Style="{StaticResource H2}" Text="Tela sensível ao toque (touch)"/>
+                                    <TextBlock Text="● obrigatório" Margin="10,0,0,0" VerticalAlignment="Center"
+                                               FontWeight="SemiBold" FontSize="12" Foreground="{DynamicResource DangerFgBrush}"
+                                               Visibility="{Binding TouchScreenInvalid, Converter={StaticResource BoolVisConv}}"/>
+                                </StackPanel>
+                                <TextBlock Style="{StaticResource Subtle}" Margin="0,4,0,8" Text="A tela do equipamento responde ao toque (touchscreen)?"/>
+                                <Border Padding="6" CornerRadius="6" BorderThickness="2"
+                                        BorderBrush="{Binding TouchScreenInvalid, Converter={StaticResource ErrorBrushConv}}">
+                                    <StackPanel Orientation="Horizontal">
+                                        <RadioButton Content="Sim" GroupName="TouchScreen" IsChecked="{Binding TouchScreenSim}"/>
+                                        <RadioButton Content="Não" GroupName="TouchScreen" IsChecked="{Binding TouchScreenNao}" Margin="16,0,0,0"/>
                                     </StackPanel>
                                 </Border>
                                 </StackPanel>
@@ -1118,7 +1135,7 @@
                                     <!-- Seletor de modo (igual ao do Teste completo) -->
                                     <UniformGrid Columns="2" Margin="0,0,0,10">
                                         <Border CornerRadius="10" Margin="0,0,4,0" Padding="2"
-                                                BorderBrush="{StaticResource Ink200Brush}" BorderThickness="1">
+                                                BorderBrush="{DynamicResource Ink200Brush}" BorderThickness="1">
                                             <Button Background="Transparent" BorderThickness="0" Padding="8" Cursor="Hand"
                                                     Command="{Binding InspecaoUsarWebcamCommand}">
                                                 <StackPanel>
@@ -1128,7 +1145,7 @@
                                             </Button>
                                         </Border>
                                         <Border CornerRadius="10" Margin="4,0,0,0" Padding="2"
-                                                BorderBrush="{StaticResource Ink200Brush}" BorderThickness="1">
+                                                BorderBrush="{DynamicResource Ink200Brush}" BorderThickness="1">
                                             <Button Background="Transparent" BorderThickness="0" Padding="8" Cursor="Hand"
                                                     Command="{Binding InspecaoUsarQrCommand}">
                                                 <StackPanel>
@@ -1141,12 +1158,12 @@
 
                                     <!-- Painel QR (modo celular) -->
                                     <StackPanel Visibility="{Binding InspecaoUsandoQr, Converter={StaticResource BoolVisConv}}">
-                                        <Border Background="White" CornerRadius="10" Padding="10" HorizontalAlignment="Left">
+                                        <Border Background="{DynamicResource SurfaceBrush}" CornerRadius="10" Padding="10" HorizontalAlignment="Left">
                                             <Image Source="{Binding InspectionQr}" Width="200" Height="200"
                                                    RenderOptions.BitmapScalingMode="NearestNeighbor"/>
                                         </Border>
                                         <TextBlock Text="{Binding InspectionUrl}" FontSize="11" Margin="0,8,0,0"
-                                                   TextWrapping="Wrap" Foreground="{StaticResource Ink500Brush}"/>
+                                                   TextWrapping="Wrap" Foreground="{DynamicResource Ink500Brush}"/>
                                         <Button Style="{StaticResource BtnGhost}" Content="🔄 Regenerar QR"
                                                 HorizontalAlignment="Left" Margin="0,8,0,0"
                                                 ToolTip="Link deu problema ou expirou? Gera uma sessão nova e um QR limpo."
@@ -1165,7 +1182,7 @@
                                             <Image Source="{Binding InspecaoCameraFrame}" Stretch="Uniform"/>
                                         </Border>
                                         <TextBlock Text="Qual parte está na câmera?" FontSize="12" Margin="0,8,0,2"
-                                                   Foreground="{StaticResource Ink700Brush}"/>
+                                                   Foreground="{DynamicResource Ink700Brush}"/>
                                         <ComboBox ItemsSource="{Binding InspectionItems}"
                                                   SelectedItem="{Binding InspecaoItemSelecionado}"
                                                   DisplayMemberPath="Label"/>
@@ -1174,17 +1191,17 @@
                                                 Command="{Binding InspecaoTirarFotoCommand}"
                                                 IsEnabled="{Binding PodeTirarFotoInspecao}"/>
                                         <TextBlock Text="{Binding InspecaoFotoErro}" FontSize="11.5" Margin="0,6,0,0"
-                                                   TextWrapping="Wrap" Foreground="#DC2626"/>
+                                                   TextWrapping="Wrap" Foreground="{DynamicResource DangerFgBrush}"/>
                                     </StackPanel>
 
                                     <TextBlock Text="{Binding InspectionStatus}" FontSize="12" Margin="0,8,0,0"
                                                TextWrapping="Wrap" FontWeight="SemiBold" Foreground="{StaticResource BrandBrush}"/>
-                                    <TextBlock Margin="0,6,0,0" FontSize="12" Foreground="{StaticResource Ink700Brush}">
+                                    <TextBlock Margin="0,6,0,0" FontSize="12" Foreground="{DynamicResource Ink700Brush}">
                                         <Run Text="Fotos principais:"/>
                                         <Run Text="{Binding InspectionDoneCount}" FontWeight="Bold"/>
                                         <Run Text="/"/>
                                         <Run Text="{Binding InspectionTotalCount}"/>
-                                        <Run Text=" (opcionais)" FontSize="11" Foreground="#9099AD"/>
+                                        <Run Text=" (opcionais)" FontSize="11" Foreground="{DynamicResource Ink400Brush}"/>
                                     </TextBlock>
                                 </StackPanel>
 
@@ -1197,7 +1214,7 @@
                                         <ItemsControl.ItemTemplate>
                                             <DataTemplate>
                                                 <Border Margin="0,0,0,8" Padding="12" CornerRadius="8"
-                                                        Background="{StaticResource Ink50Brush}">
+                                                        Background="{DynamicResource Ink50Brush}">
                                                     <Border.Style>
                                                         <Style TargetType="Border">
                                                             <Style.Triggers>
@@ -1222,16 +1239,16 @@
                                                         <StackPanel Grid.Column="1">
                                                             <StackPanel Orientation="Horizontal">
                                                                 <TextBlock Text="{Binding Label}" FontWeight="SemiBold"
-                                                                           Foreground="{StaticResource Ink900Brush}"/>
+                                                                           Foreground="{DynamicResource Ink900Brush}"/>
                                                                 <Border CornerRadius="999" Padding="8,1" Margin="8,0,0,0"
-                                                                        Background="{StaticResource Ink100Brush}"
+                                                                        Background="{DynamicResource Ink100Brush}"
                                                                         Visibility="{Binding IsOptional, Converter={StaticResource BoolVisConv}}">
                                                                     <TextBlock Text="opcional" FontSize="10"
-                                                                               Foreground="{StaticResource Ink500Brush}"/>
+                                                                               Foreground="{DynamicResource Ink500Brush}"/>
                                                                 </Border>
                                                             </StackPanel>
                                                             <TextBlock Text="{Binding Instruction}" FontSize="11.5"
-                                                                       TextWrapping="Wrap" Foreground="{StaticResource Ink500Brush}"
+                                                                       TextWrapping="Wrap" Foreground="{DynamicResource Ink500Brush}"
                                                                        Margin="0,2,0,0"/>
                                                         </StackPanel>
                                                     </Grid>
@@ -1288,17 +1305,17 @@
                                         <StackPanel>
                                             <TextBlock Style="{StaticResource Label}" Text="Apelido / NTB"/>
                                             <TextBlock Margin="0,4,0,0" FontWeight="SemiBold" FontSize="14"
-                                                       Foreground="{StaticResource Ink900Brush}" Text="{Binding NtbCode}"/>
+                                                       Foreground="{DynamicResource Ink900Brush}" Text="{Binding NtbCode}"/>
                                         </StackPanel>
                                         <StackPanel Grid.Column="1">
                                             <TextBlock Style="{StaticResource Label}" Text="Localização"/>
                                             <TextBlock Margin="0,4,0,0" FontWeight="SemiBold" FontSize="14"
-                                                       Foreground="{StaticResource Ink900Brush}" Text="{Binding LocationField}"/>
+                                                       Foreground="{DynamicResource Ink900Brush}" Text="{Binding LocationField}"/>
                                         </StackPanel>
                                         <StackPanel Grid.Column="2">
                                             <TextBlock Style="{StaticResource Label}" Text="Técnico"/>
                                             <TextBlock Margin="0,4,0,0" FontWeight="SemiBold" FontSize="14"
-                                                       Foreground="{StaticResource Ink900Brush}" Text="{Binding TechnicianName}"/>
+                                                       Foreground="{DynamicResource Ink900Brush}" Text="{Binding TechnicianName}"/>
                                         </StackPanel>
                                     </Grid>
                                 </StackPanel>
@@ -1348,11 +1365,11 @@
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate>
                                             <Border Margin="0,0,8,8" Padding="12" CornerRadius="8"
-                                                    Background="{StaticResource Ink50Brush}">
+                                                    Background="{DynamicResource Ink50Brush}">
                                                 <StackPanel>
                                                     <TextBlock Text="{Binding Label}" Style="{StaticResource Label}"/>
                                                     <TextBlock Text="{Binding Value}" Margin="0,4,0,0" FontWeight="SemiBold"
-                                                               FontSize="14" Foreground="{StaticResource Ink900Brush}"/>
+                                                               FontSize="14" Foreground="{DynamicResource Ink900Brush}"/>
                                                 </StackPanel>
                                             </Border>
                                         </DataTemplate>
@@ -1376,13 +1393,13 @@
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate>
                                             <Border Width="180" Margin="0,0,10,10" CornerRadius="8"
-                                                    Background="{StaticResource Ink50Brush}"
+                                                    Background="{DynamicResource Ink50Brush}"
                                                     Visibility="{Binding HasPhoto, Converter={StaticResource BoolVisConv}}">
                                                 <StackPanel>
                                                     <Image Source="{Binding PhotoUrl}" Height="120" Stretch="UniformToFill"/>
                                                     <TextBlock Text="{Binding Label}" Margin="8,6,8,8" FontSize="12"
                                                                FontWeight="SemiBold" TextWrapping="Wrap"
-                                                               Foreground="{StaticResource Ink800Brush}"/>
+                                                               Foreground="{DynamicResource Ink800Brush}"/>
                                                 </StackPanel>
                                             </Border>
                                         </DataTemplate>
@@ -1404,7 +1421,7 @@
                             Visibility="{Binding CurrentStep, Converter={StaticResource StepConv}, ConverterParameter=Done}"
                             HorizontalAlignment="Center" Width="640" Padding="40">
                         <StackPanel HorizontalAlignment="Center">
-                            <Border Width="56" Height="56" CornerRadius="28" Background="#DCFCE7" Margin="0,0,0,20">
+                            <Border Width="56" Height="56" CornerRadius="28" Background="{DynamicResource StatusOkBgBrush}" Margin="0,0,0,20">
                                 <TextBlock Text="✓" Foreground="{StaticResource OkBrush}" FontSize="30" FontWeight="Bold"
                                            HorizontalAlignment="Center" VerticalAlignment="Center"/>
                             </Border>

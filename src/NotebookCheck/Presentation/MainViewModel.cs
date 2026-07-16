@@ -94,10 +94,13 @@ public sealed partial class MainViewModel : ObservableObject
     [ObservableProperty] private string keyboardBacklightDetected = "Indeterminado";
     [ObservableProperty] private bool numericKeypadSim;
     [ObservableProperty] private bool numericKeypadNao;
+    [ObservableProperty] private bool touchScreenSim;
+    [ObservableProperty] private bool touchScreenNao;
 
     /// <summary>Marcam em vermelho os campos obrigatórios da inspeção ao tentar avançar.</summary>
     [ObservableProperty] private bool keyboardBacklightInvalid;
     [ObservableProperty] private bool numericKeypadInvalid;
+    [ObservableProperty] private bool touchScreenInvalid;
     /// <summary>True quando faltam fotos da inspeção física ao tentar avançar.</summary>
     [ObservableProperty] private bool inspectionIncomplete;
     /// <summary>Mensagem de aviso visível na etapa de inspeção (vazio = sem aviso).</summary>
@@ -165,6 +168,8 @@ public sealed partial class MainViewModel : ObservableObject
     partial void OnKeyboardBacklightNaoChanged(bool value) { if (value) KeyboardBacklightInvalid = false; }
     partial void OnNumericKeypadSimChanged(bool value) { if (value) NumericKeypadInvalid = false; }
     partial void OnNumericKeypadNaoChanged(bool value) { if (value) NumericKeypadInvalid = false; }
+    partial void OnTouchScreenSimChanged(bool value) { if (value) TouchScreenInvalid = false; }
+    partial void OnTouchScreenNaoChanged(bool value) { if (value) TouchScreenInvalid = false; }
 
     /// <summary>True se qualquer benchmark próprio está rodando (bloqueia os demais).</summary>
     public bool AnyBenchRunning => CpuBenchRunning || GpuBenchRunning || DiskBenchRunning
@@ -741,6 +746,8 @@ public sealed partial class MainViewModel : ObservableObject
         { KeyboardBacklightSim = false; KeyboardBacklightNao = true; }
         if (history.HasNumericKeypad is bool np)
         { NumericKeypadSim = np; NumericKeypadNao = !np; }
+        if (history.HasTouchScreen is bool ts)
+        { TouchScreenSim = ts; TouchScreenNao = !ts; }
         if (!string.IsNullOrWhiteSpace(history.GeneralNotes)) GeneralNotes = history.GeneralNotes;
 
         var when = history.TestedAt == DateTime.MinValue ? "?" : history.TestedAt.ToString("dd/MM/yyyy");
@@ -2602,7 +2609,7 @@ public sealed partial class MainViewModel : ObservableObject
         if (InspectionTotalCount > 0 && value >= InspectionTotalCount)
         {
             InspectionIncomplete = false;
-            if (!KeyboardBacklightInvalid && !NumericKeypadInvalid) ManualWarning = "";
+            if (!KeyboardBacklightInvalid && !NumericKeypadInvalid && !TouchScreenInvalid) ManualWarning = "";
         }
     }
 
@@ -2800,18 +2807,20 @@ public sealed partial class MainViewModel : ObservableObject
             return;
         }
 
-        // Confirmações de teclado não se aplicam ao Desktop (teclado externo).
+        // Confirmações de teclado/tela não se aplicam ao Desktop (periféricos externos).
         var requireKeyboardChecks = ChecklistMode != ChecklistMode.Desktop;
         KeyboardBacklightInvalid = requireKeyboardChecks && !KeyboardBacklightSim && !KeyboardBacklightNao;
         NumericKeypadInvalid = requireKeyboardChecks && !NumericKeypadSim && !NumericKeypadNao;
+        TouchScreenInvalid = requireKeyboardChecks && !TouchScreenSim && !TouchScreenNao;
         // Inspeção física: fotos são OPCIONAIS — nunca bloqueiam a finalização.
         InspectionIncomplete = false;
 
-        if (KeyboardBacklightInvalid || NumericKeypadInvalid)
+        if (KeyboardBacklightInvalid || NumericKeypadInvalid || TouchScreenInvalid)
         {
             var faltas = new System.Collections.Generic.List<string>();
             if (KeyboardBacklightInvalid) faltas.Add("confirme o teclado retroiluminado");
             if (NumericKeypadInvalid) faltas.Add("confirme o teclado numérico");
+            if (TouchScreenInvalid) faltas.Add("confirme se a tela é touch");
 
             ManualWarning = "Antes de finalizar: " + string.Join("; ", faltas) + ".";
             StatusMessage = ManualWarning;
@@ -2823,6 +2832,7 @@ public sealed partial class MainViewModel : ObservableObject
         _session.GeneralNotes = GeneralNotes ?? "";
         _session.KeyboardBacklight = KeyboardBacklightSim ? KeyboardBacklight.Sim : KeyboardBacklight.Nao;
         _session.HasNumericKeypad = NumericKeypadSim;
+        _session.HasTouchScreen = TouchScreenSim;
         _session.TechnicianName = TechnicianName.Trim();
 
         _session.Manual.Clear();

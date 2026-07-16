@@ -58,21 +58,18 @@ public sealed class SimNaoConverter : IValueConverter
 /// </summary>
 public sealed class StatusBackgroundConverter : IValueConverter
 {
-    private static readonly SolidColorBrush Ok = new((Color)ColorConverter.ConvertFromString("#DCFCE7"));
-    private static readonly SolidColorBrush Warn = new((Color)ColorConverter.ConvertFromString("#FEF3C7"));
-    private static readonly SolidColorBrush Bad = new((Color)ColorConverter.ConvertFromString("#FEE2E2"));
-    private static readonly SolidColorBrush Mute = new((Color)ColorConverter.ConvertFromString("#EEF0F4"));
-
     public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
     {
-        var s = value?.ToString() ?? "";
-        return s switch
+        var key = (value?.ToString() ?? "") switch
         {
-            "OK" or "Sincronizado" => Ok,
-            "Atenção" or "Observação" or "Pendente" => Warn,
-            "Falha" or "Com defeito" => Bad,
-            _ => Mute,
+            "OK" or "Sincronizado" => "StatusOkBgBrush",
+            "Atenção" or "Observação" or "Pendente" => "StatusWarnBgBrush",
+            "Falha" or "Com defeito" => "StatusBadBgBrush",
+            _ => "StatusMuteBgBrush",
         };
+        // Brush compartilhado do tema: o ThemeManager muta a Color, então o
+        // chip acompanha o claro/escuro sem re-binding.
+        return System.Windows.Application.Current?.TryFindResource(key) as Brush ?? Brushes.Transparent;
     }
 
     public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
@@ -81,21 +78,16 @@ public sealed class StatusBackgroundConverter : IValueConverter
 
 public sealed class StatusForegroundConverter : IValueConverter
 {
-    private static readonly SolidColorBrush Ok = new((Color)ColorConverter.ConvertFromString("#15803D"));
-    private static readonly SolidColorBrush Warn = new((Color)ColorConverter.ConvertFromString("#B45309"));
-    private static readonly SolidColorBrush Bad = new((Color)ColorConverter.ConvertFromString("#B91C1C"));
-    private static readonly SolidColorBrush Mute = new((Color)ColorConverter.ConvertFromString("#444B5C"));
-
     public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
     {
-        var s = value?.ToString() ?? "";
-        return s switch
+        var key = (value?.ToString() ?? "") switch
         {
-            "OK" or "Sincronizado" => Ok,
-            "Atenção" or "Observação" or "Pendente" => Warn,
-            "Falha" or "Com defeito" => Bad,
-            _ => Mute,
+            "OK" or "Sincronizado" => "StatusOkFgBrush",
+            "Atenção" or "Observação" or "Pendente" => "StatusWarnFgBrush",
+            "Falha" or "Com defeito" => "StatusBadFgBrush",
+            _ => "StatusMuteFgBrush",
         };
+        return System.Windows.Application.Current?.TryFindResource(key) as Brush ?? Brushes.Gray;
     }
 
     public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
@@ -133,13 +125,13 @@ public sealed class NotEmptyToVisibilityConverter : IValueConverter
 /// </summary>
 public sealed class BoolToErrorBrushConverter : IValueConverter
 {
-    private static readonly System.Windows.Media.Brush Error =
-        new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(0xE5, 0x39, 0x35));
     private static readonly System.Windows.Media.Brush None =
         System.Windows.Media.Brushes.Transparent;
 
     public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
-        => (value is bool b && b) ? Error : None;
+        => (value is bool b && b)
+            ? System.Windows.Application.Current?.TryFindResource("DangerBorderBrush") as Brush ?? Brushes.Red
+            : None;
 
     public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
         => throw new NotSupportedException();
@@ -210,11 +202,10 @@ public sealed class StepTitleConverter : IValueConverter
 /// </summary>
 public sealed class PortBgConverter : IValueConverter
 {
-    private static readonly SolidColorBrush ActiveBg = new((Color)ColorConverter.ConvertFromString("#DCFCE7"));
-    private static readonly SolidColorBrush InactiveBg = new((Color)ColorConverter.ConvertFromString("#F3F4F6"));
-
     public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
-        => value is bool b && b ? ActiveBg : InactiveBg;
+        => System.Windows.Application.Current?.TryFindResource(
+               value is bool b && b ? "PortActiveBgBrush" : "PortInactiveBgBrush") as Brush
+           ?? Brushes.Transparent;
 
     public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
         => throw new NotSupportedException();
@@ -222,11 +213,10 @@ public sealed class PortBgConverter : IValueConverter
 
 public sealed class PortBorderConverter : IValueConverter
 {
-    private static readonly SolidColorBrush ActiveBorder = new((Color)ColorConverter.ConvertFromString("#15803D"));
-    private static readonly SolidColorBrush InactiveBorder = new((Color)ColorConverter.ConvertFromString("#D1D5DB"));
-
     public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
-        => value is bool b && b ? ActiveBorder : InactiveBorder;
+        => System.Windows.Application.Current?.TryFindResource(
+               value is bool b && b ? "PortActiveBorderBrush" : "PortInactiveBorderBrush") as Brush
+           ?? Brushes.Gray;
 
     public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
         => throw new NotSupportedException();
@@ -234,11 +224,10 @@ public sealed class PortBorderConverter : IValueConverter
 
 public sealed class PortLabelConverter : IValueConverter
 {
-    private static readonly SolidColorBrush ActiveLabel = new((Color)ColorConverter.ConvertFromString("#15803D"));
-    private static readonly SolidColorBrush InactiveLabel = new((Color)ColorConverter.ConvertFromString("#6B7280"));
-
     public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
-        => value is bool b && b ? ActiveLabel : InactiveLabel;
+        => System.Windows.Application.Current?.TryFindResource(
+               value is bool b && b ? "PortActiveLabelBrush" : "PortInactiveLabelBrush") as Brush
+           ?? Brushes.Gray;
 
     public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
         => throw new NotSupportedException();

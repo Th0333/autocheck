@@ -10,7 +10,7 @@
         WindowStartupLocation="CenterOwner"
         ResizeMode="NoResize"
         WindowStyle="None"
-        Background="{StaticResource Ink50Brush}">
+        Background="{DynamicResource Ink50Brush}">
     <shell:WindowChrome.WindowChrome>
         <shell:WindowChrome CaptionHeight="36" ResizeBorderThickness="6"
                             CornerRadius="0" GlassFrameThickness="0"
@@ -64,7 +64,7 @@
                             </StackPanel>
                         </Grid>
 
-                        <Separator Margin="0,12" Background="{StaticResource Ink100Brush}"/>
+                        <Separator Margin="0,12" Background="{DynamicResource Ink100Brush}"/>
 
                         <Grid>
                             <Grid.ColumnDefinitions>
@@ -89,13 +89,13 @@
                 </Border>
 
                 <ProgressBar x:Name="progress" Maximum="100" Height="10" Margin="0,14,0,0"
-                             Foreground="{StaticResource BrandBrush}" Background="{StaticResource Ink100Brush}"
+                             Foreground="{StaticResource BrandBrush}" Background="{DynamicResource Ink100Brush}"
                              BorderThickness="0"/>
 
                 <Border x:Name="verdictPanel" Margin="0,14,0,0" Padding="14" CornerRadius="8"
-                        Background="{StaticResource Ink50Brush}" BorderBrush="{StaticResource Ink200Brush}"
+                        Background="{DynamicResource Ink50Brush}" BorderBrush="{DynamicResource Ink200Brush}"
                         BorderThickness="1" Visibility="Collapsed">
-                    <TextBlock x:Name="verdictText" TextWrapping="Wrap" Foreground="{StaticResource Ink800Brush}"/>
+                    <TextBlock x:Name="verdictText" TextWrapping="Wrap" Foreground="{DynamicResource Ink800Brush}"/>
                 </Border>
             </StackPanel>
         </DockPanel>

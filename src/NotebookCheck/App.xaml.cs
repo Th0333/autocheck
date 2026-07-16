@@ -22,6 +22,9 @@ public partial class App : System.Windows.Application
     {
         try
         {
+            // Aplica o tema salvo (claro/escuro) antes de qualquer janela.
+            ThemeManager.Initialize();
+
             // ----- Auto-update (antes de abrir o app principal) -----
             // Roda silenciosamente, mas mostra uma janela "Atualizando" para o
             // técnico não ficar no escuro. Se não houver update ou falhar,

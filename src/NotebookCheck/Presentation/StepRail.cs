@@ -80,8 +80,12 @@ public sealed class StepRail : ContentControl
     public StepRail()
     {
         Focusable = false;
-        Loaded += (_, _) => Rebuild();
+        Loaded += (_, _) => { Rebuild(); ThemeManager.ThemeChanged += OnThemeChanged; };
+        // O rail cacheia os brushes na construção; reconstrói ao trocar o tema.
+        Unloaded += (_, _) => ThemeManager.ThemeChanged -= OnThemeChanged;
     }
+
+    private void OnThemeChanged() => Rebuild();
 
     private static void OnCurrentStepChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
     {
@@ -100,6 +104,7 @@ public sealed class StepRail : ContentControl
         var ink700 = (Brush)app.FindResource("Ink700Brush");
         var ink900 = (Brush)app.FindResource("Ink900Brush");
         var ok = (Brush)app.FindResource("OkBrush");
+        var surface = (Brush)app.FindResource("SurfaceBrush");
 
         var currentIndex = Array.FindIndex(Steps, s => s.step == CurrentStep);
 
@@ -143,7 +148,7 @@ public sealed class StepRail : ContentControl
                 Margin = new Thickness(0, 6, 0, 0),
                 VerticalAlignment = VerticalAlignment.Top,
                 HorizontalAlignment = HorizontalAlignment.Center,
-                Fill = isPast ? ok : (isCurrent ? brand : Brushes.White),
+                Fill = isPast ? ok : (isCurrent ? brand : surface),
                 Stroke = isPast ? ok : (isCurrent ? brand : ink200),
                 StrokeThickness = 2,
             };
