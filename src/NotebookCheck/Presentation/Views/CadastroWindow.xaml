@@ -8,7 +8,7 @@
         MinWidth="620" MinHeight="600"
         WindowStartupLocation="CenterOwner"
         WindowStyle="None"
-        Background="{StaticResource Ink50Brush}">
+        Background="{DynamicResource Ink50Brush}">
     <shell:WindowChrome.WindowChrome>
         <shell:WindowChrome CaptionHeight="36" ResizeBorderThickness="6"
                             CornerRadius="0" GlassFrameThickness="0"
@@ -26,7 +26,7 @@
         <controls:ModalTitleBar Grid.Row="0" Title="Cadastro no estoque (ERP)"/>
 
         <!-- Cabeçalho: etapa atual + passos -->
-        <Border Grid.Row="1" Background="White" BorderBrush="{StaticResource Ink200Brush}"
+        <Border Grid.Row="1" Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource Ink200Brush}"
                 BorderThickness="0,0,0,1" Padding="22,16">
             <StackPanel>
                 <TextBlock Style="{StaticResource Label}" Text="{Binding StepNumberLabel}"/>
@@ -65,30 +65,30 @@
 
                             <!-- Detalhes e requisitos do pedido selecionado -->
                             <Border Margin="0,10,0,0" Padding="14" CornerRadius="8"
-                                    Background="{StaticResource Ink50Brush}"
+                                    Background="{DynamicResource Ink50Brush}"
                                     Visibility="{Binding PedidoSelecionado, Converter={StaticResource BoolVisConv}}">
                                 <StackPanel>
                                     <Grid>
                                         <Grid.ColumnDefinitions><ColumnDefinition Width="160"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
                                         <Grid.RowDefinitions><RowDefinition/><RowDefinition/><RowDefinition/></Grid.RowDefinitions>
-                                        <TextBlock Text="Fornecedor" Foreground="{StaticResource Ink500Brush}"/>
+                                        <TextBlock Text="Fornecedor" Foreground="{DynamicResource Ink500Brush}"/>
                                         <TextBlock Grid.Column="1" Text="{Binding PedidoFornecedor}" TextWrapping="Wrap"/>
-                                        <TextBlock Grid.Row="1" Text="Documento" Foreground="{StaticResource Ink500Brush}"/>
+                                        <TextBlock Grid.Row="1" Text="Documento" Foreground="{DynamicResource Ink500Brush}"/>
                                         <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding PedidoDocumento}" TextWrapping="Wrap"/>
-                                        <TextBlock Grid.Row="2" Text="Progresso" Foreground="{StaticResource Ink500Brush}"/>
+                                        <TextBlock Grid.Row="2" Text="Progresso" Foreground="{DynamicResource Ink500Brush}"/>
                                         <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding PedidoProgresso}"/>
                                     </Grid>
                                     <StackPanel Visibility="{Binding PedidoTemRequisitos, Converter={StaticResource BoolVisConv}}">
-                                        <Border Height="1" Background="{StaticResource Ink200Brush}" Margin="0,10"/>
+                                        <Border Height="1" Background="{DynamicResource Ink200Brush}" Margin="0,10"/>
                                         <TextBlock Style="{StaticResource Label}" Text="REQUISITOS DO PEDIDO"/>
                                         <StackPanel Orientation="Horizontal" Margin="0,6,0,0"
                                                     Visibility="{Binding TemCondicaoMinima, Converter={StaticResource BoolVisConv}}">
-                                            <TextBlock Text="Condição mínima:" Foreground="{StaticResource Ink500Brush}" Margin="0,0,6,0"/>
+                                            <TextBlock Text="Condição mínima:" Foreground="{DynamicResource Ink500Brush}" Margin="0,0,6,0"/>
                                             <TextBlock Text="{Binding PedidoCondicaoMinima}" FontWeight="SemiBold"/>
                                         </StackPanel>
                                         <StackPanel Margin="0,6,0,0"
                                                     Visibility="{Binding TemAcessoriosObrigatorios, Converter={StaticResource BoolVisConv}}">
-                                            <TextBlock Text="Acessórios obrigatórios:" Foreground="{StaticResource Ink500Brush}"/>
+                                            <TextBlock Text="Acessórios obrigatórios:" Foreground="{DynamicResource Ink500Brush}"/>
                                             <ItemsControl ItemsSource="{Binding AcessoriosChecklist}" Margin="0,4,0,0">
                                                 <ItemsControl.ItemsPanel>
                                                     <ItemsPanelTemplate><WrapPanel/></ItemsPanelTemplate>
@@ -96,10 +96,10 @@
                                                 <ItemsControl.ItemTemplate>
                                                     <DataTemplate>
                                                         <Border CornerRadius="999" Padding="9,4" Margin="0,0,6,6"
-                                                                Background="White" BorderThickness="1"
-                                                                BorderBrush="{StaticResource Ink200Brush}">
+                                                                Background="{DynamicResource SurfaceBrush}" BorderThickness="1"
+                                                                BorderBrush="{DynamicResource Ink200Brush}">
                                                             <TextBlock Text="{Binding Nome}" FontSize="12"
-                                                                       Foreground="{StaticResource Ink700Brush}"/>
+                                                                       Foreground="{DynamicResource Ink700Brush}"/>
                                                         </Border>
                                                     </DataTemplate>
                                                 </ItemsControl.ItemTemplate>
@@ -174,10 +174,10 @@
                             <TextBox Text="{Binding Linha, UpdateSourceTrigger=PropertyChanged}" Margin="0,2,0,8"
                                      BorderBrush="{StaticResource WarnBrush}"/>
                             <Border Margin="0,6,0,0" Padding="12,10" CornerRadius="8"
-                                    Background="{StaticResource Ink50Brush}">
+                                    Background="{DynamicResource Ink50Brush}">
                                 <StackPanel Orientation="Horizontal">
                                     <TextBlock Text="🔢" Margin="0,0,8,0"/>
-                                    <TextBlock TextWrapping="Wrap" Foreground="{StaticResource Ink600Brush}"
+                                    <TextBlock TextWrapping="Wrap" Foreground="{DynamicResource Ink600Brush}"
                                                Text="O NTB é gerado automaticamente pelo estoque (numeração sequencial da organização) e aparece na confirmação do cadastro."/>
                                 </StackPanel>
                             </Border>
@@ -192,7 +192,7 @@
                                          FontFamily="{StaticResource MonoFont}"
                                          BorderBrush="{StaticResource WarnBrush}"/>
                                 <TextBlock Text="lendo…" VerticalAlignment="Center" HorizontalAlignment="Right"
-                                           Margin="0,0,12,0" Foreground="{StaticResource Ink400Brush}"
+                                           Margin="0,0,12,0" Foreground="{DynamicResource Ink400Brush}"
                                            IsHitTestVisible="False"
                                            Visibility="{Binding SerialReady, Converter={StaticResource BoolVisConv}, ConverterParameter=invert}"/>
                             </Grid>
@@ -203,7 +203,7 @@
                         <StackPanel>
                             <TextBlock Style="{StaticResource Label}" Text="ESPECIFICAÇÕES COLETADAS"/>
                             <TextBlock Text="{Binding SpecsResumo}" TextWrapping="Wrap" Margin="0,4,0,0"
-                                       Foreground="{StaticResource Ink700Brush}"/>
+                                       Foreground="{DynamicResource Ink700Brush}"/>
                         </StackPanel>
                     </Border>
                 </StackPanel>
@@ -224,13 +224,13 @@
 
                             <!-- Aviso: condição abaixo do mínimo do pedido -->
                             <Border Margin="0,10,0,0" Padding="12,10" CornerRadius="8"
-                                    Background="#FFFBEB" BorderBrush="{StaticResource WarnBrush}" BorderThickness="1"
+                                    Background="{DynamicResource WarnTintBrush}" BorderBrush="{StaticResource WarnBrush}" BorderThickness="1"
                                     Visibility="{Binding CondicaoAbaixoMinimo, Converter={StaticResource BoolVisConv}}">
                                 <StackPanel Orientation="Horizontal">
                                     <TextBlock Text="⚠" FontSize="16" Margin="0,0,8,0" VerticalAlignment="Top"
                                                Foreground="{StaticResource WarnBrush}"/>
                                     <TextBlock Text="{Binding CondicaoAvisoText}" TextWrapping="Wrap" MaxWidth="520"
-                                               Foreground="{StaticResource Ink800Brush}"/>
+                                               Foreground="{DynamicResource Ink800Brush}"/>
                                 </StackPanel>
                             </Border>
                         </StackPanel>
@@ -253,13 +253,13 @@
 
                                 <!-- Aviso: acessórios obrigatórios faltando -->
                                 <Border Margin="0,8,0,0" Padding="12,10" CornerRadius="8"
-                                        Background="#FFFBEB" BorderBrush="{StaticResource WarnBrush}" BorderThickness="1"
+                                        Background="{DynamicResource WarnTintBrush}" BorderBrush="{StaticResource WarnBrush}" BorderThickness="1"
                                         Visibility="{Binding TemAcessoriosFaltando, Converter={StaticResource BoolVisConv}}">
                                     <StackPanel Orientation="Horizontal">
                                         <TextBlock Text="⚠" FontSize="16" Margin="0,0,8,0" VerticalAlignment="Top"
                                                    Foreground="{StaticResource WarnBrush}"/>
                                         <TextBlock Text="{Binding AcessoriosAvisoText}" TextWrapping="Wrap" MaxWidth="520"
-                                                   Foreground="{StaticResource Ink800Brush}"/>
+                                                   Foreground="{DynamicResource Ink800Brush}"/>
                                     </StackPanel>
                                 </Border>
                             </StackPanel>
@@ -275,7 +275,7 @@
                                          ToolTip="Um por linha"/>
                                 <TextBlock Text="Bolsa, mouse, ..." IsHitTestVisible="False"
                                            VerticalAlignment="Top" HorizontalAlignment="Left" Margin="12,9,0,0"
-                                           Foreground="{StaticResource Ink400Brush}">
+                                           Foreground="{DynamicResource Ink400Brush}">
                                     <TextBlock.Style>
                                         <Style TargetType="TextBlock">
                                             <Setter Property="Visibility" Value="Collapsed"/>
@@ -300,7 +300,7 @@
                                          ToolTip="Um por linha"/>
                                 <TextBlock Text="Tela com risco, dobradica quebrada, ..." IsHitTestVisible="False"
                                            VerticalAlignment="Top" HorizontalAlignment="Left" Margin="12,9,0,0"
-                                           Foreground="{StaticResource Ink400Brush}">
+                                           Foreground="{DynamicResource Ink400Brush}">
                                     <TextBlock.Style>
                                         <Style TargetType="TextBlock">
                                             <Setter Property="Visibility" Value="Collapsed"/>
@@ -339,39 +339,39 @@
 
                     <!-- Avisos de requisitos do pedido não atendidos -->
                     <Border Margin="0,0,0,14" Padding="14,12" CornerRadius="12"
-                            Background="#FFFBEB" BorderBrush="{StaticResource WarnBrush}" BorderThickness="1"
+                            Background="{DynamicResource WarnTintBrush}" BorderBrush="{StaticResource WarnBrush}" BorderThickness="1"
                             Visibility="{Binding CondicaoAbaixoMinimo, Converter={StaticResource BoolVisConv}}">
                         <StackPanel Orientation="Horizontal">
                             <TextBlock Text="⚠" FontSize="16" Margin="0,0,8,0" VerticalAlignment="Top"
                                        Foreground="{StaticResource WarnBrush}"/>
                             <TextBlock Text="{Binding CondicaoAvisoText}" TextWrapping="Wrap" MaxWidth="560"
-                                       Foreground="{StaticResource Ink800Brush}"/>
+                                       Foreground="{DynamicResource Ink800Brush}"/>
                         </StackPanel>
                     </Border>
                     <Border Margin="0,0,0,14" Padding="14,12" CornerRadius="12"
-                            Background="#FFFBEB" BorderBrush="{StaticResource WarnBrush}" BorderThickness="1"
+                            Background="{DynamicResource WarnTintBrush}" BorderBrush="{StaticResource WarnBrush}" BorderThickness="1"
                             Visibility="{Binding TemAcessoriosFaltando, Converter={StaticResource BoolVisConv}}">
                         <StackPanel Orientation="Horizontal">
                             <TextBlock Text="⚠" FontSize="16" Margin="0,0,8,0" VerticalAlignment="Top"
                                        Foreground="{StaticResource WarnBrush}"/>
                             <TextBlock Text="{Binding AcessoriosAvisoText}" TextWrapping="Wrap" MaxWidth="560"
-                                       Foreground="{StaticResource Ink800Brush}"/>
+                                       Foreground="{DynamicResource Ink800Brush}"/>
                         </StackPanel>
                     </Border>
                     <Border Margin="0,0,0,14" Padding="14,12" CornerRadius="12"
-                            Background="#FFFBEB" BorderBrush="{StaticResource WarnBrush}" BorderThickness="1"
+                            Background="{DynamicResource WarnTintBrush}" BorderBrush="{StaticResource WarnBrush}" BorderThickness="1"
                             Visibility="{Binding TemConfigDivergencias, Converter={StaticResource BoolVisConv}}">
                         <StackPanel Orientation="Horizontal">
                             <TextBlock Text="⚠" FontSize="16" Margin="0,0,8,0" VerticalAlignment="Top"
                                        Foreground="{StaticResource WarnBrush}"/>
                             <TextBlock Text="{Binding ConfigDivergenciasText}" TextWrapping="Wrap" MaxWidth="560"
-                                       Foreground="{StaticResource Ink800Brush}"/>
+                                       Foreground="{DynamicResource Ink800Brush}"/>
                         </StackPanel>
                     </Border>
 
                     <!-- Pendências: o que ainda está vazio -->
                     <Border Margin="0,0,0,14" Padding="18" CornerRadius="12"
-                            Background="#FFFBEB" BorderBrush="{StaticResource WarnBrush}" BorderThickness="1"
+                            Background="{DynamicResource WarnTintBrush}" BorderBrush="{StaticResource WarnBrush}" BorderThickness="1"
                             Visibility="{Binding TemPendencias, Converter={StaticResource BoolVisConv}}">
                         <StackPanel>
                             <TextBlock Style="{StaticResource H2}" Text="⚠ Faltando preencher"
@@ -384,7 +384,7 @@
                                 </ItemsControl.ItemsPanel>
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate>
-                                        <Border CornerRadius="999" Padding="10,5" Margin="0,0,8,8" Background="White"
+                                        <Border CornerRadius="999" Padding="10,5" Margin="0,0,8,8" Background="{DynamicResource SurfaceBrush}"
                                                 BorderThickness="1">
                                             <Border.Style>
                                                 <Style TargetType="Border">
@@ -392,7 +392,7 @@
                                                     <Style.Triggers>
                                                         <DataTrigger Binding="{Binding Required}" Value="True">
                                                             <Setter Property="BorderBrush" Value="{StaticResource BadBrush}"/>
-                                                            <Setter Property="Background" Value="#FEF2F2"/>
+                                                            <Setter Property="Background" Value="{DynamicResource DangerBgBrush}"/>
                                                         </DataTrigger>
                                                     </Style.Triggers>
                                                 </Style>
@@ -411,7 +411,7 @@
                                                     </TextBlock.Style>
                                                 </TextBlock>
                                                 <TextBlock Text="{Binding Label}" VerticalAlignment="Center" FontWeight="SemiBold"
-                                                           Foreground="{StaticResource Ink800Brush}"/>
+                                                           Foreground="{DynamicResource Ink800Brush}"/>
                                                 <TextBlock Text="obrigatório" FontSize="11" Margin="6,0,0,0" VerticalAlignment="Center"
                                                            Foreground="{StaticResource BadBrush}"
                                                            Visibility="{Binding Required, Converter={StaticResource BoolVisConv}}"/>
@@ -425,7 +425,7 @@
 
                     <!-- Tudo preenchido -->
                     <Border Margin="0,0,0,14" Padding="16" CornerRadius="12"
-                            Background="#ECFDF5" BorderBrush="{StaticResource OkBrush}" BorderThickness="1"
+                            Background="{DynamicResource OkTintBrush}" BorderBrush="{StaticResource OkBrush}" BorderThickness="1"
                             Visibility="{Binding TudoPreenchido, Converter={StaticResource BoolVisConv}}">
                         <StackPanel Orientation="Horizontal">
                             <TextBlock Text="✅" FontSize="20" Margin="0,0,10,0" VerticalAlignment="Center"/>
@@ -446,61 +446,61 @@
                                 <Grid.RowDefinitions>
                                     <RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/>
                                 </Grid.RowDefinitions>
-                                <TextBlock Text="Pedido" Foreground="{StaticResource Ink500Brush}"/>
+                                <TextBlock Text="Pedido" Foreground="{DynamicResource Ink500Brush}"/>
                                 <TextBlock Grid.Column="1" Text="{Binding RevPedido}" FontWeight="SemiBold" TextWrapping="Wrap"/>
-                                <TextBlock Grid.Row="1" Text="Máquina" Foreground="{StaticResource Ink500Brush}"/>
+                                <TextBlock Grid.Row="1" Text="Máquina" Foreground="{DynamicResource Ink500Brush}"/>
                                 <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding RevMaquina}" TextWrapping="Wrap"/>
-                                <TextBlock Grid.Row="2" Text="Fornecedor" Foreground="{StaticResource Ink500Brush}"/>
+                                <TextBlock Grid.Row="2" Text="Fornecedor" Foreground="{DynamicResource Ink500Brush}"/>
                                 <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding PedidoFornecedor}" TextWrapping="Wrap"/>
-                                <TextBlock Grid.Row="3" Text="Documento" Foreground="{StaticResource Ink500Brush}"/>
+                                <TextBlock Grid.Row="3" Text="Documento" Foreground="{DynamicResource Ink500Brush}"/>
                                 <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding PedidoDocumento}" TextWrapping="Wrap"/>
                             </Grid>
 
-                            <Border Height="1" Background="{StaticResource Ink200Brush}" Margin="0,12"/>
+                            <Border Height="1" Background="{DynamicResource Ink200Brush}" Margin="0,12"/>
                             <TextBlock Style="{StaticResource Label}" Text="IDENTIFICAÇÃO" Margin="0,0,0,4"/>
                             <Grid>
                                 <Grid.ColumnDefinitions><ColumnDefinition Width="180"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
                                 <Grid.RowDefinitions>
                                     <RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/>
                                 </Grid.RowDefinitions>
-                                <TextBlock Text="Modelo" Foreground="{StaticResource Ink500Brush}"/>
+                                <TextBlock Text="Modelo" Foreground="{DynamicResource Ink500Brush}"/>
                                 <TextBlock Grid.Column="1" Text="{Binding RevModelo}" FontWeight="SemiBold" TextWrapping="Wrap"/>
-                                <TextBlock Grid.Row="1" Text="NTB" Foreground="{StaticResource Ink500Brush}"/>
+                                <TextBlock Grid.Row="1" Text="NTB" Foreground="{DynamicResource Ink500Brush}"/>
                                 <TextBlock Grid.Row="1" Grid.Column="1" Text="Gerado automaticamente no cadastro"
-                                           Foreground="{StaticResource Ink500Brush}" FontStyle="Italic"/>
-                                <TextBlock Grid.Row="2" Text="Linha" Foreground="{StaticResource Ink500Brush}"/>
+                                           Foreground="{DynamicResource Ink500Brush}" FontStyle="Italic"/>
+                                <TextBlock Grid.Row="2" Text="Linha" Foreground="{DynamicResource Ink500Brush}"/>
                                 <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding RevLinha}"/>
-                                <TextBlock Grid.Row="3" Text="Marca" Foreground="{StaticResource Ink500Brush}"/>
+                                <TextBlock Grid.Row="3" Text="Marca" Foreground="{DynamicResource Ink500Brush}"/>
                                 <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding RevMarca}"/>
-                                <TextBlock Grid.Row="4" Text="Serial" Foreground="{StaticResource Ink500Brush}"/>
+                                <TextBlock Grid.Row="4" Text="Serial" Foreground="{DynamicResource Ink500Brush}"/>
                                 <TextBlock Grid.Row="4" Grid.Column="1" Text="{Binding RevSerial}" FontFamily="{StaticResource MonoFont}"/>
                             </Grid>
 
-                            <Border Height="1" Background="{StaticResource Ink200Brush}" Margin="0,12"/>
+                            <Border Height="1" Background="{DynamicResource Ink200Brush}" Margin="0,12"/>
                             <TextBlock Style="{StaticResource Label}" Text="CONDIÇÃO" Margin="0,0,0,4"/>
                             <Grid>
                                 <Grid.ColumnDefinitions><ColumnDefinition Width="180"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
                                 <Grid.RowDefinitions><RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/></Grid.RowDefinitions>
-                                <TextBlock Text="Estética" Foreground="{StaticResource Ink500Brush}"/>
+                                <TextBlock Text="Estética" Foreground="{DynamicResource Ink500Brush}"/>
                                 <TextBlock Grid.Column="1" Text="{Binding RevCondicao}"/>
-                                <TextBlock Grid.Row="1" Text="Acessórios" Foreground="{StaticResource Ink500Brush}"/>
+                                <TextBlock Grid.Row="1" Text="Acessórios" Foreground="{DynamicResource Ink500Brush}"/>
                                 <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding RevAcessorios}" TextWrapping="Wrap"/>
-                                <TextBlock Grid.Row="2" Text="Defeitos" Foreground="{StaticResource Ink500Brush}"/>
+                                <TextBlock Grid.Row="2" Text="Defeitos" Foreground="{DynamicResource Ink500Brush}"/>
                                 <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding RevDefeitos}" TextWrapping="Wrap"/>
-                                <TextBlock Grid.Row="3" Text="Observações" Foreground="{StaticResource Ink500Brush}"/>
+                                <TextBlock Grid.Row="3" Text="Observações" Foreground="{DynamicResource Ink500Brush}"/>
                                 <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding RevObservacoes}" TextWrapping="Wrap"/>
                             </Grid>
 
-                            <Border Height="1" Background="{StaticResource Ink200Brush}" Margin="0,12"/>
+                            <Border Height="1" Background="{DynamicResource Ink200Brush}" Margin="0,12"/>
                             <TextBlock Style="{StaticResource Label}" Text="LOCALIZAÇÃO" Margin="0,0,0,4"/>
                             <Grid>
                                 <Grid.ColumnDefinitions><ColumnDefinition Width="180"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
                                 <Grid.RowDefinitions><RowDefinition/><RowDefinition/></Grid.RowDefinitions>
-                                <TextBlock Text="Localização" Foreground="{StaticResource Ink500Brush}"/>
+                                <TextBlock Text="Localização" Foreground="{DynamicResource Ink500Brush}"/>
                                 <TextBlock Grid.Column="1" Text="{Binding RevLocalizacao}" TextWrapping="Wrap"/>
-                                <TextBlock Grid.Row="1" Text="Fluxo" Foreground="{StaticResource Ink500Brush}"/>
+                                <TextBlock Grid.Row="1" Text="Fluxo" Foreground="{DynamicResource Ink500Brush}"/>
                                 <TextBlock Grid.Row="1" Grid.Column="1" Text="Vai direto para a fila de testes (bancada)"
-                                           TextWrapping="Wrap" Foreground="{StaticResource Ink500Brush}" FontStyle="Italic"/>
+                                           TextWrapping="Wrap" Foreground="{DynamicResource Ink500Brush}" FontStyle="Italic"/>
                             </Grid>
                         </StackPanel>
                     </Border>
@@ -516,7 +516,7 @@
                 <TextBlock Style="{StaticResource H1}" HorizontalAlignment="Center" TextAlignment="Center"
                            Margin="0,12,0,8" Text="Enviado ao estoque"/>
                 <Border CornerRadius="10" Padding="18,10" Margin="0,0,0,10" HorizontalAlignment="Center"
-                        Background="White" BorderBrush="{StaticResource Ink200Brush}" BorderThickness="1"
+                        Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource Ink200Brush}" BorderThickness="1"
                         Visibility="{Binding TemNtbGerado, Converter={StaticResource BoolVisConv}}">
                     <StackPanel HorizontalAlignment="Center">
                         <TextBlock Style="{StaticResource Label}" Text="NTB GERADO" HorizontalAlignment="Center"/>
@@ -525,7 +525,7 @@
                     </StackPanel>
                 </Border>
                 <TextBlock Text="{Binding ResultText}" TextWrapping="Wrap" TextAlignment="Center"
-                           Foreground="{StaticResource Ink600Brush}"/>
+                           Foreground="{DynamicResource Ink600Brush}"/>
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,22,0,0">
                     <Button Content="Cadastrar outra" Style="{StaticResource BtnPrimary}" Margin="0,0,10,0"
                             Command="{Binding NovoCadastroCommand}"/>
@@ -536,7 +536,7 @@
         </Border>
 
         <!-- Rodapé: status + navegação -->
-        <Border Grid.Row="3" Background="White" BorderBrush="{StaticResource Ink200Brush}"
+        <Border Grid.Row="3" Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource Ink200Brush}"
                 BorderThickness="0,1,0,0" Padding="22,12"
                 Visibility="{Binding IsDone, Converter={StaticResource BoolVisConv}, ConverterParameter=invert}">
             <Grid>
@@ -545,7 +545,7 @@
                     <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
                 <StackPanel VerticalAlignment="Center">
-                    <TextBlock Text="{Binding StatusMessage}" TextWrapping="Wrap" Foreground="{StaticResource Ink600Brush}"/>
+                    <TextBlock Text="{Binding StatusMessage}" TextWrapping="Wrap" Foreground="{DynamicResource Ink600Brush}"/>
                     <ProgressBar Width="140" Height="4" IsIndeterminate="True" HorizontalAlignment="Left" Margin="0,6,0,0"
                                  Background="Transparent" Foreground="{StaticResource BrandBrush}" BorderThickness="0"
                                  Visibility="{Binding IsBusy, Converter={StaticResource BoolVisConv}}"/>

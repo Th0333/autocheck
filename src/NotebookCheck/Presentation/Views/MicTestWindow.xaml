@@ -10,7 +10,7 @@
         WindowStartupLocation="CenterOwner"
         ResizeMode="NoResize"
         WindowStyle="None"
-        Background="{StaticResource Ink50Brush}">
+        Background="{DynamicResource Ink50Brush}">
     <shell:WindowChrome.WindowChrome>
         <shell:WindowChrome CaptionHeight="36" ResizeBorderThickness="6"
                             CornerRadius="0" GlassFrameThickness="0"
@@ -49,7 +49,7 @@
 
                         <!-- VU meter segmentado (construído no code-behind) -->
                         <Border Margin="0,8,0,0" Padding="6" CornerRadius="8"
-                                Background="{StaticResource Ink900Brush}">
+                                Background="{StaticResource DarkPanelBrush}">
                             <UniformGrid x:Name="meterGrid" Rows="1" Height="40"/>
                         </Border>
 
@@ -60,15 +60,15 @@
                             </Grid.ColumnDefinitions>
                             <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                                 <Ellipse x:Name="statusDot" Width="14" Height="14"
-                                         Fill="{StaticResource Ink300Brush}" VerticalAlignment="Center"/>
+                                         Fill="{DynamicResource Ink300Brush}" VerticalAlignment="Center"/>
                                 <TextBlock x:Name="statusText" Margin="8,0,0,0" VerticalAlignment="Center"
-                                           Foreground="{StaticResource Ink600Brush}"
+                                           Foreground="{DynamicResource Ink600Brush}"
                                            Text="Aguardando som..."/>
                             </StackPanel>
                             <TextBlock x:Name="levelText" Grid.Column="1" Text="0%"
                                        FontSize="22" FontWeight="Bold" Foreground="{StaticResource BrandBrush}"/>
                         </Grid>
-                        <TextBlock x:Name="peakText" Foreground="{StaticResource Ink500Brush}" FontSize="11"
+                        <TextBlock x:Name="peakText" Foreground="{DynamicResource Ink500Brush}" FontSize="11"
                                    Margin="0,4,0,0" Text="Pico: —"/>
                     </StackPanel>
                 </Border>

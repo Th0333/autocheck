@@ -8,7 +8,7 @@
         MinWidth="600" MinHeight="500"
         WindowStartupLocation="CenterOwner"
         WindowStyle="None"
-        Background="{StaticResource Ink50Brush}">
+        Background="{DynamicResource Ink50Brush}">
     <shell:WindowChrome.WindowChrome>
         <shell:WindowChrome CaptionHeight="36" ResizeBorderThickness="6"
                             CornerRadius="0" GlassFrameThickness="0"
@@ -45,14 +45,14 @@
                                Text="O QUE CONSTOU COMO PROBLEMA NO RELATÓRIO ANTERIOR"/>
                     <TextBlock x:Name="noFailuresText" DockPanel.Dock="Top" Margin="0,10,0,0"
                                Visibility="Collapsed" TextWrapping="Wrap"
-                               Foreground="{StaticResource Ink600Brush}"
+                               Foreground="{DynamicResource Ink600Brush}"
                                Text="Nenhuma falha ou atenção registrada no relatório anterior. Você ainda pode refazer o checklist completo por cima."/>
                     <ScrollViewer VerticalScrollBarVisibility="Auto" Margin="0,8,0,0">
                         <ItemsControl x:Name="failuresList">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>
                                     <Border Margin="0,0,0,8" Padding="12,10" CornerRadius="8"
-                                            Background="{StaticResource Ink50Brush}">
+                                            Background="{DynamicResource Ink50Brush}">
                                         <Grid>
                                             <Grid.ColumnDefinitions>
                                                 <ColumnDefinition Width="*"/>
@@ -60,9 +60,9 @@
                                             </Grid.ColumnDefinitions>
                                             <StackPanel>
                                                 <TextBlock Text="{Binding Label}" FontWeight="SemiBold"
-                                                           Foreground="{StaticResource Ink900Brush}"/>
+                                                           Foreground="{DynamicResource Ink900Brush}"/>
                                                 <TextBlock Text="{Binding Details}" FontSize="12" Margin="0,2,0,0"
-                                                           TextWrapping="Wrap" Foreground="{StaticResource Ink600Brush}"/>
+                                                           TextWrapping="Wrap" Foreground="{DynamicResource Ink600Brush}"/>
                                             </StackPanel>
                                             <Border Grid.Column="1" CornerRadius="999" Padding="10,3"
                                                     VerticalAlignment="Top"

@@ -9,7 +9,7 @@
         MinWidth="720" MinHeight="540"
         WindowStartupLocation="CenterOwner"
         WindowStyle="None"
-        Background="{StaticResource Ink50Brush}">
+        Background="{DynamicResource Ink50Brush}">
     <shell:WindowChrome.WindowChrome>
         <shell:WindowChrome CaptionHeight="36" ResizeBorderThickness="6"
                             CornerRadius="0" GlassFrameThickness="0"
@@ -53,7 +53,7 @@
                         <Grid x:Name="overlay">
                             <UniformGrid x:Name="coverageGrid" Rows="6" Columns="8"/>
                             <TextBlock Text="Mova o cursor sobre toda a área"
-                                       Foreground="{StaticResource Ink400Brush}"
+                                       Foreground="{DynamicResource Ink400Brush}"
                                        HorizontalAlignment="Center"
                                        VerticalAlignment="Center"
                                        IsHitTestVisible="False"/>
@@ -77,27 +77,27 @@
                                                  Stroke="{Binding Detected, Converter={StaticResource StatusFgConv}}" StrokeThickness="2"/>
                                         <StackPanel Grid.Column="1">
                                             <TextBlock Text="{Binding Name}" FontWeight="SemiBold"
-                                                       Foreground="{StaticResource Ink800Brush}"/>
+                                                       Foreground="{DynamicResource Ink800Brush}"/>
                                             <TextBlock Text="{Binding Hint}" FontSize="11"
-                                                       Foreground="{StaticResource Ink500Brush}" TextWrapping="Wrap"/>
+                                                       Foreground="{DynamicResource Ink500Brush}" TextWrapping="Wrap"/>
                                         </StackPanel>
                                     </Grid>
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>
 
-                        <Separator Margin="0,8" Background="{StaticResource Ink100Brush}"/>
+                        <Separator Margin="0,8" Background="{DynamicResource Ink100Brush}"/>
 
                         <TextBlock Style="{StaticResource Label}" Text="COBERTURA"/>
                         <ProgressBar x:Name="coverageBar" Maximum="48" Height="8" Margin="0,8,0,0" Foreground="{StaticResource OkBrush}"/>
-                        <TextBlock x:Name="coverageText" Foreground="{StaticResource Ink600Brush}" FontSize="11" Margin="0,4,0,0"/>
+                        <TextBlock x:Name="coverageText" Foreground="{DynamicResource Ink600Brush}" FontSize="11" Margin="0,4,0,0"/>
 
-                        <Separator Margin="0,8" Background="{StaticResource Ink100Brush}"/>
+                        <Separator Margin="0,8" Background="{DynamicResource Ink100Brush}"/>
 
                         <TextBlock Style="{StaticResource Label}" Text="POLLING RATE (APROX.)"/>
-                        <TextBlock x:Name="pollingText" Foreground="{StaticResource Ink800Brush}" FontWeight="SemiBold"
+                        <TextBlock x:Name="pollingText" Foreground="{DynamicResource Ink800Brush}" FontWeight="SemiBold"
                                    FontSize="15" Margin="0,4,0,0" Text="— Hz"/>
-                        <TextBlock Foreground="{StaticResource Ink500Brush}" FontSize="10" Margin="0,2,0,0" TextWrapping="Wrap"
+                        <TextBlock Foreground="{DynamicResource Ink500Brush}" FontSize="10" Margin="0,2,0,0" TextWrapping="Wrap"
                                    Text="Mova rápido pela área. Valor observado pelo Windows (costuma limitar em ~125 Hz)."/>
                     </StackPanel>
                 </Border>

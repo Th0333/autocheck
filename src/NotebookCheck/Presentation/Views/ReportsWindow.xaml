@@ -8,7 +8,7 @@
         MinWidth="780" MinHeight="520"
         WindowStartupLocation="CenterOwner"
         WindowStyle="None"
-        Background="{StaticResource Ink50Brush}">
+        Background="{DynamicResource Ink50Brush}">
     <shell:WindowChrome.WindowChrome>
         <shell:WindowChrome CaptionHeight="36" ResizeBorderThickness="6"
                             CornerRadius="0" GlassFrameThickness="0"
@@ -23,7 +23,7 @@
 
         <DockPanel Grid.Row="1" LastChildFill="True">
 
-        <Border DockPanel.Dock="Top" Background="White" BorderBrush="{StaticResource Ink200Brush}" BorderThickness="0,0,0,1" Padding="22,16">
+        <Border DockPanel.Dock="Top" Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource Ink200Brush}" BorderThickness="0,0,0,1" Padding="22,16">
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*"/>
@@ -40,13 +40,13 @@
             </Grid>
         </Border>
 
-        <Border DockPanel.Dock="Bottom" Background="White" BorderBrush="{StaticResource Ink200Brush}" BorderThickness="0,1,0,0" Padding="22,12">
+        <Border DockPanel.Dock="Bottom" Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource Ink200Brush}" BorderThickness="0,1,0,0" Padding="22,12">
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*"/>
                     <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
-                <TextBlock Text="{Binding StatusMessage}" TextWrapping="Wrap" Foreground="{StaticResource Ink600Brush}"/>
+                <TextBlock Text="{Binding StatusMessage}" TextWrapping="Wrap" Foreground="{DynamicResource Ink600Brush}"/>
                 <ProgressBar Grid.Column="1" Width="120" Height="4" IsIndeterminate="True"
                              Background="Transparent" Foreground="{StaticResource BrandBrush}" BorderThickness="0"
                              Visibility="{Binding IsBusy, Converter={StaticResource BoolVisConv}}"/>

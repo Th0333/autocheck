@@ -8,7 +8,7 @@
         Width="1180" Height="600"
         MinWidth="980" MinHeight="540"
         WindowStartupLocation="CenterOwner"
-        Background="{StaticResource Ink50Brush}"
+        Background="{DynamicResource Ink50Brush}"
         WindowStyle="None"
         ResizeMode="CanResize"
         FocusManager.FocusedElement="{Binding ElementName=root}"
@@ -50,8 +50,8 @@
                 <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
                     <TextBlock Style="{StaticResource Label}" VerticalAlignment="Center" Margin="0,0,8,0" Text="DETECTADAS"/>
                     <TextBlock x:Name="counterText" FontWeight="SemiBold" FontSize="20" Foreground="{StaticResource OkBrush}"/>
-                    <TextBlock VerticalAlignment="Bottom" Margin="6,0,0,2" Foreground="{StaticResource Ink500Brush}" Text="/"/>
-                    <TextBlock x:Name="totalText" VerticalAlignment="Bottom" Margin="2,0,0,2" Foreground="{StaticResource Ink500Brush}"/>
+                    <TextBlock VerticalAlignment="Bottom" Margin="6,0,0,2" Foreground="{DynamicResource Ink500Brush}" Text="/"/>
+                    <TextBlock x:Name="totalText" VerticalAlignment="Bottom" Margin="2,0,0,2" Foreground="{DynamicResource Ink500Brush}"/>
                 </StackPanel>
             </Grid>
 

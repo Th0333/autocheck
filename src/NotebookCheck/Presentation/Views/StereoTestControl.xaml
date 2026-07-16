@@ -9,7 +9,7 @@
             <Button x:Name="playBtn" Content="▶ Tocar L → R → ambos" Style="{StaticResource BtnPrimary}"
                     HorizontalAlignment="Left" Click="OnPlay"/>
             <TextBlock x:Name="statusLine" Margin="0,10,0,0" FontSize="12"
-                       Foreground="{StaticResource Ink600Brush}"/>
+                       Foreground="{DynamicResource Ink600Brush}"/>
         </StackPanel>
     </Border>
 </UserControl>

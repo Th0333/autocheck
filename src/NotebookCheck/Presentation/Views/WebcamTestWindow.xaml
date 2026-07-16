@@ -8,7 +8,7 @@
         Width="720" Height="560"
         WindowStartupLocation="CenterOwner"
         WindowStyle="None"
-        Background="{StaticResource Ink50Brush}">
+        Background="{DynamicResource Ink50Brush}">
     <shell:WindowChrome.WindowChrome>
         <shell:WindowChrome CaptionHeight="36" ResizeBorderThickness="6"
                             CornerRadius="0" GlassFrameThickness="0"
@@ -32,7 +32,7 @@
                     <ItemsControl x:Name="camList" Margin="0,8,0,0">
                         <ItemsControl.ItemTemplate>
                             <DataTemplate>
-                                <TextBlock Text="{Binding}" Margin="0,0,0,4" Foreground="{StaticResource Ink800Brush}"/>
+                                <TextBlock Text="{Binding}" Margin="0,0,0,4" Foreground="{DynamicResource Ink800Brush}"/>
                             </DataTemplate>
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>

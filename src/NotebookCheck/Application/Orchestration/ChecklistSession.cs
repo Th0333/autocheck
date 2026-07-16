@@ -84,6 +84,9 @@ public sealed class ChecklistSession
     /// <summary>Se o equipamento possui teclado numérico (numpad). null = não informado.</summary>
     public bool? HasNumericKeypad { get; set; }
 
+    /// <summary>Se a tela é sensível ao toque (touchscreen). null = não informado.</summary>
+    public bool? HasTouchScreen { get; set; }
+
     public FinalClassification? FinalOverride { get; set; }
     public string? FinalOverrideReason { get; set; }
 
@@ -114,6 +117,7 @@ public sealed class ChecklistSession
             Stress: StressResult,
             InspectionPhotos: InspectionPhotos.Values.ToList(),
             InspectionSlug: InspectionSlug,
-            HasNumericKeypad: HasNumericKeypad);
+            HasNumericKeypad: HasNumericKeypad,
+            HasTouchScreen: HasTouchScreen);
     }
 }

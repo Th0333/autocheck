@@ -10,7 +10,7 @@
         WindowStartupLocation="CenterOwner"
         ResizeMode="NoResize"
         WindowStyle="None"
-        Background="{StaticResource Ink50Brush}">
+        Background="{DynamicResource Ink50Brush}">
     <shell:WindowChrome.WindowChrome>
         <shell:WindowChrome CaptionHeight="36" ResizeBorderThickness="6"
                             CornerRadius="0" GlassFrameThickness="0"
@@ -38,9 +38,9 @@
             <StackPanel>
                 <!-- Banner de estado AC -->
                 <Border x:Name="acBanner" Padding="12,10" CornerRadius="8" Margin="0,0,0,12"
-                        Background="{StaticResource Ink100Brush}">
+                        Background="{DynamicResource Ink100Brush}">
                     <TextBlock x:Name="acText" Text="Lendo bateria..." FontWeight="SemiBold"
-                               Foreground="{StaticResource Ink800Brush}"/>
+                               Foreground="{DynamicResource Ink800Brush}"/>
                 </Border>
 
                 <Border Style="{StaticResource Card}" Padding="18">
@@ -62,7 +62,7 @@
                             </StackPanel>
                         </Grid>
 
-                        <Separator Margin="0,12" Background="{StaticResource Ink100Brush}"/>
+                        <Separator Margin="0,12" Background="{DynamicResource Ink100Brush}"/>
 
                         <Grid>
                             <Grid.ColumnDefinitions>
@@ -82,9 +82,9 @@
                 </Border>
 
                 <Border Margin="0,12,0,0" Padding="14" CornerRadius="8"
-                        Background="{StaticResource Ink50Brush}" BorderBrush="{StaticResource Ink200Brush}"
+                        Background="{DynamicResource Ink50Brush}" BorderBrush="{DynamicResource Ink200Brush}"
                         BorderThickness="1">
-                    <TextBlock x:Name="statusText" TextWrapping="Wrap" Foreground="{StaticResource Ink700Brush}"
+                    <TextBlock x:Name="statusText" TextWrapping="Wrap" Foreground="{DynamicResource Ink700Brush}"
                                Text="Conecte o carregador e depois DESCONECTE-O para medir a descarga real."/>
                 </Border>
 

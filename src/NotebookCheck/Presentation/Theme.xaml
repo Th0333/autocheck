@@ -40,6 +40,38 @@
     <SolidColorBrush x:Key="WarnBrush" Color="{StaticResource WarnColor}"/>
     <SolidColorBrush x:Key="BadBrush" Color="{StaticResource BadColor}"/>
 
+    <!-- ============ Brushes temáveis (o ThemeManager muta a Color) ============ -->
+    <!-- Superfície de cards/inputs (branco no claro, cinza-azulado no escuro). -->
+    <SolidColorBrush x:Key="SurfaceBrush" Color="#FFFFFF"/>
+    <!-- Painéis SEMPRE escuros nos dois temas (barra de título, VU do mic, updater). -->
+    <SolidColorBrush x:Key="DarkPanelBrush" Color="#0F1320"/>
+
+    <!-- Semânticos de erro/aviso/ok -->
+    <SolidColorBrush x:Key="DangerFgBrush" Color="#C62828"/>
+    <SolidColorBrush x:Key="DangerBgBrush" Color="#FDECEC"/>
+    <SolidColorBrush x:Key="DangerBorderBrush" Color="#E53935"/>
+    <SolidColorBrush x:Key="DangerTintBorderBrush" Color="#FECACA"/>
+    <SolidColorBrush x:Key="WarnTintBrush" Color="#FFFBEB"/>
+    <SolidColorBrush x:Key="OkTintBrush" Color="#ECFDF5"/>
+
+    <!-- Chips de status (fundo/texto) -->
+    <SolidColorBrush x:Key="StatusOkBgBrush" Color="#DCFCE7"/>
+    <SolidColorBrush x:Key="StatusWarnBgBrush" Color="#FEF3C7"/>
+    <SolidColorBrush x:Key="StatusBadBgBrush" Color="#FEE2E2"/>
+    <SolidColorBrush x:Key="StatusMuteBgBrush" Color="#EEF0F4"/>
+    <SolidColorBrush x:Key="StatusOkFgBrush" Color="#15803D"/>
+    <SolidColorBrush x:Key="StatusWarnFgBrush" Color="#B45309"/>
+    <SolidColorBrush x:Key="StatusBadFgBrush" Color="#B91C1C"/>
+    <SolidColorBrush x:Key="StatusMuteFgBrush" Color="#444B5C"/>
+
+    <!-- Blocos de portas USB/HDMI -->
+    <SolidColorBrush x:Key="PortActiveBgBrush" Color="#DCFCE7"/>
+    <SolidColorBrush x:Key="PortInactiveBgBrush" Color="#F3F4F6"/>
+    <SolidColorBrush x:Key="PortActiveBorderBrush" Color="#15803D"/>
+    <SolidColorBrush x:Key="PortInactiveBorderBrush" Color="#D1D5DB"/>
+    <SolidColorBrush x:Key="PortActiveLabelBrush" Color="#15803D"/>
+    <SolidColorBrush x:Key="PortInactiveLabelBrush" Color="#6B7280"/>
+
     <!-- ============================ Tipografia ============================ -->
     <FontFamily x:Key="UiFont">Segoe UI Variable Text, Segoe UI</FontFamily>
     <FontFamily x:Key="MonoFont">Consolas, Cascadia Mono, monospace</FontFamily>
@@ -47,7 +79,7 @@
     <Style TargetType="TextBlock">
         <Setter Property="FontFamily" Value="{StaticResource UiFont}"/>
         <Setter Property="FontSize" Value="13"/>
-        <Setter Property="Foreground" Value="{StaticResource Ink800Brush}"/>
+        <Setter Property="Foreground" Value="{DynamicResource Ink800Brush}"/>
         <Setter Property="VerticalAlignment" Value="Center"/>
         <Setter Property="TextOptions.TextFormattingMode" Value="Ideal"/>
     </Style>
@@ -56,7 +88,7 @@
         <Setter Property="FontFamily" Value="{StaticResource UiFont}"/>
         <Setter Property="FontSize" Value="26"/>
         <Setter Property="FontWeight" Value="SemiBold"/>
-        <Setter Property="Foreground" Value="{StaticResource Ink900Brush}"/>
+        <Setter Property="Foreground" Value="{DynamicResource Ink900Brush}"/>
         <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
     </Style>
 
@@ -64,32 +96,32 @@
         <Setter Property="FontFamily" Value="{StaticResource UiFont}"/>
         <Setter Property="FontSize" Value="18"/>
         <Setter Property="FontWeight" Value="SemiBold"/>
-        <Setter Property="Foreground" Value="{StaticResource Ink900Brush}"/>
+        <Setter Property="Foreground" Value="{DynamicResource Ink900Brush}"/>
     </Style>
 
     <Style x:Key="Subtle" TargetType="TextBlock">
         <Setter Property="FontFamily" Value="{StaticResource UiFont}"/>
         <Setter Property="FontSize" Value="12"/>
-        <Setter Property="Foreground" Value="{StaticResource Ink500Brush}"/>
+        <Setter Property="Foreground" Value="{DynamicResource Ink500Brush}"/>
     </Style>
 
     <Style x:Key="Label" TargetType="TextBlock">
         <Setter Property="FontFamily" Value="{StaticResource UiFont}"/>
         <Setter Property="FontSize" Value="11"/>
         <Setter Property="FontWeight" Value="SemiBold"/>
-        <Setter Property="Foreground" Value="{StaticResource Ink500Brush}"/>
+        <Setter Property="Foreground" Value="{DynamicResource Ink500Brush}"/>
     </Style>
 
     <Style x:Key="Mono" TargetType="TextBlock">
         <Setter Property="FontFamily" Value="{StaticResource MonoFont}"/>
         <Setter Property="FontSize" Value="12"/>
-        <Setter Property="Foreground" Value="{StaticResource Ink800Brush}"/>
+        <Setter Property="Foreground" Value="{DynamicResource Ink800Brush}"/>
     </Style>
 
     <!-- ============================ Card ============================ -->
     <Style x:Key="Card" TargetType="Border">
-        <Setter Property="Background" Value="White"/>
-        <Setter Property="BorderBrush" Value="{StaticResource Ink200Brush}"/>
+        <Setter Property="Background" Value="{DynamicResource SurfaceBrush}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource Ink200Brush}"/>
         <Setter Property="BorderThickness" Value="1"/>
         <Setter Property="CornerRadius" Value="10"/>
         <Setter Property="Padding" Value="20"/>
@@ -111,9 +143,9 @@
         <Setter Property="Margin" Value="0,0,8,0"/>
         <Setter Property="Cursor" Value="Hand"/>
         <Setter Property="BorderThickness" Value="1"/>
-        <Setter Property="Foreground" Value="{StaticResource Ink800Brush}"/>
-        <Setter Property="Background" Value="White"/>
-        <Setter Property="BorderBrush" Value="{StaticResource Ink200Brush}"/>
+        <Setter Property="Foreground" Value="{DynamicResource Ink800Brush}"/>
+        <Setter Property="Background" Value="{DynamicResource SurfaceBrush}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource Ink200Brush}"/>
         <Setter Property="SnapsToDevicePixels" Value="True"/>
         <Setter Property="Template">
             <Setter.Value>
@@ -128,10 +160,10 @@
                     </Border>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsMouseOver" Value="True">
-                            <Setter TargetName="bd" Property="Background" Value="{StaticResource Ink50Brush}"/>
+                            <Setter TargetName="bd" Property="Background" Value="{DynamicResource Ink50Brush}"/>
                         </Trigger>
                         <Trigger Property="IsPressed" Value="True">
-                            <Setter TargetName="bd" Property="Background" Value="{StaticResource Ink100Brush}"/>
+                            <Setter TargetName="bd" Property="Background" Value="{DynamicResource Ink100Brush}"/>
                         </Trigger>
                         <Trigger Property="IsEnabled" Value="False">
                             <Setter Property="Opacity" Value="0.5"/>
@@ -182,7 +214,7 @@
     <Style x:Key="BtnGhost" TargetType="Button" BasedOn="{StaticResource BtnBase}">
         <Setter Property="BorderBrush" Value="Transparent"/>
         <Setter Property="Background" Value="Transparent"/>
-        <Setter Property="Foreground" Value="{StaticResource Ink700Brush}"/>
+        <Setter Property="Foreground" Value="{DynamicResource Ink700Brush}"/>
     </Style>
 
     <Style TargetType="Button" BasedOn="{StaticResource BtnBase}"/>
@@ -193,10 +225,10 @@
         <Setter Property="FontSize" Value="13"/>
         <Setter Property="Padding" Value="10,8"/>
         <Setter Property="MinHeight" Value="34"/>
-        <Setter Property="Background" Value="White"/>
-        <Setter Property="BorderBrush" Value="{StaticResource Ink200Brush}"/>
+        <Setter Property="Background" Value="{DynamicResource SurfaceBrush}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource Ink200Brush}"/>
         <Setter Property="BorderThickness" Value="1"/>
-        <Setter Property="Foreground" Value="{StaticResource Ink800Brush}"/>
+        <Setter Property="Foreground" Value="{DynamicResource Ink800Brush}"/>
         <Setter Property="VerticalContentAlignment" Value="Center"/>
         <Setter Property="SnapsToDevicePixels" Value="True"/>
         <Setter Property="Template">
@@ -228,16 +260,16 @@
         <Setter Property="FontSize" Value="13"/>
         <Setter Property="Padding" Value="8,6"/>
         <Setter Property="MinHeight" Value="34"/>
-        <Setter Property="Background" Value="White"/>
-        <Setter Property="BorderBrush" Value="{StaticResource Ink200Brush}"/>
+        <Setter Property="Background" Value="{DynamicResource SurfaceBrush}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource Ink200Brush}"/>
         <Setter Property="BorderThickness" Value="1"/>
-        <Setter Property="Foreground" Value="{StaticResource Ink800Brush}"/>
+        <Setter Property="Foreground" Value="{DynamicResource Ink800Brush}"/>
     </Style>
 
     <Style TargetType="RadioButton">
         <Setter Property="FontFamily" Value="{StaticResource UiFont}"/>
         <Setter Property="FontSize" Value="13"/>
-        <Setter Property="Foreground" Value="{StaticResource Ink800Brush}"/>
+        <Setter Property="Foreground" Value="{DynamicResource Ink800Brush}"/>
         <Setter Property="VerticalContentAlignment" Value="Center"/>
         <Setter Property="Margin" Value="0,0,16,0"/>
         <Setter Property="Cursor" Value="Hand"/>
@@ -245,33 +277,33 @@
 
     <!-- ============================ DataGrid ============================ -->
     <Style TargetType="DataGrid">
-        <Setter Property="Background" Value="White"/>
-        <Setter Property="BorderBrush" Value="{StaticResource Ink200Brush}"/>
+        <Setter Property="Background" Value="{DynamicResource SurfaceBrush}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource Ink200Brush}"/>
         <Setter Property="BorderThickness" Value="1"/>
         <Setter Property="GridLinesVisibility" Value="Horizontal"/>
-        <Setter Property="HorizontalGridLinesBrush" Value="{StaticResource Ink100Brush}"/>
+        <Setter Property="HorizontalGridLinesBrush" Value="{DynamicResource Ink100Brush}"/>
         <Setter Property="HeadersVisibility" Value="Column"/>
         <Setter Property="RowHeaderWidth" Value="0"/>
         <Setter Property="AutoGenerateColumns" Value="False"/>
         <Setter Property="CanUserAddRows" Value="False"/>
         <Setter Property="CanUserDeleteRows" Value="False"/>
         <Setter Property="IsReadOnly" Value="True"/>
-        <Setter Property="RowBackground" Value="White"/>
-        <Setter Property="AlternatingRowBackground" Value="{StaticResource Ink50Brush}"/>
+        <Setter Property="RowBackground" Value="{DynamicResource SurfaceBrush}"/>
+        <Setter Property="AlternatingRowBackground" Value="{DynamicResource Ink50Brush}"/>
         <Setter Property="FontFamily" Value="{StaticResource UiFont}"/>
         <Setter Property="FontSize" Value="13"/>
-        <Setter Property="Foreground" Value="{StaticResource Ink800Brush}"/>
+        <Setter Property="Foreground" Value="{DynamicResource Ink800Brush}"/>
         <Setter Property="RowHeight" Value="36"/>
     </Style>
 
     <Style TargetType="DataGridColumnHeader">
-        <Setter Property="Background" Value="{StaticResource Ink50Brush}"/>
-        <Setter Property="Foreground" Value="{StaticResource Ink500Brush}"/>
+        <Setter Property="Background" Value="{DynamicResource Ink50Brush}"/>
+        <Setter Property="Foreground" Value="{DynamicResource Ink500Brush}"/>
         <Setter Property="FontWeight" Value="SemiBold"/>
         <Setter Property="FontSize" Value="11"/>
         <Setter Property="Padding" Value="14,10"/>
         <Setter Property="HorizontalContentAlignment" Value="Left"/>
-        <Setter Property="BorderBrush" Value="{StaticResource Ink200Brush}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource Ink200Brush}"/>
         <Setter Property="BorderThickness" Value="0,0,0,1"/>
     </Style>
 
@@ -291,19 +323,19 @@
 
     <!-- Estilos para badges (TextBlock decorado) -->
     <Style x:Key="BadgeOk" TargetType="Border">
-        <Setter Property="Background" Value="#DCFCE7"/>
+        <Setter Property="Background" Value="{DynamicResource StatusOkBgBrush}"/>
         <Setter Property="CornerRadius" Value="999"/>
         <Setter Property="Padding" Value="8,2"/>
         <Setter Property="HorizontalAlignment" Value="Left"/>
     </Style>
     <Style x:Key="BadgeWarn" TargetType="Border">
-        <Setter Property="Background" Value="#FEF3C7"/>
+        <Setter Property="Background" Value="{DynamicResource StatusWarnBgBrush}"/>
         <Setter Property="CornerRadius" Value="999"/>
         <Setter Property="Padding" Value="8,2"/>
         <Setter Property="HorizontalAlignment" Value="Left"/>
     </Style>
     <Style x:Key="BadgeBad" TargetType="Border">
-        <Setter Property="Background" Value="#FEE2E2"/>
+        <Setter Property="Background" Value="{DynamicResource StatusBadBgBrush}"/>
         <Setter Property="CornerRadius" Value="999"/>
         <Setter Property="Padding" Value="8,2"/>
         <Setter Property="HorizontalAlignment" Value="Left"/>

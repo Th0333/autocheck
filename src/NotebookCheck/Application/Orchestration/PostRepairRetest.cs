@@ -427,7 +427,7 @@ public sealed class PostRepairRetest
         // Identificação do relatório antigo — usada para pré-preencher o
         // "refazer por cima" (NTB, localização, etiqueta, técnico).
         string ntb = "", location = "", assetTag = "", technician = "", backlight = "", generalNotes = "";
-        bool? numpad = null;
+        bool? numpad = null, touch = null;
         if (root.TryGetProperty("machine", out var mEl) && mEl.ValueKind == JsonValueKind.Object)
         {
             if (mEl.TryGetProperty("ntb_code", out var nEl)) ntb = nEl.GetString() ?? "";
@@ -437,6 +437,11 @@ public sealed class PostRepairRetest
             {
                 if (hEl.ValueKind == JsonValueKind.True) numpad = true;
                 else if (hEl.ValueKind == JsonValueKind.False) numpad = false;
+            }
+            if (mEl.TryGetProperty("has_touch_screen", out var tsEl))
+            {
+                if (tsEl.ValueKind == JsonValueKind.True) touch = true;
+                else if (tsEl.ValueKind == JsonValueKind.False) touch = false;
             }
         }
         if (root.TryGetProperty("asset_tag", out var aEl)) assetTag = aEl.GetString() ?? "";
@@ -496,7 +501,7 @@ public sealed class PostRepairRetest
         return new HistoricReport(testId, testedAt == default ? DateTime.MinValue : testedAt,
             classification, failingTests, failingManual,
             NtbCode: ntb, Location: location, AssetTag: assetTag, TechnicianName: technician,
-            KeyboardBacklight: backlight, HasNumericKeypad: numpad, GeneralNotes: generalNotes,
+            KeyboardBacklight: backlight, HasNumericKeypad: numpad, HasTouchScreen: touch, GeneralNotes: generalNotes,
             Stress: stress, InspectionProblems: inspectionProblems);
     }
 
@@ -596,6 +601,7 @@ public record HistoricReport(
     string TechnicianName = "",
     string KeyboardBacklight = "",
     bool? HasNumericKeypad = null,
+    bool? HasTouchScreen = null,
     string GeneralNotes = "",
     StressSnapshot? Stress = null,
     List<(string Key, string Label, string Note)>? InspectionProblems = null)

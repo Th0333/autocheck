@@ -3,7 +3,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
              x:Name="root">
-    <Border Background="{StaticResource Ink900Brush}" Height="36"
+    <Border Background="{StaticResource DarkPanelBrush}" Height="36"
             shell:WindowChrome.IsHitTestVisibleInChrome="False">
         <Grid>
             <Grid.ColumnDefinitions>

@@ -118,6 +118,7 @@ public sealed class MachinePayload
     [JsonPropertyName("location")] public string Location { get; init; } = "";
     [JsonPropertyName("keyboard_backlight")] public string KeyboardBacklight { get; init; } = "";
     [JsonPropertyName("has_numeric_keypad")] public bool? HasNumericKeypad { get; set; }
+    [JsonPropertyName("has_touch_screen")] public bool? HasTouchScreen { get; set; }
 
     // Detalhes de CPU / RAM / GPU (v1.3.4+).
     [JsonPropertyName("cpu_cores")] public int? CpuCores { get; init; }
