@@ -11,12 +11,12 @@ using NotebookCheck.Domain.Models;
 namespace NotebookCheck.Application.Humanization;
 
 /// <summary>
-/// Runner do "modo humanização" — simula 12 horas de uso humano normal para
-/// caçar instabilidades térmicas, vazamentos de memória do firmware,
-/// disjuntores de bateria e travamentos intermitentes que só aparecem em
-/// ciclos longos.
+/// Runner do "modo humanização" — simula horas de uso humano normal (duração
+/// configurável via <see cref="TotalDuration"/>; padrão 12h) para caçar
+/// instabilidades térmicas, vazamentos de memória do firmware, disjuntores de
+/// bateria e travamentos intermitentes que só aparecem em ciclos longos.
 ///
-/// ROTEIRO COMPLETO (ciclos de 60 minutos repetidos 12 vezes):
+/// ROTEIRO COMPLETO (ciclos de 60 minutos repetidos até completar a duração):
 ///   00:00–00:08  Navegação simulada — abre páginas web (NotebookCheck, Wikipedia, YouTube) em uma janela headless via processo edge.
 ///   00:08–00:18  Vídeo em loop — abre um clipe do YouTube em janela do edge,
 ///                volume baixo, span 10 minutos.

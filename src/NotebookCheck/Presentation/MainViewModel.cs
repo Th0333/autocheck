@@ -1391,8 +1391,15 @@ public sealed partial class MainViewModel : ObservableObject
         }
         if (HumanizationRunning) return;
 
+        // Pergunta quantas horas rodar (padrão 12; o técnico ajusta à vontade).
+        var dlg = new Views.HumanizationDialog { Owner = System.Windows.Application.Current?.MainWindow };
+        if (dlg.ShowDialog() != true || dlg.Hours is not int horas) return;
+        _humanization.TotalDuration = TimeSpan.FromHours(horas);
+
         HumanizationRunning = true;
-        HumanizationStatus = "Humanização iniciada — pode levar até 12 horas...";
+        HumanizationStatus = horas == 1
+            ? "Humanização iniciada — pode levar até 1 hora..."
+            : $"Humanização iniciada — pode levar até {horas} horas...";
         _humanizationCts = new CancellationTokenSource();
         try
         {
@@ -1400,7 +1407,7 @@ public sealed partial class MainViewModel : ObservableObject
                 HumanizationStatus = $"Ciclo {p.Cycle} • {p.Phase} ({p.PhaseIndex}/{p.PhaseTotal})");
             var r = await _humanization.RunAsync(progress, _humanizationCts.Token);
             _session.Tests[r.TestKey] = r;
-            UpsertTestRow("Humanização (12h)", r);
+            UpsertTestRow($"Humanização ({horas}h)", r);
             HumanizationStatus = $"{r.Status} — {r.Details}";
         }
         catch (OperationCanceledException)
