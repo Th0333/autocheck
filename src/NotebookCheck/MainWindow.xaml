@@ -245,7 +245,7 @@
                                         <TextBlock Text="🔵" FontSize="28" HorizontalAlignment="Center"/>
                                         <TextBlock HorizontalAlignment="Center" Foreground="White" FontSize="17" FontWeight="SemiBold" Text="Padrão" Margin="0,6,0,4"/>
                                         <TextBlock HorizontalAlignment="Center" Foreground="#D9E8FF" TextWrapping="Wrap" TextAlignment="Center"
-                                                   Text="Notebook — essenciais + humanização de 12h. Recomendado."/>
+                                                   Text="Notebook — essenciais + humanização (horas a escolher). Recomendado."/>
                                     </StackPanel>
                                 </Button>
 
@@ -779,7 +779,7 @@
                                     <StackPanel>
                                         <TextBlock Style="{StaticResource H2}" Text="Desempenho e stress"/>
                                         <TextBlock Style="{StaticResource Subtle}" Margin="0,4,0,0" TextWrapping="Wrap"
-                                                   Text="Benchmark + stress test (CPU, GPU, disco, VRAM, RAM e Geekbench) e a humanização de 12h. Cada um roda direto nesta etapa, sem janelas separadas."/>
+                                                   Text="Benchmark + stress test (CPU, GPU, disco, VRAM, RAM e Geekbench) e a humanização (duração a escolher). Cada um roda direto nesta etapa, sem janelas separadas."/>
                                     </StackPanel>
                                     <Button Grid.Column="1" Content="🌡 Sensores ao vivo" Style="{StaticResource BtnBase}"
                                             VerticalAlignment="Top" Margin="12,0,0,0"
@@ -823,7 +823,7 @@
                                         BorderBrush="{StaticResource BrandBrush}" BorderThickness="1"
                                         Visibility="{Binding HumanizationAvailable, Converter={StaticResource BoolVisConv}, ConverterParameter=invert}">
                                     <StackPanel>
-                                        <TextBlock Style="{StaticResource H2}" Text="🔒 Humanização (12h)"/>
+                                        <TextBlock Style="{StaticResource H2}" Text="🔒 Humanização"/>
                                         <TextBlock Style="{StaticResource Subtle}" Margin="0,6,0,0" TextWrapping="Wrap"
                                                    Text="A humanização está disponível nos modos Padrão e Detalhado. O modo Básico não inclui esta etapa."/>
                                     </StackPanel>
@@ -953,9 +953,9 @@
                                 <Border Style="{StaticResource Card}" Margin="0,16,0,0"
                                         Visibility="{Binding HumanizationAvailable, Converter={StaticResource BoolVisConv}}">
                                     <StackPanel>
-                                        <TextBlock Style="{StaticResource H2}" Text="⏱ Humanização (12h)"/>
+                                        <TextBlock Style="{StaticResource H2}" Text="⏱ Humanização"/>
                                         <TextBlock Style="{StaticResource Subtle}" Margin="0,4,0,12" TextWrapping="Wrap"
-                                                   Text="Simula uso humano normal por ~12h: navegação, vídeo em loop, picos de CPU 50/100%, câmera, disco I/O e idle. Deixe a máquina na tomada. Pode ser interrompida a qualquer momento."/>
+                                                   Text="Simula uso humano normal pelas horas que você escolher ao iniciar (padrão 12h): navegação, vídeo em loop, picos de CPU 50/100%, câmera, disco I/O e idle. Deixe a máquina na tomada. Pode ser interrompida a qualquer momento."/>
                                         <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
                                             <Button Content="▶ Iniciar humanização" Style="{StaticResource BtnPrimary}"
                                                     Command="{Binding RunHumanizationCommand}"
