@@ -153,6 +153,7 @@ Write-Host ("    URL do .exe: {0}" -f $exeUrl)
 # 4. (Opcional) Cria/atualiza o GitHub Release automaticamente via gh CLI.
 #    Dispare com -CreateRelease. Requer 'gh auth login' feito uma vez.
 # ----------------------------------------------------------------------------
+$releaseOk = $false
 if ($CreateRelease) {
     $gh = Get-Command gh -ErrorAction SilentlyContinue
     if (-not $gh) {
@@ -184,6 +185,7 @@ if ($CreateRelease) {
         if ($LASTEXITCODE -ne 0) {
             Write-Host "!! Falha ao publicar o release via gh." -ForegroundColor Red
         } else {
+            $releaseOk = $true
             Write-Host "==> Release $tag publicado com o .exe anexado." -ForegroundColor Green
         }
     }
@@ -194,7 +196,14 @@ if ($CreateRelease) {
 #    Isso elimina o deploy manual da Vercel: o app passa a ler do banco.
 #    O version.json estático continua sendo gerado como fallback.
 # ----------------------------------------------------------------------------
-if (-not $SkipPublishApi) {
+if (-not $SkipPublishApi -and $CreateRelease -and -not $releaseOk) {
+    # Trava de seguranca: se o release falhou, publicar o manifesto faria as
+    # bancadas apontarem para um .exe que nao existe (download 404 em todas).
+    Write-Host ""
+    Write-Host "!! Release NAO foi publicado - manifesto NAO enviado a API." -ForegroundColor Red
+    Write-Host "   Corrija o gh (auth) e rode de novo, ou crie o release manualmente" -ForegroundColor Yellow
+    Write-Host "   com o MESMO exe de ./publish e depois envie o manifesto." -ForegroundColor Yellow
+} elseif (-not $SkipPublishApi) {
     $apiUrl = $ApiBaseUrl.TrimEnd('/') + '/api/version'
     $payload = [ordered]@{
         version   = $Version

@@ -1,4 +1,4 @@
-﻿namespace NotebookCheck.Bootstrap;
+namespace NotebookCheck.Bootstrap;
 
 /// <summary>
 /// ============================================================
@@ -22,7 +22,7 @@ internal static class AppDefaults
     /// VersÃ£o atual do app. Atualizada automaticamente pelo publish.ps1.
     /// O auto-updater compara esta versÃ£o com a do version.json no site.
     /// </summary>
-    public const string CurrentVersion = "1.8.0";
+    public const string CurrentVersion = "1.8.1";
 
     /// <summary>
     /// URL do manifesto de versÃ£o (JSON) hospedado no site. ContÃ©m a versÃ£o
