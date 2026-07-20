@@ -420,11 +420,7 @@ public sealed partial class MainViewModel : ObservableObject
         try
         {
             if (!string.IsNullOrWhiteSpace(NtbCode)) return;
-            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(8));
-            var rows = await _wmi.QueryAsync(
-                "root\\cimv2", "SELECT SerialNumber FROM Win32_BIOS",
-                TimeSpan.FromSeconds(6), cts.Token).ConfigureAwait(true);
-            var serial = rows.Count > 0 ? rows[0].TryGetValue("SerialNumber", out var v) ? v?.ToString() : null : null;
+            var serial = await TryReadBiosSerialAsync().ConfigureAwait(true);
 
             // Arquivo de identidade da máquina (não depende do pendrive do técnico).
             var identity = _machineIdentity.TryRead();
@@ -449,18 +445,54 @@ public sealed partial class MainViewModel : ObservableObject
                 }
             }
 
-            if (string.IsNullOrWhiteSpace(serial)) return;
-
-            var ntb = _serialNtb.Lookup(serial);
+            var ntb = string.IsNullOrWhiteSpace(serial) ? null : _serialNtb.Lookup(serial);
             if (!string.IsNullOrWhiteSpace(ntb) && string.IsNullOrWhiteSpace(NtbCode))
             {
                 NtbCode = ntb!;
                 StatusMessage = $"NTB preenchido automaticamente (serial {serial!.Trim()} cadastrado no estoque).";
+                return;
             }
+
+            // Não preencheu: registra POR QUE, senão a queixa "não preencheu
+            // sozinho" chega sem nada no log para investigar. Information
+            // porque o log do app corta em Information (Debug não sai).
+            _logger.LogInformation(
+                "NTB não preenchido automaticamente — serial={Serial}, identidade={TemIdentidade} "
+                + "(ntb={IdentidadeNtb}, serial={IdentidadeSerial}), mapa serial→NTB={TemMapa}",
+                serial ?? "(indisponível)",
+                identity is not null,
+                identity?.Ntb ?? "(vazio)",
+                identity?.Serial ?? "(vazio)",
+                ntb is not null);
         }
         catch (Exception ex)
         {
-            _logger.LogDebug(ex, "Prefill de NTB por serial falhou (ignorado)");
+            _logger.LogWarning(ex, "Prefill de NTB por serial falhou (ignorado)");
+        }
+    }
+
+    /// <summary>
+    /// Serial do BIOS por WMI. O serial só serve para CONFERIR a identidade
+    /// gravada na máquina, então uma falha/timeout do WMI não pode derrubar o
+    /// preenchimento inteiro — devolve null e o prefill segue pelo arquivo de
+    /// identidade (que já trata serial ausente como "confere").
+    /// </summary>
+    private async Task<string?> TryReadBiosSerialAsync()
+    {
+        try
+        {
+            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(8));
+            var rows = await _wmi.QueryAsync(
+                "root\\cimv2", "SELECT SerialNumber FROM Win32_BIOS",
+                TimeSpan.FromSeconds(6), cts.Token).ConfigureAwait(true);
+            return rows.Count > 0 && rows[0].TryGetValue("SerialNumber", out var v)
+                ? v?.ToString()
+                : null;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "Serial do BIOS indisponível — prefill segue sem conferir o serial");
+            return null;
         }
     }
 
@@ -508,14 +540,27 @@ public sealed partial class MainViewModel : ObservableObject
             return;
         }
 
-        _session.NtbCode = NtbCode.Trim();
-        _session.Location = LocationField.Trim();
-        _session.AssetTag = AssetTag?.Trim() ?? "";
-        _session.TechnicianName = TechnicianName.Trim();
+        SyncIdentificationToSession();
 
         StatusMessage = "";
         Goto(WizardStep.Hardware);
         await CollectIdentificationAsync();
+    }
+
+    /// <summary>
+    /// Copia os dados de identificação da tela para a sessão (o que vira o
+    /// relatório). Precisa ser chamado por TODO caminho que sai da etapa de
+    /// Identificação — não só pelo botão "Continuar para coleta": quem avança
+    /// pelo trilho lateral passava direto e o laudo saía com o NTB vazio,
+    /// mesmo com o campo preenchido na tela.
+    /// </summary>
+    private void SyncIdentificationToSession()
+    {
+        NtbCode = NormalizeNtbCode(NtbCode);
+        _session.NtbCode = NtbCode.Trim();
+        _session.Location = LocationField.Trim();
+        _session.AssetTag = AssetTag?.Trim() ?? "";
+        _session.TechnicianName = TechnicianName.Trim();
     }
 
     [RelayCommand]
@@ -2840,7 +2885,9 @@ public sealed partial class MainViewModel : ObservableObject
         _session.KeyboardBacklight = KeyboardBacklightSim ? KeyboardBacklight.Sim : KeyboardBacklight.Nao;
         _session.HasNumericKeypad = NumericKeypadSim;
         _session.HasTouchScreen = TouchScreenSim;
-        _session.TechnicianName = TechnicianName.Trim();
+        // Última rede de proteção antes do resumo: o que está na tela é o que
+        // vai no laudo (NTB, localização, patrimônio e técnico).
+        SyncIdentificationToSession();
 
         _session.Manual.Clear();
         foreach (var item in manualItems) _session.Manual[item.ItemKey] = item;
@@ -3049,6 +3096,10 @@ public sealed partial class MainViewModel : ObservableObject
             Goto(WizardStep.Identification);
             return;
         }
+
+        // Passou na validação acima => o técnico preencheu NTB e nome. Grava na
+        // sessão, senão o relatório sai sem NTB por ter vindo pelo trilho.
+        if ((int)target > (int)WizardStep.Identification) SyncIdentificationToSession();
 
         // "Concluído" só depois do relatório ser ENVIADO no resumo — sem isso,
         // dava para pular para a tela final sem mandar nada.
