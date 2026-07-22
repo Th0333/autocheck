@@ -25,6 +25,7 @@ public sealed class WmiHardwareCollector : IHardwareCollector
     private readonly IPowerShellRunner _ps;
     private readonly IDisplayEnumerator _displays;
     private readonly CrystalDiskInfoRunner _crystalDiskInfo;
+    private readonly DellBiosPasswordReader _dellBios;
     private readonly ILogger<WmiHardwareCollector> _logger;
 
     public WmiHardwareCollector(
@@ -32,12 +33,14 @@ public sealed class WmiHardwareCollector : IHardwareCollector
         IPowerShellRunner ps,
         IDisplayEnumerator displays,
         CrystalDiskInfoRunner crystalDiskInfo,
+        DellBiosPasswordReader dellBios,
         ILogger<WmiHardwareCollector> logger)
     {
         _wmi = wmi;
         _ps = ps;
         _displays = displays;
         _crystalDiskInfo = crystalDiskInfo;
+        _dellBios = dellBios;
         _logger = logger;
     }
 
@@ -1870,6 +1873,30 @@ if ($x -and $x.SerialNumber) {
             catch (Exception ex) { _logger.LogDebug(ex, "Lenovo BIOS password indisponível em {Escopo}", escopo); }
         }
 
+        // Dell sem o Dell Command | Monitor: tenta o Dell Command | PowerShell
+        // Provider, que faz o mesmo e instala com um Install-Module. É o caso
+        // comum aqui — máquina recondicionada é formatada e perde o OEM.
+        var ehDell = await EhDellAsync(ct).ConfigureAwait(false);
+        if (ehDell && ProcessoElevado())
+        {
+            if (await _dellBios.ModuloInstaladoAsync(ct).ConfigureAwait(false))
+            {
+                var r = await _dellBios.LerAsync(ct).ConfigureAwait(false);
+                if (r.Leitura is not null) return r.Leitura;
+                _logger.LogDebug("DellBIOSProvider instalado mas não leu: {Erro}", r.Erro);
+            }
+            else
+            {
+                // conserto de um clique: a tela oferece instalar e repetir
+                return new BiosSecurity(
+                    AvailabilityFlag.Indisponivel,
+                    AvailabilityFlag.Indisponivel,
+                    AvailabilityFlag.Indisponivel,
+                    null,
+                    BiosLeituraMotivo.DellSemProvider);
+            }
+        }
+
         // Nada leu. O motivo muda a orientação dada ao técnico.
         var motivo = negouAcesso
             ? BiosLeituraMotivo.SemPrivilegio
@@ -1881,6 +1908,10 @@ if ($x -and $x.SerialNumber) {
         // alguns provedores, então a falta de privilégio ganha da falta de
         // ferramenta: é o problema mais provável e o mais fácil de resolver.
         if (!ProcessoElevado()) motivo = BiosLeituraMotivo.SemPrivilegio;
+        else if (ehDell && motivo == BiosLeituraMotivo.FerramentaOemAusente)
+        {
+            motivo = BiosLeituraMotivo.DellSemProvider;
+        }
 
         return new BiosSecurity(
             AvailabilityFlag.Indisponivel,
@@ -1888,6 +1919,24 @@ if ($x -and $x.SerialNumber) {
             AvailabilityFlag.Indisponivel,
             null,
             motivo);
+    }
+
+    /// <summary>É uma Dell? Decide se vale tentar o provider da Dell.</summary>
+    private async Task<bool> EhDellAsync(CancellationToken ct)
+    {
+        try
+        {
+            var rows = await _wmi.QueryAsync("root\\cimv2",
+                "SELECT Manufacturer FROM Win32_ComputerSystem",
+                TimeSpan.FromSeconds(4), ct).ConfigureAwait(false);
+            var fab = rows.FirstOrDefault()?.GetString("Manufacturer") ?? "";
+            return fab.IndexOf("Dell", StringComparison.OrdinalIgnoreCase) >= 0;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "Não deu para ler o fabricante");
+            return false;
+        }
     }
 
     /// <summary>

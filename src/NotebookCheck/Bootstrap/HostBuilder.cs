@@ -69,6 +69,7 @@ public static class AppHostBuilder
                 services.AddSingleton<IWmiQueryRunner, WmiQueryRunner>();
                 services.AddSingleton<IKeyboardBacklightDetector, KeyboardBacklightDetector>();
                 services.AddSingleton<CrystalDiskInfoRunner>();
+                services.AddSingleton<DellBiosPasswordReader>();
                 services.AddSingleton<QuickMemoryTestRunner>();
                 services.AddSingleton<IHardwareCollector, WmiHardwareCollector>();
                 services.AddSingleton<IPortCollector, PortCollector>();

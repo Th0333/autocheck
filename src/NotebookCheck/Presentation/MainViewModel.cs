@@ -55,6 +55,7 @@ public sealed partial class MainViewModel : ObservableObject
     private readonly Application.Bench.BenchmarkSuite _stress;
     private readonly Application.Humanization.HumanizationRunner _humanization;
     private readonly Infrastructure.Hardware.CrystalDiskInfoRunner _crystalDiskInfo;
+    private readonly Infrastructure.Hardware.DellBiosPasswordReader _dellBios;
     private readonly ILogger<MainViewModel> _logger;
 
     /// <summary>Mapa estável: chave snake_case do teste → função que reexecuta.</summary>
@@ -65,6 +66,13 @@ public sealed partial class MainViewModel : ObservableObject
     [ObservableProperty] private WizardStep currentStep = WizardStep.Start;
     [ObservableProperty] private string statusMessage = "";
     [ObservableProperty] private bool isBusy;
+
+    /// <summary>
+    /// Mostra o botão "Instalar suporte Dell". Só liga quando a máquina É Dell e
+    /// o que falta é o módulo DellBIOSProvider — ou seja, quando o botão
+    /// realmente resolve. Em HP/Lenovo ele não aparece.
+    /// </summary>
+    [ObservableProperty] private bool podeInstalarSuporteDell;
     [ObservableProperty] private int pendingCount;
     [ObservableProperty] private string version = "1.0.0";
 
@@ -240,6 +248,7 @@ public sealed partial class MainViewModel : ObservableObject
         Application.Bench.BenchmarkSuite stress,
         Application.Humanization.HumanizationRunner humanization,
         Infrastructure.Hardware.CrystalDiskInfoRunner crystalDiskInfo,
+        Infrastructure.Hardware.DellBiosPasswordReader dellBios,
         Infrastructure.Erp.ErpClient erp,
         ILogger<MainViewModel> logger)
     {
@@ -265,6 +274,7 @@ public sealed partial class MainViewModel : ObservableObject
         _stress = stress;
         _humanization = humanization;
         _crystalDiskInfo = crystalDiskInfo;
+        _dellBios = dellBios;
         _logger = logger;
 
         try { Version = Bootstrap.AppDefaults.CurrentVersion; } catch { }
@@ -290,6 +300,54 @@ public sealed partial class MainViewModel : ObservableObject
         {
             foreach (var c in changes) Changelog.Add(c);
             HasChangelog = true;
+        }
+    }
+
+    /// <summary>
+    /// Instala o Dell Command | PowerShell Provider (PSGallery) e relê a senha
+    /// de BIOS na hora. É a saída para a Dell formatada, que perde o OEM e cai
+    /// em "não foi possível ler".
+    /// </summary>
+    [RelayCommand]
+    private async Task InstalarSuporteDellAsync()
+    {
+        IsBusy = true;
+        StatusMessage = "Instalando o suporte Dell (baixando do PSGallery)…";
+        try
+        {
+            var erro = await _dellBios.InstalarModuloAsync(CancellationToken.None).ConfigureAwait(true);
+            if (erro is not null)
+            {
+                StatusMessage = $"Não deu para instalar: {erro}. Confira a internet e se o app está como administrador.";
+                return;
+            }
+
+            StatusMessage = "Suporte instalado. Lendo a senha de BIOS…";
+            var leitura = await _dellBios.LerAsync(CancellationToken.None).ConfigureAwait(true);
+            if (leitura.Leitura is null)
+            {
+                StatusMessage = $"Instalou, mas a leitura falhou: {leitura.Erro ?? "sem detalhe"}. Confira no setup da BIOS.";
+                return;
+            }
+
+            // recompõe o bloco de segurança com o que acabou de ser lido
+            PodeInstalarSuporteDell = false;
+            SecurityFields.Add(new HardwareField("Senha BIOS (Setup/Admin)", FormatBiosPassword(leitura.Leitura.HasSetupPassword)));
+            SecurityFields.Add(new HardwareField("Senha BIOS (Power-On)", FormatBiosPassword(leitura.Leitura.HasPowerOnPassword)));
+            if (leitura.Leitura.HasHddPassword != AvailabilityFlag.Indisponivel)
+            {
+                SecurityFields.Add(new HardwareField("Senha BIOS (HD)", FormatBiosPassword(leitura.Leitura.HasHddPassword)));
+            }
+            StatusMessage = "Senha de BIOS lida pelo suporte Dell.";
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Instalação do suporte Dell falhou");
+            StatusMessage = $"Não deu para instalar o suporte Dell: {ex.Message}";
+        }
+        finally
+        {
+            IsBusy = false;
         }
     }
 
@@ -3280,14 +3338,20 @@ public sealed partial class MainViewModel : ObservableObject
                 {
                     BiosLeituraMotivo.SemPrivilegio =>
                         "Não foi possível ler — abra o NotebookCheck como administrador (botão direito › Executar como administrador)",
+                    BiosLeituraMotivo.DellSemProvider =>
+                        "Dell sem o suporte instalado — use o botão \"Instalar suporte Dell\" abaixo e teste de novo",
                     BiosLeituraMotivo.FerramentaOemAusente =>
-                        "Não foi possível ler — falta a ferramenta do fabricante (Dell Command | Monitor, HP CMI). Confira no setup da BIOS",
+                        "Não foi possível ler — falta a ferramenta do fabricante (HP CMI). Confira no setup da BIOS",
                     _ =>
                         "Indisponível — este fabricante não expõe o estado da senha ao Windows. Confira no setup da BIOS",
                 }));
+                // só a Dell tem conserto de um clique; nos outros casos o botão
+                // não apareceria para não prometer o que não resolve
+                PodeInstalarSuporteDell = bios.Motivo == BiosLeituraMotivo.DellSemProvider;
             }
             else
             {
+                PodeInstalarSuporteDell = false;
                 SecurityFields.Add(new HardwareField("Senha BIOS (Setup/Admin)", FormatBiosPassword(bios.HasSetupPassword)));
                 SecurityFields.Add(new HardwareField("Senha BIOS (Power-On)", FormatBiosPassword(bios.HasPowerOnPassword)));
                 if (bios.HasHddPassword != AvailabilityFlag.Indisponivel)

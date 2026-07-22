@@ -45,6 +45,11 @@ public enum BiosLeituraMotivo
     SemPrivilegio,
     /// <summary>Fabricante conhecido, mas a ferramenta de gestão não está instalada.</summary>
     FerramentaOemAusente,
+    /// <summary>
+    /// É uma Dell e falta o módulo <c>DellBIOSProvider</c> — este caso tem
+    /// conserto de um clique: o app instala o módulo do PSGallery e testa de novo.
+    /// </summary>
+    DellSemProvider,
     /// <summary>Fabricante sem interface WMI de senha de BIOS.</summary>
     FabricanteSemSuporte,
 }

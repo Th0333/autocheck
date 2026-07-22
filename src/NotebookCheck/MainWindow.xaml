@@ -504,6 +504,17 @@
                                             </DataTemplate>
                                         </ItemsControl.ItemTemplate>
                                     </ItemsControl>
+
+                                    <!-- Dell formatada perde o Dell Command e a senha de BIOS
+                                         fica ilegível. Este botão instala o provider oficial
+                                         da Dell (PSGallery) e relê na hora. Só aparece quando
+                                         é exatamente esse o caso. -->
+                                    <Button Content="Instalar suporte Dell e testar de novo"
+                                            Margin="0,10,0,0"
+                                            HorizontalAlignment="Left"
+                                            Command="{Binding InstalarSuporteDellCommand}"
+                                            IsEnabled="{Binding IsBusy, Converter={StaticResource InvBoolConv}}"
+                                            Visibility="{Binding PodeInstalarSuporteDell, Converter={StaticResource BoolVisConv}}"/>
                                 </StackPanel>
                             </Border>
 
