@@ -111,6 +111,8 @@ public sealed class MachinePayload
     [JsonPropertyName("bios_setup_password")] public string? BiosSetupPassword { get; init; }
     [JsonPropertyName("bios_power_on_password")] public string? BiosPowerOnPassword { get; init; }
     [JsonPropertyName("bios_hdd_password")] public string? BiosHddPassword { get; init; }
+    /// <summary>Por que a senha de BIOS não pôde ser lida, quando é o caso.</summary>
+    [JsonPropertyName("bios_password_motivo")] public string? BiosPasswordMotivo { get; init; }
     [JsonPropertyName("computrace_module")] public string? ComputraceModule { get; init; }
     [JsonPropertyName("computrace_agent")] public string? ComputraceAgent { get; init; }
     [JsonPropertyName("computrace_version")] public string? ComputraceVersion { get; init; }

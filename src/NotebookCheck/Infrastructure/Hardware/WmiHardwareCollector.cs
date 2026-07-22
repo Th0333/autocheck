@@ -1758,19 +1758,39 @@ if ($x -and $x.SerialNumber) {
     }
 
     /// <summary>
-    /// Coleta o estado das senhas de BIOS via WMI dos namespaces dos OEMs.
-    /// Cada fabricante expõe sua própria classe; tentamos os mais comuns:
-    ///   - HP:     root\HP\InstrumentedBIOS  HP_BIOSSetting
-    ///   - Dell:   root\dcim\sysman          DCIM_BIOSPassword
-    ///   - Lenovo: root\Lenovo               Lenovo_BiosPasswordSettings
-    /// Quando nenhum responde, retorna sentinela "Indisponível".
+    /// Coleta o estado das senhas de BIOS via WMI dos namespaces dos OEMs:
+    ///   - HP:     root\HP\InstrumentedBIOS  HPBIOS_BIOSPassword
+    ///   - Dell:   root\dcim\sysman          DCIM_BIOSPassword  (Dell Command | Monitor)
+    ///   - Lenovo: root\wmi                  Lenovo_BiosPasswordSettings
+    ///
+    /// Duas correções em relação à versão anterior:
+    ///
+    /// 1. O namespace da Lenovo é <c>root\wmi</c> — <c>root\Lenovo</c> não
+    ///    existe. A leitura em Lenovo nunca funcionou.
+    ///
+    /// 2. A falha agora é CLASSIFICADA em vez de virar um "indisponível" genérico.
+    ///    A causa mais comum não é o fabricante não ter suporte: é o app rodando
+    ///    SEM elevação. As classes existem e respondem "acesso negado" para
+    ///    usuário comum, e o catch genérico anterior transformava isso em
+    ///    "leitura só em HP/Dell/Lenovo" — mensagem que aparecia justamente nas
+    ///    Dell, onde deveria funcionar. Como o manifesto pede
+    ///    <c>highestAvailable</c>, em conta de usuário padrão o app abre normal e
+    ///    falha calado em toda máquina.
     /// </summary>
     private async Task<BiosSecurity?> CollectBiosSecurityAsync(CancellationToken ct)
     {
-        // HP — o estado de senha está em HPBIOS_BIOSPassword (Name + IsSet),
-        // NÃO em HP_BIOSSetting (que não tem IsSet — a versão antiga sempre
-        // reportava "sem senha"). HPBIOS_BIOSPassword expõe "Setup Password" e
-        // "Power-On Password" com IsSet (1/0).
+        var negouAcesso = false;
+        var recursoAusente = false;
+
+        void Classificar(WmiQueryException ex)
+        {
+            if (ex.Cause == WmiFailureCause.AccessDenied) negouAcesso = true;
+            else if (ex.Cause is WmiFailureCause.NotPresent or WmiFailureCause.InvalidQuery) recursoAusente = true;
+            _logger.LogDebug(ex, "BIOS password: {Causa} em {Scope}", ex.Cause, ex.Scope);
+        }
+
+        // HP — o estado está em HPBIOS_BIOSPassword (Name + IsSet); HP_BIOSSetting
+        // não tem IsSet e a versão antiga reportava "sem senha" sempre.
         try
         {
             var rows = await _wmi.QueryAsync("root\\HP\\InstrumentedBIOS",
@@ -1792,9 +1812,11 @@ if ($x -and $x.SerialNumber) {
                 return new BiosSecurity(setup, power, AvailabilityFlag.Indisponivel, "HPBIOS_BIOSPassword");
             }
         }
+        catch (WmiQueryException ex) { Classificar(ex); }
         catch (Exception ex) { _logger.LogDebug(ex, "HP BIOS password indisponível"); }
 
-        // Dell
+        // Dell — precisa do Dell Command | Monitor instalado; sem ele o
+        // namespace simplesmente não existe (NotPresent, não AccessDenied).
         try
         {
             var rows = await _wmi.QueryAsync("root\\dcim\\sysman",
@@ -1816,38 +1838,76 @@ if ($x -and $x.SerialNumber) {
                 return new BiosSecurity(setup, power, hdd, "DCIM_BIOSPassword");
             }
         }
+        catch (WmiQueryException ex) { Classificar(ex); }
         catch (Exception ex) { _logger.LogDebug(ex, "Dell BIOS password indisponível"); }
 
-        // Lenovo
-        try
+        // Lenovo — root\wmi (CORRIGIDO; root\Lenovo não existe). Mantém a
+        // tentativa no namespace antigo por segurança, caso alguma linha exponha lá.
+        foreach (var escopo in new[] { "root\\wmi", "root\\Lenovo" })
         {
-            var rows = await _wmi.QueryAsync("root\\Lenovo",
-                "SELECT PasswordState FROM Lenovo_BiosPasswordSettings",
-                TimeSpan.FromSeconds(4), ct).ConfigureAwait(false);
-            if (rows.Count > 0)
+            try
             {
-                // Lenovo PasswordState é um bitmask (doc oficial Lenovo):
-                //   bit 0 (0x01) = Power-On Password (POP)
-                //   bit 1 (0x02) = Supervisor/Admin Password (= "Setup")
-                //   bit 2 (0x04) = Hard Disk Password (user)
-                //   bit 3 (0x08) = Hard Disk Password (master)
-                // A versão antiga trocava setup↔power-on (setup lia o bit 0).
-                var state = rows[0].GetInt("PasswordState") ?? 0;
-                AvailabilityFlag ToFlag(bool set) => set ? AvailabilityFlag.Habilitado : AvailabilityFlag.Desabilitado;
-                return new BiosSecurity(
-                    HasSetupPassword: ToFlag((state & 0x02) != 0),
-                    HasPowerOnPassword: ToFlag((state & 0x01) != 0),
-                    HasHddPassword: ToFlag((state & 0x0C) != 0),
-                    Source: "Lenovo_BiosPasswordSettings");
+                var rows = await _wmi.QueryAsync(escopo,
+                    "SELECT PasswordState FROM Lenovo_BiosPasswordSettings",
+                    TimeSpan.FromSeconds(4), ct).ConfigureAwait(false);
+                if (rows.Count > 0)
+                {
+                    // PasswordState é um bitmask (doc oficial Lenovo):
+                    //   bit 0 (0x01) = Power-On Password (POP)
+                    //   bit 1 (0x02) = Supervisor/Admin Password (= "Setup")
+                    //   bit 2 (0x04) = Hard Disk Password (user)
+                    //   bit 3 (0x08) = Hard Disk Password (master)
+                    var state = rows[0].GetInt("PasswordState") ?? 0;
+                    AvailabilityFlag ToFlag(bool set) => set ? AvailabilityFlag.Habilitado : AvailabilityFlag.Desabilitado;
+                    return new BiosSecurity(
+                        HasSetupPassword: ToFlag((state & 0x02) != 0),
+                        HasPowerOnPassword: ToFlag((state & 0x01) != 0),
+                        HasHddPassword: ToFlag((state & 0x0C) != 0),
+                        Source: $"Lenovo_BiosPasswordSettings ({escopo})");
+                }
             }
+            catch (WmiQueryException ex) { Classificar(ex); }
+            catch (Exception ex) { _logger.LogDebug(ex, "Lenovo BIOS password indisponível em {Escopo}", escopo); }
         }
-        catch (Exception ex) { _logger.LogDebug(ex, "Lenovo BIOS password indisponível"); }
+
+        // Nada leu. O motivo muda a orientação dada ao técnico.
+        var motivo = negouAcesso
+            ? BiosLeituraMotivo.SemPrivilegio
+            : recursoAusente
+                ? BiosLeituraMotivo.FerramentaOemAusente
+                : BiosLeituraMotivo.FabricanteSemSuporte;
+
+        // Sem elevação a resposta do WMI é indistinguível de "não existe" em
+        // alguns provedores, então a falta de privilégio ganha da falta de
+        // ferramenta: é o problema mais provável e o mais fácil de resolver.
+        if (!ProcessoElevado()) motivo = BiosLeituraMotivo.SemPrivilegio;
 
         return new BiosSecurity(
             AvailabilityFlag.Indisponivel,
             AvailabilityFlag.Indisponivel,
             AvailabilityFlag.Indisponivel,
-            null);
+            null,
+            motivo);
+    }
+
+    /// <summary>
+    /// O processo está rodando elevado? O manifesto pede
+    /// <c>highestAvailable</c>: em conta de administrador isso eleva, mas em
+    /// conta de usuário padrão o app abre SEM privilégio e todo WMI de
+    /// fabricante nega acesso.
+    /// </summary>
+    private static bool ProcessoElevado()
+    {
+        try
+        {
+            using var identidade = System.Security.Principal.WindowsIdentity.GetCurrent();
+            var principal = new System.Security.Principal.WindowsPrincipal(identidade);
+            return principal.IsInRole(System.Security.Principal.WindowsBuiltInRole.Administrator);
+        }
+        catch
+        {
+            return false;
+        }
     }
 
     /// <summary>

@@ -22,7 +22,32 @@ public record BiosSecurity(
     AvailabilityFlag HasSetupPassword,
     AvailabilityFlag HasPowerOnPassword,
     AvailabilityFlag HasHddPassword,
-    string? Source);
+    string? Source,
+    BiosLeituraMotivo Motivo = BiosLeituraMotivo.Lido);
+
+/// <summary>
+/// Por que a leitura de senha de BIOS não veio — a diferença importa, porque
+/// cada caso tem uma saída diferente para o técnico.
+///
+/// A versão anterior tratava tudo como "indisponível" e dizia que a leitura só
+/// funcionava em HP/Dell/Lenovo. Não era verdade: o motivo mais comum é o app
+/// estar rodando SEM privilégio de administrador — as classes WMI do fabricante
+/// existem, mas negam acesso a usuário comum. Como o manifesto pede
+/// <c>highestAvailable</c> (e não <c>requireAdministrator</c>), em conta de
+/// usuário padrão o app abre normalmente e falha calado em toda máquina,
+/// inclusive nas Dell.
+/// </summary>
+public enum BiosLeituraMotivo
+{
+    /// <summary>Leitura feita com sucesso.</summary>
+    Lido,
+    /// <summary>Rodando sem elevação: o WMI do fabricante negou acesso.</summary>
+    SemPrivilegio,
+    /// <summary>Fabricante conhecido, mas a ferramenta de gestão não está instalada.</summary>
+    FerramentaOemAusente,
+    /// <summary>Fabricante sem interface WMI de senha de BIOS.</summary>
+    FabricanteSemSuporte,
+}
 
 /// <summary>
 /// Estado do agente Absolute (anteriormente Computrace) — sistema

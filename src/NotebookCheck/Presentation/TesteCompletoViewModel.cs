@@ -1048,6 +1048,7 @@ public sealed partial class TesteCompletoViewModel : ObservableObject
     {
         var primary = disks?.OrderByDescending(d => d.CapacityGb).FirstOrDefault();
         var totalGb = disks is null ? 0 : disks.Sum(d => (double)d.CapacityGb);
+        var gpus = ErpGpuMapper.Listar(m);
 
         return new ErpEspecificacoes
         {
@@ -1058,7 +1059,9 @@ public sealed partial class TesteCompletoViewModel : ObservableObject
             StorageGb = totalGb > 0 ? (int)Math.Round(totalGb) : null,
             StorageTipo = MapStorageType(primary?.Type),
             StorageHealthPct = primary?.LifePercentRemaining,
-            Gpu = NullIfEmptyStr(Clip(m.GraphicsAdapter ?? m.GraphicsDetails?.FirstOrDefault()?.Name, 120)),
+            // todas as placas, dedicada primeiro — antes ia só a principal
+            Gpu = NullIfEmptyStr(ErpGpuMapper.Texto(gpus)),
+            Gpus = gpus.Count > 0 ? gpus : null,
             Resolucao = NullIfEmptyStr(Clip(disp?.Resolution ?? m.ScreenResolution, 40)),
             So = NullIfEmptyStr(Clip(m.Os, 80)),
             Licenca = m.WindowsActivation == AvailabilityFlag.Ativado ? "Ativado"

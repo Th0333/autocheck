@@ -371,7 +371,14 @@ public sealed class ErpEspecificacoes
     [JsonPropertyName("storage_gb")] public int? StorageGb { get; set; }
     [JsonPropertyName("storage_tipo")] public string? StorageTipo { get; set; }
     [JsonPropertyName("storage_health_pct")] public int? StorageHealthPct { get; set; }
+    /// <summary>
+    /// Todas as placas de vídeo num texto só, dedicada primeiro
+    /// ("NVIDIA GeForce MX150 + Intel UHD Graphics 620"). Antes vinha só a
+    /// principal, e notebook com iGPU + dGPU chegava no ERP com uma placa só.
+    /// </summary>
     [JsonPropertyName("gpu")] public string? Gpu { get; set; }
+    /// <summary>Cada placa com VRAM e driver, para o ERP mostrar detalhado.</summary>
+    [JsonPropertyName("gpus")] public List<ErpGpu>? Gpus { get; set; }
     [JsonPropertyName("tela_polegadas")] public double? TelaPolegadas { get; set; }
     [JsonPropertyName("resolucao")] public string? Resolucao { get; set; }
     [JsonPropertyName("so")] public string? So { get; set; }
@@ -380,6 +387,18 @@ public sealed class ErpEspecificacoes
     [JsonPropertyName("webcam_ok")] public bool? WebcamOk { get; set; }
     [JsonPropertyName("wifi_ok")] public bool? WifiOk { get; set; }
     [JsonPropertyName("bluetooth_ok")] public bool? BluetoothOk { get; set; }
+}
+
+/// <summary>Uma placa de vídeo da máquina, como o ERP recebe.</summary>
+public sealed class ErpGpu
+{
+    [JsonPropertyName("nome")] public string Nome { get; set; } = "";
+    /// <summary>VRAM dedicada em MB. Null quando a placa só foi vista pelo PnP.</summary>
+    [JsonPropertyName("vram_mb")] public int? VramMb { get; set; }
+    [JsonPropertyName("driver_versao")] public string? DriverVersao { get; set; }
+    [JsonPropertyName("driver_data")] public string? DriverData { get; set; }
+    /// <summary>Dedicada (GeForce, Radeon RX, Arc) × integrada (UHD, Iris, Vega).</summary>
+    [JsonPropertyName("dedicada")] public bool Dedicada { get; set; }
 }
 
 /// <summary>

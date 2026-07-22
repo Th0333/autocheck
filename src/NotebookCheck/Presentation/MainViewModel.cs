@@ -3273,10 +3273,18 @@ public sealed partial class MainViewModel : ObservableObject
                 && bios.HasHddPassword == AvailabilityFlag.Indisponivel;
             if (allUnavailable)
             {
-                // Sem a interface WMI do fabricante (HP/Dell/Lenovo) não há como
-                // ler o estado das senhas de BIOS — deixa isso explícito.
-                SecurityFields.Add(new HardwareField("Senha de BIOS",
-                    "Indisponível (leitura só em HP/Dell/Lenovo com a ferramenta de gestão do fabricante)"));
+                // A mensagem tem que dizer o que FAZER. A versão anterior culpava
+                // o fabricante ("só em HP/Dell/Lenovo") mesmo quando o problema era
+                // o app rodar sem administrador — e aí aparecia até em Dell.
+                SecurityFields.Add(new HardwareField("Senha de BIOS", bios.Motivo switch
+                {
+                    BiosLeituraMotivo.SemPrivilegio =>
+                        "Não foi possível ler — abra o NotebookCheck como administrador (botão direito › Executar como administrador)",
+                    BiosLeituraMotivo.FerramentaOemAusente =>
+                        "Não foi possível ler — falta a ferramenta do fabricante (Dell Command | Monitor, HP CMI). Confira no setup da BIOS",
+                    _ =>
+                        "Indisponível — este fabricante não expõe o estado da senha ao Windows. Confira no setup da BIOS",
+                }));
             }
             else
             {

@@ -124,6 +124,15 @@ public static class PayloadBuilder
         BiosSetupPassword = m.BiosSecurity is null ? null : MapAvailability(m.BiosSecurity.HasSetupPassword),
         BiosPowerOnPassword = m.BiosSecurity is null ? null : MapAvailability(m.BiosSecurity.HasPowerOnPassword),
         BiosHddPassword = m.BiosSecurity is null ? null : MapAvailability(m.BiosSecurity.HasHddPassword),
+        // registra o PORQUÊ quando não deu para ler — "indisponível" sozinho não
+        // diz se falta administrador, falta a ferramenta do fabricante, ou nada disso
+        BiosPasswordMotivo = m.BiosSecurity?.Motivo switch
+        {
+            BiosLeituraMotivo.SemPrivilegio => "sem_privilegio",
+            BiosLeituraMotivo.FerramentaOemAusente => "ferramenta_oem_ausente",
+            BiosLeituraMotivo.FabricanteSemSuporte => "fabricante_sem_suporte",
+            _ => null,
+        },
         ComputraceModule = m.Computrace is null ? null : MapAvailability(m.Computrace.ModuleActive),
         ComputraceAgent = m.Computrace is null ? null : MapAvailability(m.Computrace.AgentInstalled),
         ComputraceVersion = m.Computrace?.Version,
