@@ -1695,6 +1695,15 @@ if ($x -and $x.SerialNumber) {
     private static bool IsBogusGpuName(string name)
     {
         if (name.IndexOf("Microsoft Basic", StringComparison.OrdinalIgnoreCase) >= 0) return true;
+        // O Windows em português chama o mesmo adaptador de "Adaptador de Vídeo
+        // Básico da Microsoft" — o filtro só pegava o nome em inglês, e numa
+        // máquina SEM driver de vídeo esse fallback entrava no laudo como se
+        // fosse a placa (NTB11378, Precision 7780, 21/07/2026).
+        if (name.IndexOf("Vídeo Básico", StringComparison.OrdinalIgnoreCase) >= 0) return true;
+        if (name.IndexOf("Video Basico", StringComparison.OrdinalIgnoreCase) >= 0) return true;
+        if (name.IndexOf("Compatível com VGA", StringComparison.OrdinalIgnoreCase) >= 0) return true;
+        if (name.IndexOf("Compativel com VGA", StringComparison.OrdinalIgnoreCase) >= 0) return true;
+        if (name.IndexOf("Standard VGA", StringComparison.OrdinalIgnoreCase) >= 0) return true;
         if (name.IndexOf("Microsoft Remote", StringComparison.OrdinalIgnoreCase) >= 0) return true;
         if (name.IndexOf("Mirror", StringComparison.OrdinalIgnoreCase) >= 0) return true;
         if (name.IndexOf("VirtualBox", StringComparison.OrdinalIgnoreCase) >= 0) return true;
