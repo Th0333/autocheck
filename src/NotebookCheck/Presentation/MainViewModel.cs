@@ -73,6 +73,14 @@ public sealed partial class MainViewModel : ObservableObject
     /// realmente resolve. Em HP/Lenovo ele não aparece.
     /// </summary>
     [ObservableProperty] private bool podeInstalarSuporteDell;
+
+    /// <summary>"Dell" ou "HP" — qual suporte o botão vai instalar. Null quando não há.</summary>
+    [ObservableProperty] private string? fabricanteDoSuporte;
+
+    /// <summary>Texto do botão, já com o fabricante certo.</summary>
+    public string RotuloBotaoSuporte => $"Instalar suporte {FabricanteDoSuporte ?? ""} e testar de novo";
+
+    partial void OnFabricanteDoSuporteChanged(string? value) => OnPropertyChanged(nameof(RotuloBotaoSuporte));
     [ObservableProperty] private int pendingCount;
     [ObservableProperty] private string version = "1.0.0";
 
@@ -311,11 +319,16 @@ public sealed partial class MainViewModel : ObservableObject
     [RelayCommand]
     private async Task InstalarSuporteDellAsync()
     {
+        var hp = FabricanteDoSuporte == "HP";
+        var modulo = hp
+            ? Infrastructure.Hardware.DellBiosPasswordReader.NomeModuloHp
+            : Infrastructure.Hardware.DellBiosPasswordReader.NomeModulo;
+
         IsBusy = true;
-        StatusMessage = "Instalando o suporte Dell (baixando do PSGallery)…";
+        StatusMessage = $"Instalando o suporte {FabricanteDoSuporte} (baixando do PSGallery)…";
         try
         {
-            var erro = await _dellBios.InstalarModuloAsync(CancellationToken.None).ConfigureAwait(true);
+            var erro = await _dellBios.InstalarModuloAsync(CancellationToken.None, modulo).ConfigureAwait(true);
             if (erro is not null)
             {
                 StatusMessage = $"Não deu para instalar: {erro}. Confira a internet e se o app está como administrador.";
@@ -323,7 +336,9 @@ public sealed partial class MainViewModel : ObservableObject
             }
 
             StatusMessage = "Suporte instalado. Lendo a senha de BIOS…";
-            var leitura = await _dellBios.LerAsync(CancellationToken.None).ConfigureAwait(true);
+            var leitura = hp
+                ? await _dellBios.LerHpAsync(CancellationToken.None).ConfigureAwait(true)
+                : await _dellBios.LerAsync(CancellationToken.None).ConfigureAwait(true);
             if (leitura.Leitura is null)
             {
                 StatusMessage = $"Instalou, mas a leitura falhou: {leitura.Erro ?? "sem detalhe"}. Confira no setup da BIOS.";
@@ -338,12 +353,12 @@ public sealed partial class MainViewModel : ObservableObject
             {
                 SecurityFields.Add(new HardwareField("Senha BIOS (HD)", FormatBiosPassword(leitura.Leitura.HasHddPassword)));
             }
-            StatusMessage = "Senha de BIOS lida pelo suporte Dell.";
+            StatusMessage = $"Senha de BIOS lida pelo suporte {FabricanteDoSuporte}.";
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Instalação do suporte Dell falhou");
-            StatusMessage = $"Não deu para instalar o suporte Dell: {ex.Message}";
+            _logger.LogWarning(ex, "Instalação do suporte {Fab} falhou", FabricanteDoSuporte);
+            StatusMessage = $"Não deu para instalar o suporte: {ex.Message}";
         }
         finally
         {
@@ -3339,15 +3354,23 @@ public sealed partial class MainViewModel : ObservableObject
                     BiosLeituraMotivo.SemPrivilegio =>
                         "Não foi possível ler — abra o NotebookCheck como administrador (botão direito › Executar como administrador)",
                     BiosLeituraMotivo.DellSemProvider =>
-                        "Dell sem o suporte instalado — use o botão \"Instalar suporte Dell\" abaixo e teste de novo",
+                        "Dell sem o suporte instalado — use o botão abaixo para instalar e testar de novo",
+                    BiosLeituraMotivo.HpSemProvider =>
+                        "HP sem o suporte instalado — use o botão abaixo para instalar e testar de novo",
                     BiosLeituraMotivo.FerramentaOemAusente =>
-                        "Não foi possível ler — falta a ferramenta do fabricante (HP CMI). Confira no setup da BIOS",
+                        "Não foi possível ler — falta a ferramenta do fabricante. Confira no setup da BIOS",
                     _ =>
                         "Indisponível — este fabricante não expõe o estado da senha ao Windows. Confira no setup da BIOS",
                 }));
-                // só a Dell tem conserto de um clique; nos outros casos o botão
-                // não apareceria para não prometer o que não resolve
-                PodeInstalarSuporteDell = bios.Motivo == BiosLeituraMotivo.DellSemProvider;
+                // Dell e HP têm conserto de um clique (módulo oficial no
+                // PSGallery). Lenovo não precisa: o WMI vem no próprio firmware.
+                FabricanteDoSuporte = bios.Motivo switch
+                {
+                    BiosLeituraMotivo.DellSemProvider => "Dell",
+                    BiosLeituraMotivo.HpSemProvider => "HP",
+                    _ => null,
+                };
+                PodeInstalarSuporteDell = FabricanteDoSuporte is not null;
             }
             else
             {

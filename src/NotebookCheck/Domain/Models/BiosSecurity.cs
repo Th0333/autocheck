@@ -50,6 +50,11 @@ public enum BiosLeituraMotivo
     /// conserto de um clique: o app instala o módulo do PSGallery e testa de novo.
     /// </summary>
     DellSemProvider,
+    /// <summary>
+    /// É uma HP e falta o módulo <c>HPCMSL</c> — mesmo conserto de um clique
+    /// que a Dell.
+    /// </summary>
+    HpSemProvider,
     /// <summary>Fabricante sem interface WMI de senha de BIOS.</summary>
     FabricanteSemSuporte,
 }

@@ -1897,6 +1897,28 @@ if ($x -and $x.SerialNumber) {
             }
         }
 
+        // HP sem o software da HP: mesma história da Dell — o HPCMSL (HP Client
+        // Management Script Library, também no PSGallery) faz a leitura.
+        var ehHp = await EhFabricanteAsync("HP", ct).ConfigureAwait(false);
+        if (ehHp && ProcessoElevado())
+        {
+            if (await _dellBios.ModuloInstaladoAsync(ct, DellBiosPasswordReader.NomeModuloHp).ConfigureAwait(false))
+            {
+                var r = await _dellBios.LerHpAsync(ct).ConfigureAwait(false);
+                if (r.Leitura is not null) return r.Leitura;
+                _logger.LogDebug("HPCMSL instalado mas não leu: {Erro}", r.Erro);
+            }
+            else
+            {
+                return new BiosSecurity(
+                    AvailabilityFlag.Indisponivel,
+                    AvailabilityFlag.Indisponivel,
+                    AvailabilityFlag.Indisponivel,
+                    null,
+                    BiosLeituraMotivo.HpSemProvider);
+            }
+        }
+
         // Nada leu. O motivo muda a orientação dada ao técnico.
         var motivo = negouAcesso
             ? BiosLeituraMotivo.SemPrivilegio
@@ -1921,8 +1943,8 @@ if ($x -and $x.SerialNumber) {
             motivo);
     }
 
-    /// <summary>É uma Dell? Decide se vale tentar o provider da Dell.</summary>
-    private async Task<bool> EhDellAsync(CancellationToken ct)
+    /// <summary>Decide se vale tentar o provider daquele fabricante.</summary>
+    private async Task<bool> EhFabricanteAsync(string marca, CancellationToken ct)
     {
         try
         {
@@ -1930,7 +1952,7 @@ if ($x -and $x.SerialNumber) {
                 "SELECT Manufacturer FROM Win32_ComputerSystem",
                 TimeSpan.FromSeconds(4), ct).ConfigureAwait(false);
             var fab = rows.FirstOrDefault()?.GetString("Manufacturer") ?? "";
-            return fab.IndexOf("Dell", StringComparison.OrdinalIgnoreCase) >= 0;
+            return fab.IndexOf(marca, StringComparison.OrdinalIgnoreCase) >= 0;
         }
         catch (Exception ex)
         {
@@ -1938,6 +1960,8 @@ if ($x -and $x.SerialNumber) {
             return false;
         }
     }
+
+    private Task<bool> EhDellAsync(CancellationToken ct) => EhFabricanteAsync("Dell", ct);
 
     /// <summary>
     /// O processo está rodando elevado? O manifesto pede

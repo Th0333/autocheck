@@ -30,6 +30,14 @@ public sealed class DellBiosPasswordReader
 
     public const string NomeModulo = "DellBIOSProvider";
 
+    /// <summary>
+    /// Módulo equivalente da HP: <b>HP Client Management Script Library</b>
+    /// (HPCMSL, publicado pela HP no PSGallery). Mesma história da Dell — a
+    /// interface WMI `root\HP\InstrumentedBIOS` vem com software da HP e some
+    /// quando a máquina é formatada.
+    /// </summary>
+    public const string NomeModuloHp = "HPCMSL";
+
     public DellBiosPasswordReader(IPowerShellRunner ps, ILogger<DellBiosPasswordReader> logger)
     {
         _ps = ps;
@@ -42,19 +50,19 @@ public sealed class DellBiosPasswordReader
         public bool Ok => Leitura is not null;
     }
 
-    /// <summary>O módulo da Dell já está instalado nesta máquina?</summary>
-    public async Task<bool> ModuloInstaladoAsync(CancellationToken ct)
+    /// <summary>O módulo do fabricante já está instalado nesta máquina?</summary>
+    public async Task<bool> ModuloInstaladoAsync(CancellationToken ct, string modulo = NomeModulo)
     {
         try
         {
             var rows = await _ps.InvokeAsync(
-                $"if (Get-Module -ListAvailable -Name {NomeModulo}) {{ [pscustomobject]@{{ Tem = $true }} }}",
+                $"if (Get-Module -ListAvailable -Name {modulo}) {{ [pscustomobject]@{{ Tem = $true }} }}",
                 null, TimeSpan.FromSeconds(20), ct).ConfigureAwait(false);
             return rows.Count > 0;
         }
         catch (Exception ex)
         {
-            _logger.LogDebug(ex, "Falha ao verificar {Modulo}", NomeModulo);
+            _logger.LogDebug(ex, "Falha ao verificar {Modulo}", modulo);
             return false;
         }
     }
@@ -63,11 +71,11 @@ public sealed class DellBiosPasswordReader
     /// Instala o módulo do PSGallery. Precisa de internet e de administrador
     /// (escopo AllUsers, para o teste valer para qualquer conta da bancada).
     /// </summary>
-    public async Task<string?> InstalarModuloAsync(CancellationToken ct)
+    public async Task<string?> InstalarModuloAsync(CancellationToken ct, string modulo = NomeModulo)
     {
         // NuGet + PSGallery confiável antes do Install-Module, senão o cmdlet
         // trava esperando confirmação interativa que ninguém vai responder.
-        const string script = """
+        var script = $$"""
             $ErrorActionPreference = 'Stop'
             try {
               [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
@@ -75,7 +83,7 @@ public sealed class DellBiosPasswordReader
                 Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Force -Scope AllUsers | Out-Null
               }
               Set-PSRepository -Name PSGallery -InstallationPolicy Trusted -ErrorAction SilentlyContinue
-              Install-Module -Name DellBIOSProvider -Force -Scope AllUsers -AllowClobber -ErrorAction Stop
+              Install-Module -Name {{modulo}} -Force -Scope AllUsers -AllowClobber -ErrorAction Stop
               [pscustomobject]@{ Erro = $null }
             } catch {
               [pscustomobject]@{ Erro = $_.Exception.Message }
@@ -84,18 +92,18 @@ public sealed class DellBiosPasswordReader
 
         try
         {
-            var rows = await _ps.InvokeAsync(script, null, TimeSpan.FromMinutes(5), ct).ConfigureAwait(false);
+            var rows = await _ps.InvokeAsync(script, null, TimeSpan.FromMinutes(8), ct).ConfigureAwait(false);
             var erro = rows.FirstOrDefault()?.GetValueOrDefault("Erro") as string;
             if (!string.IsNullOrWhiteSpace(erro))
             {
-                _logger.LogWarning("Instalação do {Modulo} falhou: {Erro}", NomeModulo, erro);
+                _logger.LogWarning("Instalação do {Modulo} falhou: {Erro}", modulo, erro);
                 return erro;
             }
             return null;
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Instalação do {Modulo} falhou", NomeModulo);
+            _logger.LogWarning(ex, "Instalação do {Modulo} falhou", modulo);
             return ex.Message;
         }
     }
@@ -157,6 +165,51 @@ public sealed class DellBiosPasswordReader
         catch (Exception ex)
         {
             _logger.LogDebug(ex, "Leitura via {Modulo} falhou", NomeModulo);
+            return new Resultado(null, ex.Message);
+        }
+    }
+
+    /// <summary>
+    /// Lê a senha de BIOS em máquinas HP pelo HPCMSL.
+    ///
+    /// O cmdlet é <c>Get-HPBIOSSetupPasswordIsSet</c>, que devolve só a senha de
+    /// setup — a HP não expõe power-on/HDD por aqui, então esses ficam
+    /// Indisponível em vez de virarem "sem senha", que seria mentira.
+    /// </summary>
+    public async Task<Resultado> LerHpAsync(CancellationToken ct)
+    {
+        const string script = """
+            $ErrorActionPreference = 'Stop'
+            try {
+              Import-Module HPCMSL -ErrorAction Stop
+              [pscustomobject]@{ Setup = [bool](Get-HPBIOSSetupPasswordIsSet); Erro = $null }
+            } catch {
+              [pscustomobject]@{ Setup = $null; Erro = $_.Exception.Message }
+            }
+            """;
+
+        try
+        {
+            var rows = await _ps.InvokeAsync(script, null, TimeSpan.FromSeconds(90), ct).ConfigureAwait(false);
+            var row = rows.FirstOrDefault();
+            if (row is null) return new Resultado(null, "sem resposta do HPCMSL");
+
+            var erro = row.GetValueOrDefault("Erro") as string;
+            if (!string.IsNullOrWhiteSpace(erro)) return new Resultado(null, erro);
+
+            var setup = ParaFlag(row.GetValueOrDefault("Setup"));
+            if (setup == AvailabilityFlag.Indisponivel)
+            {
+                return new Resultado(null, "o HPCMSL não reportou a senha de setup");
+            }
+
+            return new Resultado(
+                new BiosSecurity(setup, AvailabilityFlag.Indisponivel, AvailabilityFlag.Indisponivel, "HPCMSL"),
+                null);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "Leitura via {Modulo} falhou", NomeModuloHp);
             return new Resultado(null, ex.Message);
         }
     }

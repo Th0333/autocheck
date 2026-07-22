@@ -505,11 +505,11 @@
                                         </ItemsControl.ItemTemplate>
                                     </ItemsControl>
 
-                                    <!-- Dell formatada perde o Dell Command e a senha de BIOS
-                                         fica ilegível. Este botão instala o provider oficial
-                                         da Dell (PSGallery) e relê na hora. Só aparece quando
-                                         é exatamente esse o caso. -->
-                                    <Button Content="Instalar suporte Dell e testar de novo"
+                                    <!-- Dell/HP formatada perde o software do fabricante e a
+                                         senha de BIOS fica ilegível. Este botão instala o
+                                         módulo oficial (DellBIOSProvider ou HPCMSL, ambos no
+                                         PSGallery) e relê na hora. Só aparece nesse caso. -->
+                                    <Button Content="{Binding RotuloBotaoSuporte}"
                                             Margin="0,10,0,0"
                                             HorizontalAlignment="Left"
                                             Command="{Binding InstalarSuporteDellCommand}"
