@@ -1,4 +1,8 @@
 using System;
+using System.ComponentModel;
+using System.Diagnostics;
+using System.Linq;
+using System.Security.Principal;
 using System.Windows;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -18,10 +22,77 @@ public partial class App : System.Windows.Application
     /// </summary>
     public static string[]? LatestChangelog { get; private set; }
 
+    /// <summary>
+    /// Argumento que marca "já tentei elevar, não tente de novo". Sem isso, um
+    /// usuário que recusa o UAC entraria num laço de prompts.
+    /// </summary>
+    private const string SemElevacao = "--sem-elevacao";
+
+    /// <summary>
+    /// Relança o app como administrador quando ele abriu sem privilégio.
+    ///
+    /// Preferido a trocar o manifesto para <c>requireAdministrator</c>: aquilo
+    /// IMPEDIRIA o app de abrir para quem não consegue elevar, e aqui a recusa
+    /// só custa a leitura de senha de BIOS — o resto do checklist funciona
+    /// normal. Chega nas bancadas pelo próprio auto-updater, sem ninguém trocar
+    /// .exe na mão.
+    /// </summary>
+    /// <returns>true quando relançou e este processo deve encerrar.</returns>
+    private static bool TentarElevar()
+    {
+        try
+        {
+            var args = Environment.GetCommandLineArgs();
+            if (args.Any(a => string.Equals(a, SemElevacao, StringComparison.OrdinalIgnoreCase)))
+            {
+                return false; // já tentou nesta cadeia; segue sem privilégio
+            }
+
+            using var identidade = WindowsIdentity.GetCurrent();
+            if (new WindowsPrincipal(identidade).IsInRole(WindowsBuiltInRole.Administrator))
+            {
+                return false; // já está elevado
+            }
+
+            var exe = Environment.ProcessPath;
+            if (string.IsNullOrWhiteSpace(exe)) return false;
+
+            // repassa os argumentos originais + a trava anti-laço
+            var extras = string.Join(' ', args.Skip(1).Select(a => $"\"{a}\""));
+            var info = new ProcessStartInfo
+            {
+                FileName = exe,
+                Arguments = $"{extras} {SemElevacao}".Trim(),
+                UseShellExecute = true,
+                Verb = "runas", // dispara o UAC
+            };
+            Process.Start(info);
+            return true;
+        }
+        catch (Win32Exception)
+        {
+            // usuário clicou "Não" no UAC, ou a política bloqueia elevação.
+            // Não é erro: o app segue sem privilégio e a tela de segurança
+            // explica que a senha de BIOS não pôde ser lida.
+            return false;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
     protected override async void OnStartup(StartupEventArgs e)
     {
         try
         {
+            // ----- Elevação -----
+            // Precisa vir ANTES de tudo: a leitura de senha de BIOS (e o suporte
+            // Dell) depende de administrador, e o manifesto pede
+            // `highestAvailable`, que em conta de usuário PADRÃO abre sem
+            // privilégio nenhum e falha calado. Aqui o app se relança elevado.
+            if (TentarElevar()) { Shutdown(0); return; }
+
             // Aplica o tema salvo (claro/escuro) antes de qualquer janela.
             ThemeManager.Initialize();
 
