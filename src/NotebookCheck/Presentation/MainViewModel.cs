@@ -2356,7 +2356,7 @@ public sealed partial class MainViewModel : ObservableObject
             }
 
             // Popula a lista de itens (uma vez), conforme o modo (Desktop usa
-            // 3 fotos de carcaça + 1 interna; notebook usa o catálogo padrão).
+            // 3 fotos de carcaça; notebook usa o catálogo padrão).
             if (InspectionItems.Count == 0)
             {
                 foreach (var item in Domain.Models.InspectionCatalog.ForMode(_session.Mode))

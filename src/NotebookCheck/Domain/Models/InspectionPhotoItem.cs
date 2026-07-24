@@ -48,13 +48,12 @@ public static class InspectionCatalog
         new InspectionPhotoItem("palmrest", "Palmrest (teclado e touchpad)", "Parte interna aberta: teclado, touchpad e descanso de mãos."),
     }.Concat(Defects).ToList();
 
-    /// <summary>Catálogo de DESKTOP: 3 fotos da carcaça + 1 interna + slots de defeito.</summary>
+    /// <summary>Catálogo de DESKTOP: 3 fotos da carcaça + slots de defeito.</summary>
     public static readonly IReadOnlyList<InspectionPhotoItem> DesktopItems = new[]
     {
         new InspectionPhotoItem("carcaca_frente", "Carcaça — frente", "Frente do gabinete (painel frontal, portas e botões)."),
         new InspectionPhotoItem("carcaca_traseira", "Carcaça — traseira", "Traseira do gabinete, mostrando as portas e conexões."),
         new InspectionPhotoItem("carcaca_lateral", "Carcaça — lateral", "Lateral do gabinete (tampa de acesso)."),
-        new InspectionPhotoItem("interna", "Interna (aberta)", "Parte interna com o gabinete aberto: placa-mãe, cabos e componentes."),
     }.Concat(Defects).ToList();
 
     /// <summary>Itens principais do notebook (sem os slots opcionais de defeito).</summary>
