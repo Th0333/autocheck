@@ -82,6 +82,16 @@ public partial class TestActionWindow : Window
         statusBox.SelectedIndex = 3; // "Não testado"
     }
 
+    /// <summary>
+    /// Espelha o status escolhido no <c>Tag</c>: é dele que o template do
+    /// <c>StatusCombo</c> tira a cor da bolinha. Só aparência — o texto do item
+    /// continua sendo a fonte de verdade do resultado.
+    /// </summary>
+    private void OnStatusChanged(object sender, SelectionChangedEventArgs e)
+    {
+        statusBox.Tag = (statusBox.SelectedItem as ComboBoxItem)?.Content as string ?? "";
+    }
+
     private async void OnRun(object sender, RoutedEventArgs e)
     {
         if (_runner is null) return;

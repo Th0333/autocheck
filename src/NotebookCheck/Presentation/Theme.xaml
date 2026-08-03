@@ -266,6 +266,140 @@
         <Setter Property="Foreground" Value="{DynamicResource Ink800Brush}"/>
     </Style>
 
+    <!-- ==================== ComboBox de status (RESULTADO) ====================
+         Mesmo conteúdo do ComboBox comum — os textos dos itens NÃO mudam, porque
+         o TestActionWindow casa o resultado por string. O que muda é a moldura:
+         altura de toque, cantos arredondados e uma bolinha que acompanha o
+         status escolhido. A cor da bolinha vem do `Tag`, que o code-behind
+         atualiza a cada troca de seleção (ComboBox.Text não é confiável quando
+         os itens são ComboBoxItem declarados na mão).
+    -->
+    <Style x:Key="StatusComboItem" TargetType="ComboBoxItem">
+        <Setter Property="FontFamily" Value="{StaticResource UiFont}"/>
+        <Setter Property="FontSize" Value="13"/>
+        <Setter Property="Padding" Value="12,9"/>
+        <Setter Property="Foreground" Value="{DynamicResource Ink800Brush}"/>
+        <Setter Property="Cursor" Value="Hand"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ComboBoxItem">
+                    <Border x:Name="bd" Background="Transparent" CornerRadius="6" Margin="4,2"
+                            Padding="{TemplateBinding Padding}">
+                        <ContentPresenter VerticalAlignment="Center"/>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsHighlighted" Value="True">
+                            <Setter TargetName="bd" Property="Background" Value="{DynamicResource Ink50Brush}"/>
+                        </Trigger>
+                        <Trigger Property="IsSelected" Value="True">
+                            <Setter TargetName="bd" Property="Background" Value="{DynamicResource Ink100Brush}"/>
+                            <Setter Property="FontWeight" Value="SemiBold"/>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <Style x:Key="StatusCombo" TargetType="ComboBox">
+        <Setter Property="FontFamily" Value="{StaticResource UiFont}"/>
+        <Setter Property="FontSize" Value="14"/>
+        <Setter Property="MinHeight" Value="42"/>
+        <Setter Property="Padding" Value="14,0"/>
+        <Setter Property="Cursor" Value="Hand"/>
+        <Setter Property="Foreground" Value="{DynamicResource Ink800Brush}"/>
+        <Setter Property="Background" Value="{DynamicResource SurfaceBrush}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource Ink200Brush}"/>
+        <Setter Property="SnapsToDevicePixels" Value="True"/>
+        <Setter Property="ItemContainerStyle" Value="{StaticResource StatusComboItem}"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ComboBox">
+                    <Grid>
+                        <Border x:Name="bd"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="1" CornerRadius="10">
+                            <Grid Margin="{TemplateBinding Padding}">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+
+                                <Ellipse x:Name="dot" Width="11" Height="11" Margin="0,0,10,0"
+                                         VerticalAlignment="Center"
+                                         Fill="{DynamicResource Ink300Brush}"/>
+
+                                <ContentPresenter Grid.Column="1" VerticalAlignment="Center"
+                                                  IsHitTestVisible="False"
+                                                  Content="{TemplateBinding SelectionBoxItem}"
+                                                  ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}"/>
+
+                                <Path Grid.Column="2" x:Name="chevron" VerticalAlignment="Center"
+                                      Margin="10,0,0,0" Data="M 0 0 L 5 5 L 10 0"
+                                      Stroke="{DynamicResource Ink500Brush}" StrokeThickness="1.6"
+                                      StrokeEndLineCap="Round" StrokeStartLineCap="Round"/>
+                            </Grid>
+                        </Border>
+
+                        <!-- Camada transparente só para capturar o clique/abrir -->
+                        <ToggleButton Focusable="False" ClickMode="Press" Background="Transparent"
+                                      IsChecked="{Binding IsDropDownOpen, Mode=TwoWay,
+                                                  RelativeSource={RelativeSource TemplatedParent}}">
+                            <ToggleButton.Template>
+                                <ControlTemplate TargetType="ToggleButton">
+                                    <Border Background="Transparent"/>
+                                </ControlTemplate>
+                            </ToggleButton.Template>
+                        </ToggleButton>
+
+                        <Popup x:Name="PART_Popup" Placement="Bottom" Focusable="False"
+                               AllowsTransparency="True" PopupAnimation="Fade"
+                               IsOpen="{TemplateBinding IsDropDownOpen}">
+                            <Border Margin="0,6,0,0" CornerRadius="10" Padding="2"
+                                    MinWidth="{Binding ActualWidth, RelativeSource={RelativeSource TemplatedParent}}"
+                                    Background="{DynamicResource SurfaceBrush}"
+                                    BorderBrush="{DynamicResource Ink200Brush}" BorderThickness="1">
+                                <Border.Effect>
+                                    <DropShadowEffect Color="{StaticResource Ink900}" Opacity="0.14"
+                                                      ShadowDepth="2" BlurRadius="16"/>
+                                </Border.Effect>
+                                <ScrollViewer MaxHeight="{TemplateBinding MaxDropDownHeight}">
+                                    <StackPanel IsItemsHost="True"
+                                                KeyboardNavigation.DirectionalNavigation="Contained"/>
+                                </ScrollViewer>
+                            </Border>
+                        </Popup>
+                    </Grid>
+
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="bd" Property="BorderBrush" Value="{DynamicResource Ink300Brush}"/>
+                        </Trigger>
+                        <Trigger Property="IsDropDownOpen" Value="True">
+                            <Setter TargetName="bd" Property="BorderBrush" Value="{StaticResource BrandLightBrush}"/>
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter Property="Opacity" Value="0.6"/>
+                        </Trigger>
+
+                        <!-- Cor da bolinha por status (o code-behind escreve o Tag) -->
+                        <Trigger Property="Tag" Value="OK">
+                            <Setter TargetName="dot" Property="Fill" Value="{DynamicResource StatusOkFgBrush}"/>
+                        </Trigger>
+                        <Trigger Property="Tag" Value="Atenção">
+                            <Setter TargetName="dot" Property="Fill" Value="{DynamicResource StatusWarnFgBrush}"/>
+                        </Trigger>
+                        <Trigger Property="Tag" Value="Falha">
+                            <Setter TargetName="dot" Property="Fill" Value="{DynamicResource StatusBadFgBrush}"/>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
     <Style TargetType="RadioButton">
         <Setter Property="FontFamily" Value="{StaticResource UiFont}"/>
         <Setter Property="FontSize" Value="13"/>

@@ -20,6 +20,7 @@ public sealed class OfflineSyncService : BackgroundService
     private readonly INetworkProbe _probe;
     private readonly AppConfig _config;
     private readonly IReportArchive _archive;
+    private readonly ChecklistAudioSender _audio;
     private readonly ILogger<OfflineSyncService> _logger;
 
     public event EventHandler<int>? PendingChanged;
@@ -32,6 +33,7 @@ public sealed class OfflineSyncService : BackgroundService
         INetworkProbe probe,
         AppConfig config,
         IReportArchive archive,
+        ChecklistAudioSender audio,
         ILogger<OfflineSyncService> logger)
     {
         _queue = queue;
@@ -39,6 +41,7 @@ public sealed class OfflineSyncService : BackgroundService
         _probe = probe;
         _config = config;
         _archive = archive;
+        _audio = audio;
         _logger = logger;
     }
 
@@ -49,7 +52,10 @@ public sealed class OfflineSyncService : BackgroundService
         {
             try
             {
-                if (_queue.Count > 0)
+                var temRelatorio = _queue.Count > 0;
+                var temAudio = _audio.PendingCount > 0;
+
+                if (temRelatorio || temAudio)
                 {
                     var ok = false;
                     if (!string.IsNullOrWhiteSpace(_config.Options.InternetTestUrl))
@@ -62,7 +68,7 @@ public sealed class OfflineSyncService : BackgroundService
                         ok = true;
                     }
 
-                    if (ok)
+                    if (ok && temRelatorio)
                     {
                         var pending = await _queue.DequeueAsync(stoppingToken).ConfigureAwait(false);
                         foreach (var item in pending)
@@ -83,6 +89,13 @@ public sealed class OfflineSyncService : BackgroundService
                                     break;
                             }
                         }
+                    }
+
+                    // Gravações do microfone: cada uma carrega o test_id/NTB da
+                    // sua máquina, então a fila entrega no check certo.
+                    if (ok && temAudio)
+                    {
+                        await _audio.DrainAsync(stoppingToken).ConfigureAwait(false);
                     }
                 }
                 Notify();

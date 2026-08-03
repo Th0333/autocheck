@@ -46,6 +46,7 @@ public sealed partial class MainViewModel : ObservableObject
     private readonly IOfflineQueue _queue;
     private readonly IApiClient _api;
     private readonly Infrastructure.Erp.ErpClient _erp;
+    private readonly Application.Sync.ChecklistAudioSender _audioSender;
     private readonly OfflineSyncService _sync;
     private readonly IRetestController _retest;
     private readonly Application.Orchestration.PostRepairRetest _postRepairRetest;
@@ -258,9 +259,11 @@ public sealed partial class MainViewModel : ObservableObject
         Infrastructure.Hardware.CrystalDiskInfoRunner crystalDiskInfo,
         Infrastructure.Hardware.DellBiosPasswordReader dellBios,
         Infrastructure.Erp.ErpClient erp,
+        Application.Sync.ChecklistAudioSender audioSender,
         ILogger<MainViewModel> logger)
     {
         _erp = erp;
+        _audioSender = audioSender;
         _collector = collector;
         _serialNtb = serialNtb;
         _machineIdentity = machineIdentity;
@@ -1336,7 +1339,7 @@ public sealed partial class MainViewModel : ObservableObject
                 };
                 break;
             case "microfone":
-                inline = new Views.MicTestControl();
+                inline = BuildMicControl();
                 break;
             case "brilho":
                 inline = new Views.BrightnessTestControl(_logger);
@@ -1396,7 +1399,7 @@ public sealed partial class MainViewModel : ObservableObject
 
         if (dlg.Result != Views.TestActionWindow.Action.Save) return;
 
-        // Microfone: guarda o áudio para o botão "Reproduzir gravação".
+        // Microfone: guarda o áudio para o botão "Reproduzir gravação" da tela.
         if (testKey == "microfone" && dlg.CapturedWav is { Length: > 0 } wav)
         {
             _lastMicWav = wav;
@@ -1440,6 +1443,28 @@ public sealed partial class MainViewModel : ObservableObject
         false => "Falha",
         _ => null,   // null = técnico não decidiu → mantém o status atual
     };
+
+    /// <summary>
+    /// Monta o painel do microfone já sabendo a que máquina ele pertence.
+    ///
+    /// O controle não conhece o ERP: ele só chama este delegate com o WAV e a
+    /// duração. Quem carimba o <c>test_id</c>/NTB/serial — e portanto garante
+    /// que a gravação vá para o check DESTE PC — é aqui. Sem ERP configurado o
+    /// delegate fica nulo e o botão de enviar nem aparece.
+    /// </summary>
+    private Views.MicTestControl BuildMicControl()
+    {
+        var ctrl = new Views.MicTestControl();
+        if (!_erp.IsConfigured) return ctrl;
+
+        var testId = _session.TestId;
+        var ntb = string.IsNullOrWhiteSpace(NtbCode) ? _session.NtbCode : NtbCode.Trim();
+        var serial = _session.Machine?.Serial;
+
+        ctrl.UploadAsync = (wav, duracao) =>
+            _audioSender.SendAsync(testId, ntb, serial, wav, duracao, CancellationToken.None);
+        return ctrl;
+    }
 
     [RelayCommand]
     private async Task RunAudioAsync()

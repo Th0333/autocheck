@@ -1,7 +1,9 @@
 # Design — Microfone: gravar, encerrar, ouvir e enviar pro ERP
 
 - **Data:** 2026-08-03
-- **Status:** aprovado (brainstorm com o dono do produto)
+- **Status:** aprovado (brainstorm com o dono do produto), revisado na mesma data
+  após o dono pedir **fila offline por máquina** e avisar que o **storage do
+  Supabase estourou**
 - **Repos afetados:** `C:\notebook check` (app WPF) **e** `C:\site estoque` (ERP Notelet + Supabase)
 - **Arquivos-âncora:** `src/NotebookCheck/Presentation/Views/MicTestControl.xaml{,.cs}`,
   `src/NotebookCheck/Presentation/Views/TestActionWindow.xaml{,.cs}`,
@@ -37,18 +39,21 @@ gravação ao check da máquina no ERP** quando ela valer a pena guardar.
 | Medidor ao vivo antes de gravar | **Continua ligado ao abrir** | O técnico confirma na hora que há captação; é o diagnóstico rápido que já existe hoje. Gravar vira um passo a mais, não um pré-requisito. |
 | Limite de gravação | **30 s, com contador visível** | Trava de segurança contra esquecer o botão. O técnico começa e para quando quiser. |
 | Envio pro ERP | **Botão manual** | O técnico decide o que vale guardar. Evita encher o storage com gravação de teste. |
-| Formato do arquivo | **16 kHz mono 16-bit** (hoje 44,1 kHz) | 30 s caem de 2,6 MB para ~940 KB. Voz continua clara, upload aguenta internet ruim de bancada. |
+| Captura | **16 kHz mono 16-bit** (hoje 44,1 kHz) | Voz continua clara e o buffer em memória cai para 1/3. |
+| Formato enviado | **AAC/`.m4a`, com WAV de reserva** | O storage do Supabase estourou. 30 s viram 182 KB em vez de 938 KB — **5× menos**, medido. Ver §4.5. |
+| Falha no envio | **Fila offline em disco, por máquina** | Pedido do dono. Cada gravação carrega o `test_id`/NTB da sua própria máquina, então a fila sabe para qual check mandar. Ver §6.7. |
 | Âncora do áudio no ERP | **`test_id` da sessão** | O `checklist_report` só nasce no "Emitir laudo" — depois da gravação. O `test_id` existe desde o início da sessão e serve de chave nos dois sentidos. |
 | Dropdown de resultado | **Continua `ComboBox`, restilizado** | Pedido do dono ("manter mais ou menos daquela forma"). Ganha altura de toque, cantos do padrão `Card` e bolinha de status colorida. |
 | Escopo | **App + endpoint + migration + player, num ciclo só** | O botão "Enviar pro ERP" nasce funcionando de ponta a ponta. |
 
 ## 3. O que NÃO entra (e por quê)
 
-- **Fila offline para o áudio.** O `OfflineQueue` do app hoje cuida de relatório,
-  não de binário. Se a bancada estiver sem internet, o botão avisa o erro e o
-  técnico reenvia. Fazer fila de binário é projeto próprio.
 - **Envio automático ao salvar.** Descartado no brainstorm: guardaria áudio
   inútil.
+- **Reaproveitar o `OfflineQueue` existente.** Ele é keyed por `test_id` e guarda
+  `ApiPayload` (JSON do relatório) — um item por máquina. Áudio é binário e pode
+  haver mais de um por máquina. Vira uma fila própria (§6.7), não um remendo na
+  que já existe.
 - **Análise automática do áudio** (detectar chiado, estimar qualidade). O
   julgamento continua sendo do técnico.
 - **Trocar o `ComboBox` por botões grandes.** O dono quis manter o padrão dos
@@ -107,7 +112,42 @@ descarta a anterior."*
 em `OnData` percorre amostras de 16 bits e não depende da taxa — não muda. O
 `Summary` (pico %, dBFS, "som detectado") também não muda.
 
-### 4.5 Fronteiras
+### 4.5 Compressão antes do envio
+
+O dono avisou que **o storage do Supabase acabou** e que ainda está decidindo o
+que fazer. Mandar WAV cru agrava exatamente o problema dele, então o áudio é
+comprimido no momento do envio:
+
+| Formato | 10 s | 30 s |
+|---|---|---|
+| WAV 44,1 kHz (hoje) | 880 KB | 2,6 MB |
+| WAV 16 kHz (captura nova) | 313 KB | 938 KB |
+| **AAC `.m4a` (enviado)** | **~61 KB** | **182 KB** |
+
+Os números do AAC são **medidos**, não estimados: 30 s sintéticos a 16 kHz
+passaram de 938 KB para 182 KB nesta máquina (−81%). O encoder do Windows não
+desce de 48 kbps em mono, então 182 KB é o piso real — a estimativa inicial de
+120 KB era otimista.
+
+A conversão fica num helper isolado, `Infrastructure/Audio/AudioCompressor.cs`:
+
+```csharp
+public static (byte[] bytes, string mime, string ext) ForUpload(byte[] wav);
+```
+
+Usa `MediaFoundationEncoder` do NAudio — o codificador AAC **vem no Windows**,
+sem pacote NuGet novo. O encoder da Media Foundation só aceita entrada em 44,1/48
+kHz, então o WAV de 16 kHz passa por um `MediaFoundationResampler` antes.
+
+**Reserva:** qualquer falha na conversão (codec ausente, resampler recusando,
+saída vazia ou maior que a entrada) devolve o **WAV original** com
+`audio/wav`. O envio nunca quebra por causa da compressão — no pior caso ele só
+fica maior. Por isso o helper é isolado: se a Media Foundation se mostrar
+instável na bancada, trocar por `NAudio.Lame` (MP3) mexe em um arquivo só.
+
+O `.m4a` toca nativamente no `<audio controls>` de Chrome, Edge e Firefox.
+
+### 4.6 Fronteiras
 
 `MicTestControl` continua sendo o dono de: captação, medidor, buffer WAV e
 reprodução. O que ele **expõe para fora** cresce em um item:
@@ -139,10 +179,24 @@ O `ComboBox` de `TestActionWindow.xaml:42` ganha um `Style` novo:
   `Não aplicável`.
 
 ⚠️ **Esse dropdown é compartilhado por todos os testes** do `TestActionWindow`.
-A restilização muda o visual de câmera, teclado, touchpad, brilho etc. Isso é
-intencional (consistência), e foi comunicado ao dono no brainstorm.
+A restilização muda o visual de câmera, teclado, touchpad, brilho etc. O dono
+aprovou explicitamente:
+
+> "o dropdown tudo bem alterar a aparencia de todos oq ta escrito em cada um tem
+> que continuar escrito mas a aparencia se for ficar mais bonita tudo bem"
+
+Ou seja: **só aparência**. Os cinco itens continuam com o texto idêntico — `OK`,
+`Atenção`, `Falha`, `Não testado`, `Não aplicável` — porque
+`TestActionWindow.SelectStatus` e `OnSave` casam status **por string**
+(`(string)item.Content == status`). Mudar uma letra quebraria a leitura do
+resultado em todos os testes.
 
 ## 6. Parte 3 — Armazenamento no ERP
+
+> ⚠️ **A migration é entregue, não aplicada.** O dono avisou que não sabe se dá
+> para rodar migration no Supabase agora. O arquivo fica pronto em
+> `supabase/migrations/`, e o resumo final da entrega traz o aviso explícito de
+> que **nada do lado do ERP funciona até ela ser aplicada**.
 
 ### 6.1 Por que `test_id` e não `checklist_report.id`
 
@@ -153,6 +207,17 @@ no início da sessão, único por `(organization_id, test_id)` em
 `checklist_reports`) resolve nas duas ordens: o áudio pode chegar antes ou depois
 do laudo, e a tela junta pelo `test_id`.
 
+**Mas o `test_id` sozinho não amarra o áudio à máquina.** O dono foi explícito:
+
+> "cada audio tem que ficar linkado com seu propio pc la no erp no check"
+
+Se o técnico gravar e nunca emitir o laudo, um áudio preso só ao `test_id` fica
+invisível. Por isso o app manda também **NTB e serial**, e a RPC resolve o
+`asset_id` a partir do NTB quando a máquina já existe no ERP. Resultado: o áudio
+aparece na tela do relatório **e** na da máquina, e continua achável mesmo sem
+laudo. Os três campos são gravados como vieram — o `asset_id` é um bônus, não um
+requisito.
+
 ### 6.2 Migration nova
 
 ```sql
@@ -160,6 +225,9 @@ create table public.checklist_audios (
   id              uuid primary key default gen_random_uuid(),
   organization_id uuid not null references public.organizations(id) on delete cascade,
   test_id         uuid not null,
+  asset_id        uuid references public.assets(id) on delete set null,
+  ntb             text,
+  serial          text,
   attachment_id   uuid not null references public.attachments(id) on delete cascade,
   kind            text not null default 'microfone' check (kind in ('microfone')),
   duracao_seg     numeric(5,1),
@@ -169,6 +237,7 @@ create table public.checklist_audios (
 );
 
 create index on public.checklist_audios (organization_id, test_id) where deleted_at is null;
+create index on public.checklist_audios (organization_id, asset_id) where deleted_at is null;
 alter table public.checklist_audios enable row level security;
 ```
 
@@ -233,6 +302,43 @@ duração.
   `server/queries/asset-photos.ts:45`.
 - Se não houver gravação, o card não aparece.
 
+### 6.7 Fila offline de áudio
+
+Pedido do dono:
+
+> "se a fila conseguir identificar isso e ir enviando para cada lugar"
+
+Ela consegue, porque **cada gravação já nasce carimbada com a máquina dela**: o
+`test_id` é único por sessão, e sessão é uma máquina só. A fila não precisa
+adivinhar nada — só reenviar o que está guardado, com o carimbo que veio junto.
+
+**Onde mora:** subpasta `audio-queue/` do mesmo diretório gravável que a fila de
+relatórios já usa (`AppPaths.ResolveWritable` — pasta do `.exe` se der para
+escrever, senão `%LOCALAPPDATA%\Notelet`). Um par de arquivos por gravação:
+
+```
+audio_<id>.json  → { test_id, ntb, serial, mime, extension, duracao_seg, enqueued_at, attempts }
+audio_<id>.bin   → o áudio já comprimido
+```
+
+Arquivo em disco, não banco: o áudio já é um blob, e assim uma gravação
+corrompida não derruba a fila inteira.
+
+**Quando drena:** no laço de 60 s do `OfflineSyncService`, que já existe e já
+testa a conexão antes de tentar. O áudio entra na mesma verificação do relatório
+— se houver internet, os dois sobem na mesma passada.
+
+**Regras:** FIFO por `enqueued_at`; cada item tenta no máximo **5 vezes** e
+depois fica parado (não some — some só quando sobe); itens com mais de **7 dias**
+ou sem o `.bin` do lado são descartados na varredura; um erro `4xx` que não seja
+`401`/`408`/`429` descarta na hora, porque repetir não conserta arquivo inválido
+ou formato errado.
+
+**Na tela:** o botão vira `☁ Na fila` (não `✓ Enviado`) e a mensagem em âmbar diz
+`Sem conexão com o ERP — a gravação ficou na fila (3) e sobe sozinha depois`. O
+botão trava mesmo assim: reenviar duplicaria o áudio, já que a cópia enfileirada
+sobe por conta própria.
+
 ## 7. Fluxo de ponta a ponta
 
 ```
@@ -261,10 +367,12 @@ Na tela do ERP:
 | Trocar de dispositivo no meio da gravação | A gravação em andamento é descartada e o estado volta a OUVINDO, com aviso. |
 | Fechar o modal gravando | `StopTest()` encerra e o WAV vira `Wav` normalmente (comportamento atual preservado). |
 | Fechar o modal reproduzindo | A reprodução é parada e o `WaveOutEvent` descartado no `Unloaded`. |
-| Sem internet ao enviar | Botão volta a habilitar com a mensagem do erro; o WAV segue em memória para reenviar. |
+| Sem internet ao enviar | Vai para a fila (§6.7) carimbado com o `test_id`/NTB da máquina; o botão mostra `☁ Na fila`. |
 | ERP não configurado (`IsConfigured == false`) | O botão `☁ Enviar pro ERP` não aparece. |
 | Enviar duas vezes o mesmo áudio | Cada envio gera um registro novo. Aceito: o técnico só reenvia se o primeiro falhou, e o botão trava em `✓ Enviado`. |
-| Áudio enviado e laudo nunca emitido | O registro fica órfão em `checklist_audios`, sem tela que o mostre. Aceito nesta fase — o áudio sem check não tem leitura útil. |
+| Áudio enviado e laudo nunca emitido | Continua achável pelo NTB/`asset_id` na tela da máquina (§6.1). |
+| Compressão falha na bancada | Sobe o WAV original (§4.5). Fica maior, mas sobe. |
+| Migration ainda não aplicada | O endpoint responde erro e o áudio **fica na fila**, sem perder nada. Ao aplicar a migration, a fila drena sozinha. |
 
 ## 9. Testes
 
@@ -284,8 +392,14 @@ mostra o player depois que o laudo chega.
 1. **App, sem ERP:** estados, botões, contador, 30 s, 16 kHz, pausa na
    reprodução. Já dá para testar na bancada.
 2. **Dropdown restilizado** (independente do resto).
-3. **Migration + RPCs** no Supabase.
-4. **Endpoint** `/api/integracao/checklists/audio`.
-5. **`ErpClient.UploadChecklistAudioAsync` + fiação na `MainViewModel`**, ligando
+3. **`AudioCompressor`** (§4.5) — isolado, testável sozinho.
+4. **Fila de áudio** (§6.7) — também isolada, não depende do endpoint existir.
+5. **Migration + RPCs** — arquivo entregue, **aplicação fica com o dono**.
+6. **Endpoint** `/api/integracao/checklists/audio`.
+7. **`ErpClient.UploadChecklistAudioAsync` + fiação na `MainViewModel`**, ligando
    o botão.
-6. **Player na tela do relatório.**
+8. **Player na tela do relatório.**
+
+Os passos 1–4 valem por si e não dependem do Supabase. Se a migration demorar a
+ser aplicada, o técnico já grava e ouve, e o que ele enviar fica na fila
+esperando.

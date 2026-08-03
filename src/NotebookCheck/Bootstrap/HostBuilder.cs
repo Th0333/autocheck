@@ -88,6 +88,8 @@ public static class AppHostBuilder
                     new JsonReportArchive(sp.GetRequiredService<ILogger<JsonReportArchive>>(), storageDir));
                 services.AddSingleton<IOfflineQueue>(sp =>
                     new FileOfflineQueue(sp.GetRequiredService<ILogger<FileOfflineQueue>>(), storageDir));
+                services.AddSingleton<IAudioQueue>(sp =>
+                    new FileAudioQueue(sp.GetRequiredService<ILogger<FileAudioQueue>>(), storageDir));
 
                 // API
                 services.AddHttpClient("api", c =>
@@ -133,6 +135,7 @@ public static class AppHostBuilder
                 services.AddSingleton<ChecklistSession>();
 
                 // Sync background
+                services.AddSingleton<Application.Sync.ChecklistAudioSender>();
                 services.AddSingleton<OfflineSyncService>();
                 services.AddHostedService(sp => sp.GetRequiredService<OfflineSyncService>());
 

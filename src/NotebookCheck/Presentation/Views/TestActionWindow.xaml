@@ -39,7 +39,9 @@
                 </StackPanel>
 
                 <TextBlock Style="{StaticResource Label}" Margin="0,16,0,0" Text="RESULTADO"/>
-                <ComboBox x:Name="statusBox" Margin="0,4,0,0" Width="220" HorizontalAlignment="Left">
+                <ComboBox x:Name="statusBox" Style="{StaticResource StatusCombo}"
+                          Margin="0,6,0,0" Width="260" HorizontalAlignment="Left"
+                          SelectionChanged="OnStatusChanged">
                     <ComboBoxItem Content="OK"/>
                     <ComboBoxItem Content="Atenção"/>
                     <ComboBoxItem Content="Falha"/>

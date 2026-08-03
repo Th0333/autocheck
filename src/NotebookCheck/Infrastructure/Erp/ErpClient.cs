@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
@@ -388,6 +389,45 @@ public sealed class ErpClient
         if (parsed is null)
             throw new ErpException("Resposta inválida ao enviar a foto.", (int)resp.StatusCode);
         return parsed;
+    }
+
+    /// <summary>
+    /// Anexa a gravação do microfone ao check da máquina.
+    ///
+    /// A âncora é o <paramref name="testId"/> da sessão, e não o id do relatório:
+    /// o técnico grava ANTES de emitir o laudo, então o <c>checklist_report</c>
+    /// ainda não existe nesse momento. NTB e serial vão junto para o ERP achar a
+    /// máquina mesmo que o laudo nunca chegue.
+    /// </summary>
+    public async Task UploadChecklistAudioAsync(
+        string testId, string? ntb, string? serial,
+        byte[] audio, string mime, string extension, double duracaoSeg,
+        CancellationToken ct)
+    {
+        var url = $"{_config.BaseUrl}/api/integracao/checklists/audio";
+
+        using var resp = await SendAuthedAsync(() =>
+        {
+            var content = new MultipartFormDataContent
+            {
+                { new StringContent(testId), "test_id" },
+                { new StringContent(duracaoSeg.ToString("0.0", CultureInfo.InvariantCulture)), "duracao_seg" },
+            };
+            if (!string.IsNullOrWhiteSpace(ntb)) content.Add(new StringContent(ntb), "ntb");
+            if (!string.IsNullOrWhiteSpace(serial)) content.Add(new StringContent(serial), "serial");
+
+            var arquivo = new ByteArrayContent(audio);
+            arquivo.Headers.ContentType = new MediaTypeHeaderValue(mime);
+            content.Add(arquivo, "audio", $"microfone-{DateTime.Now:yyyyMMdd-HHmmss}.{extension}");
+
+            return new HttpRequestMessage(HttpMethod.Post, url) { Content = content };
+        }, ct).ConfigureAwait(false);
+
+        if (!resp.IsSuccessStatusCode)
+        {
+            var body = await resp.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
+            throw new ErpException(await ExtractErrorAsync(body, resp), (int)resp.StatusCode);
+        }
     }
 
     public async Task<ErpFornecedorResponse> CreateFornecedorAsync(ErpFornecedorRequest req, CancellationToken ct)
