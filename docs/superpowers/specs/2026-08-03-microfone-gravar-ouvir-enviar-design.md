@@ -339,6 +339,32 @@ ou formato errado.
 botão trava mesmo assim: reenviar duplicaria o áudio, já que a cópia enfileirada
 sobe por conta própria.
 
+### 6.8 Onde se ouve o áudio no ERP
+
+> **Correção.** A primeira versão desta spec dizia que o áudio "continua achável
+> na tela da máquina". Era falso: só a tela do relatório tinha player, e essa
+> tela **só existe depois do laudo**. Um áudio enviado sem laudo ficava gravado
+> corretamente e invisível. Três telas fecham o buraco:
+
+| Tela | Chave | Quando serve |
+|---|---|---|
+| Relatório do checklist | `test_id` | Laudo já emitido — o caso comum. |
+| **Ficha da máquina** (`/ativos/<id>`) | `asset_id` | Áudio enviado sem laudo, mas a máquina existe no ERP. |
+| **Aba "Áudios"** (`/checklists?tab=audios`) | — | Vê tudo, inclusive o que não tem laudo nem máquina. |
+
+A aba lista cada gravação com a máquina dela e resolve o destino em cascata:
+
+1. **relatório completo**, se o laudo chegou;
+2. **ficha da máquina**, se o áudio foi ligado a um ativo;
+3. **player embutido na própria linha**, quando não há nem um nem outro — é a
+   rede de segurança que garante que nada enviado se perca de vista.
+
+O player é o mesmo componente nas três telas
+(`apps/web/components/audios-microfone.tsx`), sempre com `preload="none"`.
+
+A aba só assina a URL do caso (3): as outras linhas são abertas pela página de
+destino, então assinar tudo gastaria chamadas à toa.
+
 ## 7. Fluxo de ponta a ponta
 
 ```
@@ -355,8 +381,11 @@ Depois, no "Emitir laudo":
   POST /api/integracao/checklists  (mesmo test_id)
     └─ checklist_reports
 
-Na tela do ERP:
-  /checklists/relatorio/{id}  ──▶ junta pelo test_id ──▶ player do áudio
+Onde se ouve no ERP (§6.8):
+  /checklists/relatorio/{id}  ──▶ junta pelo test_id    (com laudo)
+  /ativos/{asset_id}          ──▶ junta pelo asset_id   (sem laudo)
+  /checklists?tab=audios      ──▶ lista tudo, com player embutido no que
+                                   não tem nem laudo nem máquina
 ```
 
 ## 8. Erros e casos de borda
@@ -370,7 +399,8 @@ Na tela do ERP:
 | Sem internet ao enviar | Vai para a fila (§6.7) carimbado com o `test_id`/NTB da máquina; o botão mostra `☁ Na fila`. |
 | ERP não configurado (`IsConfigured == false`) | O botão `☁ Enviar pro ERP` não aparece. |
 | Enviar duas vezes o mesmo áudio | Cada envio gera um registro novo. Aceito: o técnico só reenvia se o primeiro falhou, e o botão trava em `✓ Enviado`. |
-| Áudio enviado e laudo nunca emitido | Continua achável pelo NTB/`asset_id` na tela da máquina (§6.1). |
+| Áudio enviado e laudo nunca emitido | Aparece na ficha da máquina e na aba "Áudios" (§6.8). |
+| Áudio enviado, sem laudo E sem máquina no ERP | Aparece na aba "Áudios" com player embutido — nenhuma gravação enviada fica inacessível. |
 | Compressão falha na bancada | Sobe o WAV original (§4.5). Fica maior, mas sobe. |
 | Migration ainda não aplicada | O endpoint responde erro e o áudio **fica na fila**, sem perder nada. Ao aplicar a migration, a fila drena sozinha. |
 
