@@ -114,6 +114,11 @@ public partial class App : System.Windows.Application
             window.DataContext = Host.Services.GetRequiredService<MainViewModel>();
             MainWindow = window;
             window.Show();
+
+            // A partir daqui a tela principal existe, então fechá-la deve
+            // encerrar o app normalmente (durante o auto-update o modo é
+            // OnExplicitShutdown — ver o comentário no App.xaml).
+            ShutdownMode = ShutdownMode.OnMainWindowClose;
         }
         catch (Exception ex)
         {
