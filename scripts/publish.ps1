@@ -185,8 +185,35 @@ if ($CreateRelease) {
         if ($LASTEXITCODE -ne 0) {
             Write-Host "!! Falha ao publicar o release via gh." -ForegroundColor Red
         } else {
-            $releaseOk = $true
-            Write-Host "==> Release $tag publicado com o .exe anexado." -ForegroundColor Green
+            # Release em RASCUNHO tem asset "uploaded" e sai com codigo 0, mas a
+            # URL publica de download responde 404 - a bancada ve "Falha ao
+            # baixar a atualizacao". Aconteceu na v1.8.7 (04/08/2026). Tirar do
+            # rascunho e obrigatorio, nao cosmetico.
+            & $ghExe release edit $tag --repo $RepoSlug --draft=false *> $null
+
+            # Prova real: baixa o cabecalho SEM autenticacao, que e exatamente o
+            # que a bancada faz. Conferir com 'gh' nao vale - o gh usa token e
+            # enxerga rascunho, entao daria OK num release que ninguem baixa.
+            Write-Host "    Conferindo o download publico (sem token)..."
+            $publicOk = $false
+            foreach ($tentativa in 1..6) {
+                try {
+                    $probe = Invoke-WebRequest -Uri $exeUrl -Method Head -UseBasicParsing `
+                        -MaximumRedirection 5 -TimeoutSec 30
+                    if ($probe.StatusCode -eq 200) { $publicOk = $true; break }
+                } catch {
+                    # Recem-publicado leva alguns segundos para propagar no CDN.
+                }
+                Start-Sleep -Seconds 5
+            }
+
+            if ($publicOk) {
+                $releaseOk = $true
+                Write-Host "==> Release $tag publicado e baixavel publicamente." -ForegroundColor Green
+            } else {
+                Write-Host "!! Release $tag NAO esta baixavel publicamente ($exeUrl)." -ForegroundColor Red
+                Write-Host "   Confira se o release saiu do rascunho e se o repo e publico." -ForegroundColor Yellow
+            }
         }
     }
 }
