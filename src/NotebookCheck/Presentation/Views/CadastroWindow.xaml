@@ -117,10 +117,10 @@
                         <StackPanel>
                             <TextBlock Style="{StaticResource H2}" Text="💻 Máquina do pedido"/>
                             <TextBlock Style="{StaticResource Subtle}" Margin="0,4,0,10" TextWrapping="Wrap"
-                                       Text="Escolha qual máquina do pedido está na sua mão. Cada uma já nasce com o NTB reservado."
+                                       Text="Escolha qual máquina do pedido está na sua mão. Cada uma já nasce com o NTB reservado — as marcadas como &quot;aguardando recebimento&quot; têm a chegada confirmada automaticamente no cadastro."
                                        Visibility="{Binding TemMaquinas, Converter={StaticResource BoolVisConv}}"/>
                             <ComboBox ItemsSource="{Binding MaquinasDisponiveis}" SelectedItem="{Binding SelectedMaquina}"
-                                      DisplayMemberPath="Display"
+                                      DisplayMemberPath="DisplayCadastro"
                                       Visibility="{Binding TemMaquinas, Converter={StaticResource BoolVisConv}}"/>
                             <TextBlock Style="{StaticResource Subtle}" Margin="0,6,0,0" TextWrapping="Wrap"
                                        Text="{Binding MaquinaConfigAcordadaText}"
@@ -131,6 +131,10 @@
                             <TextBlock Style="{StaticResource Subtle}" TextWrapping="Wrap"
                                        Text="Sem lista de máquinas — o servidor escolherá a próxima em branco do pedido."
                                        Visibility="{Binding SemMaquinasInfo, Converter={StaticResource BoolVisConv}}"/>
+                            <TextBlock TextWrapping="Wrap" FontWeight="SemiBold"
+                                       Foreground="{StaticResource WarnBrush}"
+                                       Text="{Binding PedidoSemVagaTexto}"
+                                       Visibility="{Binding PedidoSemVaga, Converter={StaticResource BoolVisConv}}"/>
                         </StackPanel>
                     </Border>
                 </StackPanel>

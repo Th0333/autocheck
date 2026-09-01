@@ -168,6 +168,23 @@ public sealed class ErpPedidoMaquina
     /// <summary>Técnico que assumiu a máquina (do Assumir no app ou da web). Fonte da verdade sobre o local.</summary>
     [JsonPropertyName("assumido_por")] public string? AssumidoPor { get; set; }
 
+    /// <summary>
+    /// Máquina em branco parada em "aguardando recebimento" — o estado em que
+    /// ela NASCE no pedido de compra (o NTB já está reservado, mas ninguém
+    /// confirmou no ERP que a mercadoria chegou). É exatamente a máquina que o
+    /// técnico acabou de ligar na bancada: o cadastro confirma o recebimento
+    /// antes de mandar o check de entrada, senão o ERP não tem o que reivindicar
+    /// e responde "o pedido já recebeu todas as máquinas previstas".
+    /// </summary>
+    [JsonIgnore]
+    public bool AguardandoRecebimento =>
+        string.Equals(EtapaKanban, "aguardando_recebimento", StringComparison.OrdinalIgnoreCase)
+        && string.IsNullOrWhiteSpace(SerialNumber);
+
+    /// <summary>Aceita o cadastro: já liberada, ou liberável confirmando o recebimento.</summary>
+    [JsonIgnore]
+    public bool PodeCadastrar => PodeCheckEntrada || AguardandoRecebimento;
+
     /// <summary>Texto exibido em dropdowns/cards ("NTB 11801 · Latitude 5420").</summary>
     [JsonIgnore]
     public string Display
@@ -185,6 +202,14 @@ public sealed class ErpPedidoMaquina
             return parts.Count == 0 ? AssetId : string.Join(" · ", parts);
         }
     }
+
+    /// <summary>
+    /// Display do seletor do cadastro, marcando a que ainda não teve o
+    /// recebimento confirmado (o cadastro confirma sozinho ao enviar).
+    /// </summary>
+    [JsonIgnore]
+    public string DisplayCadastro =>
+        AguardandoRecebimento ? $"{Display} · aguardando recebimento" : Display;
 
     public override string ToString() => Display;
 }

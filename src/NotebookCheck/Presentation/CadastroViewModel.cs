@@ -164,15 +164,37 @@ public sealed partial class CadastroViewModel : ObservableObject
     private ErpPedidoMaquina? selectedMaquina;
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(TemMaquinas), nameof(SemMaquinasInfo))]
+    [NotifyPropertyChangedFor(nameof(TemMaquinas), nameof(SemMaquinasInfo),
+        nameof(PedidoSemVaga), nameof(PedidoSemVagaTexto))]
     private bool maquinasCarregadas;
 
     [ObservableProperty] private bool maquinasCarregando;
 
+    /// <summary>A lista do pedido respondeu (o endpoint de máquinas existe e trouxe o quadro).</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(SemMaquinasInfo), nameof(PedidoSemVaga), nameof(PedidoSemVagaTexto))]
+    private bool maquinasListaOk;
+
+    /// <summary>Quantas máquinas o pedido tem no ERP (cadastradas ou não).</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(PedidoSemVagaTexto))]
+    private int maquinasNoPedido;
+
     public bool TemMaquinas => MaquinasDisponiveis.Count > 0;
 
-    /// <summary>Lista carregada mas vazia: o servidor escolhe a próxima em branco.</summary>
-    public bool SemMaquinasInfo => MaquinasCarregadas && !TemMaquinas;
+    /// <summary>Lista indisponível (endpoint fora do ar): o servidor escolhe a próxima em branco.</summary>
+    public bool SemMaquinasInfo => MaquinasCarregadas && !TemMaquinas && !MaquinasListaOk;
+
+    /// <summary>
+    /// A lista veio, mas nenhuma máquina do pedido aceita cadastro. Antes o
+    /// wizard deixava seguir e só o POST reclamava lá no fim ("o pedido já
+    /// recebeu todas as máquinas previstas") — agora o bloqueio é aqui.
+    /// </summary>
+    public bool PedidoSemVaga => MaquinasCarregadas && !TemMaquinas && MaquinasListaOk;
+
+    public string PedidoSemVagaTexto => MaquinasNoPedido == 0
+        ? "Este pedido não tem máquinas para cadastrar no ERP."
+        : "Todas as máquinas deste pedido já foram cadastradas — escolha outro pedido.";
 
     public bool TemConfigAcordada => SelectedMaquina?.ConfigAcordada is not null;
     public string MaquinaConfigAcordadaText =>
@@ -196,6 +218,8 @@ public sealed partial class CadastroViewModel : ObservableObject
         SelectedMaquina = null;
         MaquinasDisponiveis.Clear();
         MaquinasCarregadas = false;
+        MaquinasListaOk = false;
+        MaquinasNoPedido = 0;
         if (pedido is null) return;
 
         MaquinasCarregando = true;
@@ -205,17 +229,25 @@ public sealed partial class CadastroViewModel : ObservableObject
             var resp = await _erp.GetPedidoMaquinasAsync(pedido.Id, cts.Token).ConfigureAwait(true);
             if (SelectedPedido?.Id != pedido.Id) return; // usuário trocou de pedido no meio
 
-            foreach (var m in resp.Maquinas.Where(m => m.PodeCheckEntrada))
+            MaquinasNoPedido = resp.Maquinas.Count;
+            MaquinasListaOk = true;
+
+            // Inclui também as que estão em "aguardando recebimento": é o estado
+            // em que a máquina nasce no pedido de compra, e é justamente a que
+            // está na bancada agora. O cadastro confirma a chegada antes de
+            // enviar (ver ConfirmarChegadaAsync).
+            foreach (var m in resp.Maquinas.Where(m => m.PodeCadastrar))
                 MaquinasDisponiveis.Add(m);
 
-            // Kanban pediu uma máquina específica; senão, única em branco = escolha óbvia.
+            // Kanban pediu uma máquina específica; senão, as em branco são
+            // intercambiáveis — a primeira do pedido serve e poupa um clique.
             if (_preselectAssetId is not null)
             {
                 SelectedMaquina = MaquinasDisponiveis.FirstOrDefault(m =>
                     string.Equals(m.AssetId, _preselectAssetId, StringComparison.OrdinalIgnoreCase));
                 _preselectAssetId = null;
             }
-            SelectedMaquina ??= MaquinasDisponiveis.Count == 1 ? MaquinasDisponiveis[0] : null;
+            SelectedMaquina ??= MaquinasDisponiveis.FirstOrDefault();
         }
         catch (ErpException ex)
         {
@@ -232,6 +264,8 @@ public sealed partial class CadastroViewModel : ObservableObject
             MaquinasCarregadas = true;
             OnPropertyChanged(nameof(TemMaquinas));
             OnPropertyChanged(nameof(SemMaquinasInfo));
+            OnPropertyChanged(nameof(PedidoSemVaga));
+            OnPropertyChanged(nameof(PedidoSemVagaTexto));
         }
     }
 
@@ -350,8 +384,9 @@ public sealed partial class CadastroViewModel : ObservableObject
     // ------------------------------------------------ Etapa 4: Revisão ------
 
     public string RevPedido => SelectedPedido?.Display ?? "—";
-    public string RevMaquina => SelectedMaquina?.Display
-        ?? (TemMaquinas ? "—" : "Próxima máquina em branco do pedido");
+    public string RevMaquina => SelectedMaquina is { } m
+        ? (m.AguardandoRecebimento ? $"{m.Display} (o cadastro confirma o recebimento)" : m.Display)
+        : (TemMaquinas ? "—" : "Próxima máquina em branco do pedido");
     public string RevModelo => Trimmed(Modelo, "—");
     public string RevLinha => Trimmed(Linha, "—");
     public string RevMarca => SelectedMarca?.Nome ?? "—";
@@ -465,7 +500,26 @@ public sealed partial class CadastroViewModel : ObservableObject
         }
 
         // Leitura de hardware em paralelo (não bloqueia o wizard).
-        _ = CollectHardwareAsync();
+        _hardwareTask = CollectHardwareAsync();
+    }
+
+    /// <summary>Coleta de hardware em andamento — o cadastro espera por ela.</summary>
+    private Task? _hardwareTask;
+
+    /// <summary>
+    /// Segura o envio até as specs ficarem prontas. Sem isso um cadastro rápido
+    /// manda <c>especificacoes: null</c> e a máquina entra no estoque sem
+    /// configuração nenhuma — o técnico vê o cadastro dar certo e o ERP sem a
+    /// config que a máquina acabou de reportar.
+    /// </summary>
+    private async Task AguardarHardwareAsync()
+    {
+        if (_specs is not null || _hardwareTask is null or { IsCompleted: true }) return;
+        var anterior = StatusMessage;
+        StatusMessage = "Lendo a configuração da máquina…";
+        try { await _hardwareTask.ConfigureAwait(true); }
+        catch (Exception ex) { _logger.LogWarning(ex, "Coleta de hardware falhou antes do cadastro"); }
+        StatusMessage = anterior;
     }
 
     private async Task LoadListsAsync(CancellationToken ct)
@@ -605,6 +659,11 @@ public sealed partial class CadastroViewModel : ObservableObject
             StatusMessage = "Selecione o pedido de compra para continuar.";
             return false;
         }
+        if (PedidoSemVaga)
+        {
+            StatusMessage = PedidoSemVagaTexto;
+            return false;
+        }
         if (TemMaquinas && SelectedMaquina is null)
         {
             StatusMessage = "Selecione qual máquina do pedido está na sua mão.";
@@ -678,6 +737,8 @@ public sealed partial class CadastroViewModel : ObservableObject
         StatusMessage = "Enviando para o estoque…";
         try
         {
+            await AguardarHardwareAsync().ConfigureAwait(true);
+
             var incluidos = AcessoriosChecklist.Where(a => a.IsChecked).Select(a => a.Nome).ToList();
             incluidos.AddRange(SplitItems(AcessoriosExtras) ?? new List<string>());
             var faltantes = AcessoriosFaltando.ToList();
@@ -705,6 +766,17 @@ public sealed partial class CadastroViewModel : ObservableObject
             };
 
             using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(40));
+
+            // A máquina do pedido nasce em "aguardando recebimento" e o check de
+            // entrada só reivindica quem já teve a chegada confirmada. Quem está
+            // com ela na mão é este técnico, então o cadastro confirma aqui.
+            if (SelectedMaquina is { AguardandoRecebimento: true } naBancada)
+            {
+                StatusMessage = "Confirmando o recebimento da máquina no ERP…";
+                await ConfirmarChegadaAsync(naBancada, cts.Token).ConfigureAwait(true);
+                StatusMessage = "Enviando para o estoque…";
+            }
+
             var resp = await _erp.CreateRecebimentoAsync(req, _idempotencyKey, cts.Token).ConfigureAwait(true);
 
             NtbGerado = resp.Ntb ?? "";
@@ -775,6 +847,35 @@ public sealed partial class CadastroViewModel : ObservableObject
         finally { IsBusy = false; }
     }
 
+    /// <summary>
+    /// Confirma no ERP que a mercadoria chegou: a máquina sai de "aguardando
+    /// recebimento" e entra no check de entrada — o único estado em que o
+    /// recebimento via app consegue reivindicá-la. Mesma ação do botão
+    /// "Confirmar" do kanban, feita aqui porque quem ligou a máquina na bancada
+    /// já é a prova de que ela chegou. Se alguém confirmou antes (ou é reenvio),
+    /// segue em frente.
+    /// </summary>
+    private async Task ConfirmarChegadaAsync(ErpPedidoMaquina maquina, CancellationToken ct)
+    {
+        try
+        {
+            await _erp.ConfirmarRecebimentoAsync(maquina.AssetId, ct).ConfigureAwait(true);
+        }
+        catch (ErpException ex) when (ex.StatusCode == 409)
+        {
+            _logger.LogInformation("Recebimento de {Asset} já estava confirmado: {Erro}",
+                maquina.AssetId, ex.Message);
+        }
+        catch (ErpException ex)
+        {
+            _logger.LogWarning(ex, "Falha confirmando o recebimento de {Asset}", maquina.AssetId);
+            throw new ErpException(
+                $"Não foi possível confirmar o recebimento da máquina no ERP: {ex.Message}", ex.StatusCode);
+        }
+        // A máquina saiu de "aguardando recebimento": um reenvio não tenta de novo.
+        maquina.EtapaKanban = "check_entrada";
+    }
+
     [RelayCommand]
     private void NovoCadastro()
     {
@@ -795,7 +896,7 @@ public sealed partial class CadastroViewModel : ObservableObject
         OnPropertyChanged(nameof(SpecsResumo));
         // Recarrega as máquinas em branco: a que acabou de ser cadastrada saiu da lista.
         _ = LoadMaquinasAsync(SelectedPedido);
-        _ = CollectHardwareAsync();
+        _hardwareTask = CollectHardwareAsync();
     }
 
     [RelayCommand]
