@@ -96,6 +96,10 @@ public partial class App : System.Windows.Application
             // Aplica o tema salvo (claro/escuro) antes de qualquer janela.
             ThemeManager.Initialize();
 
+            // Toda janela nasce cabendo na tela da bancada — inclusive a de
+            // atualização, que abre logo abaixo.
+            Presentation.Views.WindowSizing.Register();
+
             // ----- Auto-update (antes de abrir o app principal) -----
             // Roda silenciosamente, mas mostra uma janela "Atualizando" para o
             // técnico não ficar no escuro. Se não houver update ou falhar,

@@ -4,8 +4,8 @@
         xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
         xmlns:controls="clr-namespace:NotebookCheck.Presentation.Controls"
         Title="Notelet — Teste completo"
-        Width="780" Height="860"
-        MinWidth="620" MinHeight="600"
+        Width="740" Height="680"
+        MinWidth="560" MinHeight="520"
         WindowStartupLocation="CenterOwner"
         WindowStyle="None"
         Background="{DynamicResource Ink50Brush}">

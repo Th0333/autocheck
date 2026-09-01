@@ -4,8 +4,8 @@
         xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
         xmlns:controls="clr-namespace:NotebookCheck.Presentation.Controls"
         Title="Notelet — Kanban de pedidos"
-        Width="1060" Height="720"
-        MinWidth="720" MinHeight="480"
+        Width="1000" Height="660"
+        MinWidth="700" MinHeight="460"
         WindowStartupLocation="CenterOwner"
         WindowStyle="None"
         Background="{DynamicResource Ink50Brush}">
