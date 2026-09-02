@@ -23,11 +23,19 @@ internal static class ErpDefaults
     /// <summary>Base do ERP que expõe <c>/api/integracao/...</c>.</summary>
     public const string BaseUrl = "https://estoque-erp-web.vercel.app";
 
-    /// <summary>Projeto Supabase usado para autenticar a conta de serviço.</summary>
-    public const string SupabaseUrl = "https://xautxjscoppdncuszkcn.supabase.co";
+    /// <summary>
+    /// Supabase usado para autenticar a conta de serviço. Desde 05/08/2026 é a
+    /// stack self-hosted no VPS da Notelet — o projeto gerenciado
+    /// (<c>xautxjscoppdncuszkcn.supabase.co</c>) foi restrito por cota e
+    /// respondia HTTP 402 no login, que o app mostrava como "Falha ao autenticar
+    /// no ERP". O <c>sslip.io</c> é DNS curinga sobre o IP; quando houver domínio
+    /// próprio, troque aqui (ou por <c>erp-config.json</c>, sem republicar).
+    /// </summary>
+    public const string SupabaseUrl = "https://179.198.111.82.sslip.io";
 
-    /// <summary>Chave pública (publishable/anon) do Supabase — vai no header <c>apikey</c>.</summary>
-    public const string SupabaseAnonKey = "sb_publishable_Ksu23waITFnKYGGD0_H5RA_PGvq-Z1V";
+    /// <summary>Chave pública (anon) do Supabase self-hosted — vai no header <c>apikey</c>.</summary>
+    public const string SupabaseAnonKey =
+        "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImlzcyI6InN1cGFiYXNlIiwiaWF0IjoxNzg1OTU1OTY0LCJleHAiOjIxMDEzMTU5NjR9.7tIxuHZA9qxNSC9rsra3xUnKiRI9_pWiSpxgNF2l9WU";
 
     /// <summary>E-mail da conta de serviço (papel <c>integracao_recebimento</c>).</summary>
     public const string ServiceEmail = "integracao-recimento@notelet.com.br";
