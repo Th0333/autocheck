@@ -35,6 +35,24 @@ public sealed partial class AcessorioCheckItem : ObservableObject
 }
 
 /// <summary>
+/// Peça que o técnico marca como diferente da config acordada no pedido. A
+/// conferência automática pré-marca RAM/armazenamento/processador quando
+/// divergem; o técnico confirma, desmarca (falso positivo) ou acrescenta o que
+/// a leitura automática não enxerga (placa de vídeo, tela, outro).
+/// </summary>
+public sealed partial class PecaDivergenteItem : ObservableObject
+{
+    public string Codigo { get; }
+    public string Nome { get; }
+    [ObservableProperty] private bool isChecked;
+    /// <summary>Divergência detectada automaticamente (o técnico ainda decide).</summary>
+    [ObservableProperty] private bool automatica;
+    /// <summary>Texto da divergência automática ("RAM: acordado 16 GB, encontrado 8 GB").</summary>
+    public string? TextoAutomatico { get; set; }
+    public PecaDivergenteItem(string codigo, string nome) { Codigo = codigo; Nome = nome; }
+}
+
+/// <summary>
 /// ViewModel do modo "Cadastro no estoque": wizard de 4 etapas (Identificação,
 /// Condição, Destino, Revisão). Todo cadastro parte de um pedido de compra do
 /// ERP — fornecedor, documento e valores vêm do pedido; o NTB é gerado pelo
@@ -73,6 +91,7 @@ public sealed partial class CadastroViewModel : ObservableObject
         // então o cadastro pelo app não escolhe mais destino — segue sempre para o
         // teste. A colocação manual em outra etapa é feita pelo kanban do ERP.
         SelectedProximoDestino = ProximoDestinos.First(o => o.Value == "producao_tecnica");
+        InitPecasDivergentes();
     }
 
     // ---------------------------------------------------------------- step ---
@@ -202,8 +221,126 @@ public sealed partial class CadastroViewModel : ObservableObject
             ? $"Config acordada: {d}"
             : "";
 
+    // ------------------------------- conferência: config × pedido de compra ---
+
+    /// <summary>Linhas da conferência automática (RAM, armazenamento, processador).</summary>
+    public ObservableCollection<ConfigCheckItem> ConfigChecagem { get; } = new();
+
+    /// <summary>Peças que o técnico marca como diferentes do acordado.</summary>
+    public ObservableCollection<PecaDivergenteItem> PecasDivergentes { get; } = new();
+
+    /// <summary>Descrição livre quando "Outro" está marcado.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ConfigDivergencias), nameof(ConfigDivergenciasText))]
+    private string outroDescricao = "";
+
+    public bool SpecsProntas => _specs is not null;
+
+    /// <summary>Pedido fixou config, mas a leitura da máquina ainda não terminou.</summary>
+    public bool ChecagemAguardando => TemConfigAcordada && !SpecsProntas;
+
+    /// <summary>Há linhas para mostrar (config acordada + specs lidas).</summary>
+    public bool MostraChecagem => ConfigChecagem.Count > 0;
+
+    /// <summary>Tudo bateu na conferência e o técnico não marcou nada.</summary>
+    public bool ConfigBate => MostraChecagem && !ConfigDiverge;
+
+    /// <summary>Alguma peça diverge — pela leitura automática ou pela marcação do técnico.</summary>
+    public bool ConfigDiverge => PecasDivergentes.Any(p => p.IsChecked);
+
+    public bool OutroMarcado =>
+        PecasDivergentes.FirstOrDefault(p => p.Codigo == ErpConfigComparer.Outro)?.IsChecked == true;
+
+    public string ConfigAlertaText
+    {
+        get
+        {
+            var autos = PecasDivergentes
+                .Where(p => p.IsChecked && p.Automatica && !string.IsNullOrWhiteSpace(p.TextoAutomatico))
+                .Select(p => p.TextoAutomatico!)
+                .ToList();
+            var cabeca = autos.Count > 0
+                ? $"Configuração fora do acordado no pedido: {string.Join("; ", autos)}."
+                : "Peça marcada como diferente do acordado no pedido.";
+            return cabeca + " O pedido de compra recebe o alerta e quem o criou é avisado — a máquina segue o fluxo normal.";
+        }
+    }
+
+    private void InitPecasDivergentes()
+    {
+        foreach (var (codigo, nome) in new[]
+        {
+            (ErpConfigComparer.Processador, "Processador"),
+            (ErpConfigComparer.Ram, "Memória RAM"),
+            (ErpConfigComparer.Armazenamento, "Armazenamento (SSD/HD)"),
+            (ErpConfigComparer.PlacaVideo, "Placa de vídeo"),
+            (ErpConfigComparer.Tela, "Tela"),
+            (ErpConfigComparer.Outro, "Outro (descrever)"),
+        })
+        {
+            var item = new PecaDivergenteItem(codigo, nome);
+            item.PropertyChanged += OnPecaDivergenteChanged;
+            PecasDivergentes.Add(item);
+        }
+    }
+
+    private void OnPecaDivergenteChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(PecaDivergenteItem.IsChecked)) RaiseConfigWarnings();
+    }
+
+    /// <summary>
+    /// Refaz a conferência automática (config acordada da máquina escolhida ×
+    /// specs lidas) e pré-marca as peças que divergem. Só mexe na marcação
+    /// quando o resultado automático MUDA — o que o técnico desmarcou à mão
+    /// não volta sozinho a cada releitura.
+    /// </summary>
+    private void RecomputeConfigChecagem()
+    {
+        ConfigChecagem.Clear();
+        foreach (var linha in ErpConfigComparer.Comparar(SelectedMaquina?.ConfigAcordada, _specs))
+            ConfigChecagem.Add(linha);
+
+        foreach (var peca in PecasDivergentes)
+        {
+            var linha = ConfigChecagem.FirstOrDefault(l => l.Codigo == peca.Codigo);
+            var divergeAgora = linha?.Diverge == true;
+            peca.TextoAutomatico = divergeAgora ? linha!.Texto : null;
+            if (divergeAgora != peca.Automatica)
+            {
+                peca.Automatica = divergeAgora;
+                peca.IsChecked = divergeAgora;
+            }
+        }
+        RaiseConfigWarnings();
+    }
+
+    private void RaiseConfigWarnings()
+    {
+        foreach (var p in new[]
+        {
+            nameof(SpecsProntas), nameof(ChecagemAguardando), nameof(MostraChecagem),
+            nameof(ConfigBate), nameof(ConfigDiverge), nameof(OutroMarcado), nameof(ConfigAlertaText),
+            nameof(ConfigDivergencias), nameof(TemConfigDivergencias), nameof(ConfigDivergenciasText),
+        })
+            OnPropertyChanged(p);
+    }
+
+    private void ResetPecasDivergentes()
+    {
+        foreach (var peca in PecasDivergentes)
+        {
+            peca.Automatica = false;
+            peca.TextoAutomatico = null;
+            peca.IsChecked = false;
+        }
+        OutroDescricao = "";
+    }
+
     partial void OnSelectedMaquinaChanged(ErpPedidoMaquina? value)
     {
+        // A config acordada é da máquina escolhida: refaz a conferência.
+        RecomputeConfigChecagem();
         if (value is null) return;
         // Prefill a partir da máquina do pedido, sem sobrescrever o que o
         // técnico ou o WMI já preencheram.
@@ -425,8 +562,27 @@ public sealed partial class CadastroViewModel : ObservableObject
     /// Diferenças entre a config acordada no pedido e o que foi coletado da
     /// máquina (RAM, armazenamento, processador). Vão como alerta na aprovação.
     /// </summary>
-    private List<string> BuildConfigDivergencias() =>
-        ErpConfigComparer.Divergencias(SelectedMaquina?.ConfigAcordada, _specs);
+    private List<string> BuildConfigDivergencias()
+    {
+        // O que vai para o ERP é o que o TÉCNICO deixou marcado: a leitura
+        // automática só sugere. Peça automática desmarcada = falso positivo.
+        var list = new List<string>();
+        foreach (var p in PecasDivergentes.Where(p => p.IsChecked))
+        {
+            if (p.Automatica && !string.IsNullOrWhiteSpace(p.TextoAutomatico))
+                list.Add(p.TextoAutomatico!);
+            else if (p.Codigo == ErpConfigComparer.Outro)
+                list.Add(string.IsNullOrWhiteSpace(OutroDescricao)
+                    ? "Outro: peça diferente do acordado (marcado pelo técnico)"
+                    : $"Outro: {OutroDescricao.Trim()}");
+            else
+                list.Add($"{p.Nome}: diferente do acordado no pedido (marcado pelo técnico)");
+        }
+        return list;
+    }
+
+    private List<string> BuildPecasDivergentesCodigos() =>
+        PecasDivergentes.Where(p => p.IsChecked).Select(p => p.Codigo).ToList();
 
     public IReadOnlyList<string> ConfigDivergencias => BuildConfigDivergencias();
     public bool TemConfigDivergencias => ConfigDivergencias.Count > 0;
@@ -594,6 +750,7 @@ public sealed partial class CadastroViewModel : ObservableObject
 
             _specs = BuildSpecs(machine, storage, battery, display);
             OnPropertyChanged(nameof(SpecsResumo));
+            RecomputeConfigChecagem();
         }
         catch (Exception ex)
         {
@@ -744,6 +901,7 @@ public sealed partial class CadastroViewModel : ObservableObject
             var faltantes = AcessoriosFaltando.ToList();
 
             var divergencias = BuildConfigDivergencias();
+            var pecas = BuildPecasDivergentesCodigos();
 
             var req = new ErpRecebimentoRequest
             {
@@ -759,6 +917,9 @@ public sealed partial class CadastroViewModel : ObservableObject
                 AcessoriosIncluidos = incluidos.Count == 0 ? null : incluidos,
                 AcessoriosFaltantes = faltantes.Count == 0 ? null : faltantes,
                 ConfigDivergencias = divergencias.Count == 0 ? null : divergencias,
+                // false = alerta no pedido + aviso a quem o criou; nulo = sem o que comparar
+                ConfigConfere = pecas.Count > 0 ? false : (TemConfigAcordada && SpecsProntas ? true : null),
+                ConfigPecasDivergentes = pecas.Count == 0 ? null : pecas,
                 Observacoes = NullIfEmpty(Observacoes),
                 LocalizacaoInicialId = NullIfEmpty(SelectedLocalizacao?.Id),
                 ProximoDestino = SelectedProximoDestino?.Value,
@@ -823,9 +984,12 @@ public sealed partial class CadastroViewModel : ObservableObject
             var destinoParte = vaiParaAprovacao
                 ? "Aguardando aprovação em /aprovacoes."
                 : "Seguiu para o teste — acompanhe no kanban.";
-            ResultText = resp.Idempotent
+            var configParte = divergencias.Count > 0
+                ? " Alerta de configuração registrado no pedido de compra — quem criou o pedido será avisado."
+                : "";
+            ResultText = (resp.Idempotent
                 ? $"Já estava cadastrado (reenvio). {ntbParte}Código: {codigo}. {destinoParte}"
-                : $"Máquina cadastrada! {ntbParte}Código: {codigo}. {destinoParte}";
+                : $"Máquina cadastrada! {ntbParte}Código: {codigo}. {destinoParte}") + configParte;
             StatusMessage = "";
             _idempotencyKey = null; // próximo cadastro gera nova chave
         }
@@ -892,6 +1056,9 @@ public sealed partial class CadastroViewModel : ObservableObject
         foreach (var item in AcessoriosChecklist) item.IsChecked = false;
         _specs = null;
         _machine = null;
+        ResetPecasDivergentes();
+        ConfigChecagem.Clear();
+        RaiseConfigWarnings();
         Step = CadastroStep.Pedido;
         OnPropertyChanged(nameof(SpecsResumo));
         // Recarrega as máquinas em branco: a que acabou de ser cadastrada saiu da lista.

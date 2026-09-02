@@ -448,6 +448,19 @@ public sealed class ErpRecebimentoRequest
     [JsonPropertyName("acessorios_faltantes")] public List<string>? AcessoriosFaltantes { get; set; }
     /// <summary>Diferenças entre a config acordada no pedido e o que o autocheck encontrou.</summary>
     [JsonPropertyName("config_divergencias")] public List<string>? ConfigDivergencias { get; set; }
+    /// <summary>
+    /// A config da máquina bate com a acordada no pedido? Nulo quando não há
+    /// config acordada para comparar. False dispara no ERP o alerta no pedido
+    /// de compra e o aviso a quem criou o pedido.
+    /// </summary>
+    [JsonPropertyName("config_confere")] public bool? ConfigConfere { get; set; }
+    /// <summary>
+    /// Peças marcadas como diferentes do acordado (<c>processador</c>, <c>ram</c>,
+    /// <c>armazenamento</c>, <c>placa_video</c>, <c>tela</c>, <c>outro</c>) —
+    /// vindas da conferência automática e/ou do técnico. Versão estruturada de
+    /// <see cref="ConfigDivergencias"/>, para o ERP marcar a peça na máquina.
+    /// </summary>
+    [JsonPropertyName("config_pecas_divergentes")] public List<string>? ConfigPecasDivergentes { get; set; }
     [JsonPropertyName("observacoes")] public string? Observacoes { get; set; }
     [JsonPropertyName("localizacao_inicial_id")] public string? LocalizacaoInicialId { get; set; }
     [JsonPropertyName("proximo_destino")] public string? ProximoDestino { get; set; }

@@ -107,4 +107,44 @@ public class ErpConfigComparerTests
     {
         ErpConfigComparer.Describe(null).Should().BeEmpty();
     }
+
+    // ---- Comparar: a conferência peça a peça que o cadastro mostra na Identificação ----
+
+    [Fact]
+    public void Comparar_so_lista_o_que_o_pedido_fixou()
+    {
+        var linhas = ErpConfigComparer.Comparar(Acordada(ram: 16), Specs(cpu: "i5-8350U", ram: 16, storage: 256));
+        linhas.Should().ContainSingle().Which.Codigo.Should().Be(ErpConfigComparer.Ram);
+    }
+
+    [Fact]
+    public void Comparar_marca_a_peca_que_diverge_com_o_mesmo_texto_do_alerta()
+    {
+        var linhas = ErpConfigComparer.Comparar(Acordada(ram: 16, storage: 512), Specs(ram: 8, storage: 477));
+        var ram = linhas.Single(l => l.Codigo == ErpConfigComparer.Ram);
+        ram.Diverge.Should().BeTrue();
+        ram.Acordado.Should().Be("16 GB");
+        ram.Encontrado.Should().Be("8 GB");
+        ram.Texto.Should().Be("RAM: acordado 16 GB, encontrado 8 GB");
+
+        var disco = linhas.Single(l => l.Codigo == ErpConfigComparer.Armazenamento);
+        disco.Diverge.Should().BeFalse("477 GiB é um disco de 512 GB");
+        disco.Texto.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void Comparar_sem_specs_ou_sem_config_nao_tem_linhas()
+    {
+        ErpConfigComparer.Comparar(Acordada(ram: 16), null).Should().BeEmpty();
+        ErpConfigComparer.Comparar(null, Specs(ram: 16)).Should().BeEmpty();
+    }
+
+    [Fact]
+    public void Comparar_peca_fixada_mas_nao_lida_mostra_traco_e_nao_diverge()
+    {
+        // pedido fixou o processador, mas a leitura da máquina não trouxe CPU
+        var linha = ErpConfigComparer.Comparar(Acordada(cpu: "i5-8350U"), Specs(ram: 8)).Single();
+        linha.Encontrado.Should().Be("—");
+        linha.Diverge.Should().BeFalse();
+    }
 }

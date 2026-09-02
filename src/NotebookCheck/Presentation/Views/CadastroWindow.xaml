@@ -208,6 +208,79 @@
                             <TextBlock Style="{StaticResource Label}" Text="ESPECIFICAÇÕES COLETADAS"/>
                             <TextBlock Text="{Binding SpecsResumo}" TextWrapping="Wrap" Margin="0,4,0,0"
                                        Foreground="{DynamicResource Ink700Brush}"/>
+
+                            <!-- Conferência automática: config acordada no pedido × lida da máquina -->
+                            <StackPanel Margin="0,14,0,0"
+                                        Visibility="{Binding TemConfigAcordada, Converter={StaticResource BoolVisConv}}">
+                                <TextBlock Style="{StaticResource Label}" Text="CONFERÊNCIA COM A CONFIG ACORDADA NO PEDIDO"/>
+                                <TextBlock Style="{StaticResource Subtle}" Margin="0,4,0,0"
+                                           Text="Lendo a configuração da máquina…"
+                                           Visibility="{Binding ChecagemAguardando, Converter={StaticResource BoolVisConv}}"/>
+                                <ItemsControl ItemsSource="{Binding ConfigChecagem}" Margin="0,6,0,0"
+                                              Visibility="{Binding MostraChecagem, Converter={StaticResource BoolVisConv}}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Grid Margin="0,3">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="24"/>
+                                                    <ColumnDefinition Width="130"/>
+                                                    <ColumnDefinition Width="*"/>
+                                                    <ColumnDefinition Width="*"/>
+                                                </Grid.ColumnDefinitions>
+                                                <TextBlock Text="⚠" Foreground="{StaticResource WarnBrush}"
+                                                           Visibility="{Binding Diverge, Converter={StaticResource BoolVisConv}}"/>
+                                                <TextBlock Text="✓" Foreground="{StaticResource OkBrush}" FontWeight="Bold"
+                                                           Visibility="{Binding Diverge, Converter={StaticResource BoolVisConv}, ConverterParameter=invert}"/>
+                                                <TextBlock Grid.Column="1" Text="{Binding Peca}"
+                                                           Foreground="{DynamicResource Ink500Brush}"/>
+                                                <TextBlock Grid.Column="2" Text="{Binding Acordado, StringFormat='acordado: {0}'}"
+                                                           TextWrapping="Wrap" Margin="0,0,8,0"
+                                                           Foreground="{DynamicResource Ink700Brush}"/>
+                                                <TextBlock Grid.Column="3" Text="{Binding Encontrado, StringFormat='encontrado: {0}'}"
+                                                           TextWrapping="Wrap"
+                                                           Foreground="{DynamicResource Ink800Brush}"/>
+                                            </Grid>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                                <Border Margin="0,8,0,0" Padding="12,10" CornerRadius="8"
+                                        Background="{DynamicResource OkTintBrush}" BorderBrush="{StaticResource OkBrush}" BorderThickness="1"
+                                        Visibility="{Binding ConfigBate, Converter={StaticResource BoolVisConv}}">
+                                    <TextBlock Text="✓ Configuração confere com o acordado no pedido."
+                                               Foreground="{DynamicResource Ink800Brush}"/>
+                                </Border>
+                            </StackPanel>
+
+                            <!-- Alerta: alguma peça diverge (automático ou marcado pelo técnico) -->
+                            <Border Margin="0,10,0,0" Padding="12,10" CornerRadius="8"
+                                    Background="{DynamicResource WarnTintBrush}" BorderBrush="{StaticResource WarnBrush}" BorderThickness="1"
+                                    Visibility="{Binding ConfigDiverge, Converter={StaticResource BoolVisConv}}">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="⚠" FontSize="16" Margin="0,0,8,0" VerticalAlignment="Top"
+                                               Foreground="{StaticResource WarnBrush}"/>
+                                    <TextBlock Text="{Binding ConfigAlertaText}" TextWrapping="Wrap" MaxWidth="520"
+                                               Foreground="{DynamicResource Ink800Brush}"/>
+                                </StackPanel>
+                            </Border>
+
+                            <!-- O técnico marca a peça que veio diferente do pedido -->
+                            <TextBlock Style="{StaticResource Label}" Margin="0,14,0,2"
+                                       Text="PEÇAS DIFERENTES DO ACORDADO — MARQUE O QUE NÃO BATE"/>
+                            <TextBlock Style="{StaticResource Subtle}" TextWrapping="Wrap" Margin="0,0,0,4"
+                                       Text="A leitura automática já marca RAM, armazenamento e processador quando divergem. Desmarque se for engano; marque o que ela não enxerga."/>
+                            <ItemsControl ItemsSource="{Binding PecasDivergentes}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <CheckBox Content="{Binding Nome}" IsChecked="{Binding IsChecked}"
+                                                  Margin="0,4,0,4"/>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                            <StackPanel Visibility="{Binding OutroMarcado, Converter={StaticResource BoolVisConv}}">
+                                <TextBlock Style="{StaticResource Label}" Text="QUAL PEÇA / O QUE VEIO DIFERENTE" Margin="0,6,0,2"/>
+                                <TextBox Text="{Binding OutroDescricao, UpdateSourceTrigger=PropertyChanged}"
+                                         BorderBrush="{StaticResource WarnBrush}"/>
+                            </StackPanel>
                         </StackPanel>
                     </Border>
                 </StackPanel>
