@@ -339,6 +339,9 @@ public sealed partial class CadastroViewModel : ObservableObject
 
     partial void OnSelectedMaquinaChanged(ErpPedidoMaquina? value)
     {
+        // Mudança que não veio de SelecionarMaquina() foi o técnico no combo:
+        // a partir daqui o app não troca mais a máquina sozinho.
+        if (!_ajustandoSelecao) _selecaoAutomatica = false;
         // A config acordada é da máquina escolhida: refaz a conferência.
         RecomputeConfigChecagem();
         if (value is null) return;
@@ -352,7 +355,7 @@ public sealed partial class CadastroViewModel : ObservableObject
 
     private async Task LoadMaquinasAsync(ErpPedidoCompra? pedido)
     {
-        SelectedMaquina = null;
+        SelecionarMaquina(null, automatica: false);
         MaquinasDisponiveis.Clear();
         MaquinasCarregadas = false;
         MaquinasListaOk = false;
@@ -376,15 +379,18 @@ public sealed partial class CadastroViewModel : ObservableObject
             foreach (var m in resp.Maquinas.Where(m => m.PodeCadastrar))
                 MaquinasDisponiveis.Add(m);
 
-            // Kanban pediu uma máquina específica; senão, as em branco são
-            // intercambiáveis — a primeira do pedido serve e poupa um clique.
+            // Kanban pediu uma máquina específica (vale como escolha do técnico);
+            // senão o app escolhe pela config acordada — e reescolhe quando as
+            // specs chegarem, se o técnico não tiver mexido no combo.
             if (_preselectAssetId is not null)
             {
-                SelectedMaquina = MaquinasDisponiveis.FirstOrDefault(m =>
-                    string.Equals(m.AssetId, _preselectAssetId, StringComparison.OrdinalIgnoreCase));
+                SelecionarMaquina(MaquinasDisponiveis.FirstOrDefault(m =>
+                    string.Equals(m.AssetId, _preselectAssetId, StringComparison.OrdinalIgnoreCase)),
+                    automatica: false);
                 _preselectAssetId = null;
             }
-            SelectedMaquina ??= MaquinasDisponiveis.FirstOrDefault();
+            if (SelectedMaquina is null)
+                SelecionarMaquina(EscolherMaquinaPelaConfig(), automatica: true);
         }
         catch (ErpException ex)
         {
@@ -408,6 +414,56 @@ public sealed partial class CadastroViewModel : ObservableObject
 
     private string? _preselectPedidoId;
     private string? _preselectAssetId;
+
+    /// <summary>A máquina selecionada foi escolha do app (pode ser trocada quando as specs chegarem).</summary>
+    private bool _selecaoAutomatica;
+    /// <summary>True enquanto SelecionarMaquina() atribui — distingue do técnico mexendo no combo.</summary>
+    private bool _ajustandoSelecao;
+
+    private void SelecionarMaquina(ErpPedidoMaquina? maquina, bool automatica)
+    {
+        _ajustandoSelecao = true;
+        try { SelectedMaquina = maquina; }
+        finally { _ajustandoSelecao = false; }
+        _selecaoAutomatica = automatica && maquina is not null;
+    }
+
+    /// <summary>
+    /// Qual máquina em branco do pedido é a que está na bancada. Um pedido pode
+    /// misturar configs (PC-24: uma Ultra 5 e duas Ryzen 7); pegar "a primeira"
+    /// faria o alerta de config acusar processador errado numa máquina certa.
+    /// Prefere a em branco cuja config acordada bate com o hardware lido; sem
+    /// specs ainda, ou sem nenhuma batendo, fica a primeira — e o alerta fala.
+    /// </summary>
+    private ErpPedidoMaquina? EscolherMaquinaPelaConfig()
+    {
+        if (MaquinasDisponiveis.Count == 0) return null;
+        if (_specs is null) return MaquinasDisponiveis[0];
+        return MaquinasDisponiveis.FirstOrDefault(m =>
+                   m.ConfigAcordada is not null
+                   && ErpConfigComparer.Divergencias(m.ConfigAcordada, _specs).Count == 0)
+               ?? MaquinasDisponiveis[0];
+    }
+
+    /// <summary>
+    /// Chamado quando as specs chegam: se o app é quem escolheu a máquina,
+    /// troca para a de config compatível. Modelo/linha que vieram do prefill da
+    /// máquina errada são limpos para o prefill refazer a partir da certa.
+    /// </summary>
+    private void ReescolherMaquinaPelaConfig()
+    {
+        if (!_selecaoAutomatica) return;
+        var melhor = EscolherMaquinaPelaConfig();
+        var anterior = SelectedMaquina;
+        if (melhor is null || ReferenceEquals(melhor, anterior)) return;
+
+        if (anterior is not null)
+        {
+            if (string.Equals(Modelo.Trim(), (anterior.Modelo ?? "").Trim(), StringComparison.OrdinalIgnoreCase)) Modelo = "";
+            if (string.Equals(Linha.Trim(), (anterior.Linha ?? "").Trim(), StringComparison.OrdinalIgnoreCase)) Linha = "";
+        }
+        SelecionarMaquina(melhor, automatica: true);
+    }
 
     /// <summary>
     /// Usado pelo kanban: pré-seleciona o pedido e a máquina em branco assim
@@ -741,15 +797,20 @@ public sealed partial class CadastroViewModel : ObservableObject
                 Serial = machine.Serial ?? "";
             SerialReady = true;
 
+            _specs = BuildSpecs(machine, storage, battery, display);
+            OnPropertyChanged(nameof(SpecsResumo));
+
+            // Com as specs na mão dá para achar a máquina CERTA do pedido (a de
+            // config acordada compatível) — antes do prefill de modelo/linha,
+            // para ele partir da máquina certa.
+            ReescolherMaquinaPelaConfig();
+
             // Se não veio modelo/marca preenchidos, sugere a partir do hardware.
             if (string.IsNullOrWhiteSpace(Modelo) && !string.IsNullOrWhiteSpace(machine.Model))
                 Modelo = machine.Model!.Trim();
 
             SuggestLinha(machine);
             TrySelectMarca();
-
-            _specs = BuildSpecs(machine, storage, battery, display);
-            OnPropertyChanged(nameof(SpecsResumo));
             RecomputeConfigChecagem();
         }
         catch (Exception ex)
