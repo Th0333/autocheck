@@ -167,6 +167,13 @@ public sealed class ErpPedidoMaquina
     [JsonPropertyName("pode_check_automatico")] public bool PodeCheckAutomatico { get; set; }
     /// <summary>Técnico que assumiu a máquina (do Assumir no app ou da web). Fonte da verdade sobre o local.</summary>
     [JsonPropertyName("assumido_por")] public string? AssumidoPor { get; set; }
+    /// <summary>
+    /// Chegou com configuração diferente da acordada no pedido e o alerta ainda
+    /// não foi tratado no ERP ("Tratar alerta" na tela do pedido). Desde 02/09/2026.
+    /// </summary>
+    [JsonPropertyName("config_divergente")] public bool ConfigDivergente { get; set; }
+    /// <summary>Peças marcadas como divergentes (processador, ram, armazenamento, placa_video, tela, outro).</summary>
+    [JsonPropertyName("config_pecas_divergentes")] public List<string>? ConfigPecasDivergentes { get; set; }
 
     /// <summary>
     /// Máquina em branco parada em "aguardando recebimento" — o estado em que
@@ -185,20 +192,24 @@ public sealed class ErpPedidoMaquina
     [JsonIgnore]
     public bool PodeCadastrar => PodeCheckEntrada || AguardandoRecebimento;
 
-    /// <summary>Texto exibido em dropdowns/cards ("NTB 11801 · Latitude 5420").</summary>
+    /// <summary>Texto exibido em dropdowns/cards ("NTB11801 · Latitude 5420").</summary>
     [JsonIgnore]
     public string Display
     {
         get
         {
             var parts = new List<string>();
-            if (!string.IsNullOrWhiteSpace(Ntb)) parts.Add($"NTB {Ntb}");
+            // O ERP passou a devolver o NTB já com prefixo ("NTB11834"); antes
+            // vinha só com dígitos. Canonizar aceita os dois e acaba com o
+            // "NTB NTB11834" que aparecia na lista do pedido.
+            if (!string.IsNullOrWhiteSpace(Ntb)) parts.Add(NotebookCheck.Domain.Rules.NtbCode.Normalize(Ntb));
             else if (!string.IsNullOrWhiteSpace(CodigoInterno)) parts.Add(CodigoInterno!);
             var nome = string.Join(" ", new[] { Linha, Modelo }
                 .Where(s => !string.IsNullOrWhiteSpace(s))
                 .Select(s => s!.Trim())
                 .Distinct(StringComparer.OrdinalIgnoreCase));
             if (nome.Length > 0) parts.Add(nome);
+            if (ConfigDivergente) parts.Add("⚠ config errada");
             return parts.Count == 0 ? AssetId : string.Join(" · ", parts);
         }
     }
@@ -309,7 +320,7 @@ public sealed class ErpFilaTesteMaquina
         get
         {
             var parts = new List<string>();
-            if (!string.IsNullOrWhiteSpace(Ntb)) parts.Add($"NTB {Ntb}");
+            if (!string.IsNullOrWhiteSpace(Ntb)) parts.Add(NotebookCheck.Domain.Rules.NtbCode.Normalize(Ntb)); // aceita "11834" e "NTB11834"
             else if (!string.IsNullOrWhiteSpace(CodigoInterno)) parts.Add(CodigoInterno!);
             var nome = string.Join(" ", new[] { Linha, Modelo }
                 .Where(s => !string.IsNullOrWhiteSpace(s))

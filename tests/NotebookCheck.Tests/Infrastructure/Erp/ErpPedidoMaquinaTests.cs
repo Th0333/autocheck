@@ -58,13 +58,31 @@ public class ErpPedidoMaquinaTests
     public void Display_do_cadastro_marca_a_que_ainda_precisa_ser_confirmada()
     {
         Maquina("aguardando_recebimento", ntb: "11801").DisplayCadastro
-            .Should().Be("NTB 11801 · aguardando recebimento");
+            .Should().Be("NTB11801 · aguardando recebimento");
     }
 
     [Fact]
     public void Display_do_cadastro_sem_marca_quando_ja_esta_no_check_de_entrada()
     {
         Maquina("check_entrada", podeCheckEntrada: true, ntb: "11801").DisplayCadastro
-            .Should().Be("NTB 11801");
+            .Should().Be("NTB11801");
+    }
+
+    [Fact]
+    public void Display_nao_duplica_o_prefixo_quando_o_erp_ja_manda_com_NTB()
+    {
+        // desde 20260807170000 o ERP devolve "NTB11834", não "11834" — a lista
+        // do pedido mostrava "NTB NTB11834"
+        var m = Maquina("check_entrada", podeCheckEntrada: true, ntb: "NTB11834");
+        m.Modelo = "Latitude 5450";
+        m.Display.Should().Be("NTB11834 · Latitude 5450");
+    }
+
+    [Fact]
+    public void Display_avisa_config_errada_enquanto_o_alerta_nao_for_tratado()
+    {
+        var m = Maquina("aguardando_tecnico", ntb: "NTB11834", serial: "PF1ABCDE");
+        m.ConfigDivergente = true;
+        m.Display.Should().Be("NTB11834 · ⚠ config errada");
     }
 }
