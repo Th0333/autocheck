@@ -90,6 +90,8 @@ public static class AppHostBuilder
                     new FileOfflineQueue(sp.GetRequiredService<ILogger<FileOfflineQueue>>(), storageDir));
                 services.AddSingleton<IAudioQueue>(sp =>
                     new FileAudioQueue(sp.GetRequiredService<ILogger<FileAudioQueue>>(), storageDir));
+                services.AddSingleton(sp =>
+                    new FileErpReportQueue(sp.GetRequiredService<ILogger<FileErpReportQueue>>(), storageDir));
 
                 // API
                 services.AddHttpClient("api", c =>
@@ -136,6 +138,7 @@ public static class AppHostBuilder
 
                 // Sync background
                 services.AddSingleton<Application.Sync.ChecklistAudioSender>();
+                services.AddSingleton<Application.Sync.ErpReportSender>();
                 services.AddSingleton<OfflineSyncService>();
                 services.AddHostedService(sp => sp.GetRequiredService<OfflineSyncService>());
 

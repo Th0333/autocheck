@@ -21,6 +21,7 @@ public sealed class OfflineSyncService : BackgroundService
     private readonly AppConfig _config;
     private readonly IReportArchive _archive;
     private readonly ChecklistAudioSender _audio;
+    private readonly ErpReportSender _erpReports;
     private readonly ILogger<OfflineSyncService> _logger;
 
     public event EventHandler<int>? PendingChanged;
@@ -34,6 +35,7 @@ public sealed class OfflineSyncService : BackgroundService
         AppConfig config,
         IReportArchive archive,
         ChecklistAudioSender audio,
+        ErpReportSender erpReports,
         ILogger<OfflineSyncService> logger)
     {
         _queue = queue;
@@ -42,6 +44,7 @@ public sealed class OfflineSyncService : BackgroundService
         _config = config;
         _archive = archive;
         _audio = audio;
+        _erpReports = erpReports;
         _logger = logger;
     }
 
@@ -54,8 +57,9 @@ public sealed class OfflineSyncService : BackgroundService
             {
                 var temRelatorio = _queue.Count > 0;
                 var temAudio = _audio.PendingCount > 0;
+                var temErp = _erpReports.PendingCount > 0;
 
-                if (temRelatorio || temAudio)
+                if (temRelatorio || temAudio || temErp)
                 {
                     var ok = false;
                     if (!string.IsNullOrWhiteSpace(_config.Options.InternetTestUrl))
@@ -96,6 +100,13 @@ public sealed class OfflineSyncService : BackgroundService
                     if (ok && temAudio)
                     {
                         await _audio.DrainAsync(stoppingToken).ConfigureAwait(false);
+                    }
+
+                    // Checklists que o ERP não recebeu na hora (ERP fora do ar):
+                    // reenvio com o mesmo test_id substitui lá, então é seguro.
+                    if (ok && temErp)
+                    {
+                        await _erpReports.DrainAsync(stoppingToken).ConfigureAwait(false);
                     }
                 }
                 Notify();

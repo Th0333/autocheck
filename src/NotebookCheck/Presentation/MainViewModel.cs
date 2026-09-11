@@ -114,6 +114,17 @@ public sealed partial class MainViewModel : ObservableObject
     [ObservableProperty] private bool touchScreenSim;
     [ObservableProperty] private bool touchScreenNao;
 
+    /// <summary>
+    /// Confirmação do técnico sobre Autopilot (Sim/Não). A detecção automática
+    /// só vê rastros locais e por isso não decide sozinha — quem viu o OOBE
+    /// pedir login corporativo responde aqui.
+    /// </summary>
+    [ObservableProperty] private bool autopilotSim;
+    [ObservableProperty] private bool autopilotNao;
+    [ObservableProperty] private bool autopilotInvalid;
+    /// <summary>Veredito da detecção automática, para o técnico comparar ("Sem rastros — ...").</summary>
+    [ObservableProperty] private string autopilotAutoLabel = "ainda não verificado";
+
     /// <summary>Marcam em vermelho os campos obrigatórios da inspeção ao tentar avançar.</summary>
     [ObservableProperty] private bool keyboardBacklightInvalid;
     [ObservableProperty] private bool numericKeypadInvalid;
@@ -187,6 +198,8 @@ public sealed partial class MainViewModel : ObservableObject
     partial void OnNumericKeypadNaoChanged(bool value) { if (value) NumericKeypadInvalid = false; }
     partial void OnTouchScreenSimChanged(bool value) { if (value) TouchScreenInvalid = false; }
     partial void OnTouchScreenNaoChanged(bool value) { if (value) TouchScreenInvalid = false; }
+    partial void OnAutopilotSimChanged(bool value) { if (value) AutopilotInvalid = false; }
+    partial void OnAutopilotNaoChanged(bool value) { if (value) AutopilotInvalid = false; }
 
     /// <summary>True se qualquer benchmark próprio está rodando (bloqueia os demais).</summary>
     public bool AnyBenchRunning => CpuBenchRunning || GpuBenchRunning || DiskBenchRunning
@@ -235,6 +248,8 @@ public sealed partial class MainViewModel : ObservableObject
     [ObservableProperty] private string throttleResult = "Não testado";
     [ObservableProperty] private string batteryDischargeResult = "Não testado";
 
+    private readonly Application.Sync.ErpReportSender _erpReports;
+
     public MainViewModel(
         IHardwareCollector collector,
         Infrastructure.Persistence.SerialNtbStore serialNtb,
@@ -260,10 +275,12 @@ public sealed partial class MainViewModel : ObservableObject
         Infrastructure.Hardware.DellBiosPasswordReader dellBios,
         Infrastructure.Erp.ErpClient erp,
         Application.Sync.ChecklistAudioSender audioSender,
+        Application.Sync.ErpReportSender erpReports,
         ILogger<MainViewModel> logger)
     {
         _erp = erp;
         _audioSender = audioSender;
+        _erpReports = erpReports;
         _collector = collector;
         _serialNtb = serialNtb;
         _machineIdentity = machineIdentity;
@@ -299,11 +316,8 @@ public sealed partial class MainViewModel : ObservableObject
             }
         };
 
-        // Itens manuais conforme Req. 17
-        foreach (var key in new[] { "carcaca", "tela", "teclado", "touchpad", "dobradicas", "usb", "hdmi", "carregador" })
-        {
-            ManualItems.Add(new ManualItemRow(key));
-        }
+        // Itens manuais conforme Req. 17 (o conjunto depende do modo).
+        SeedManualItems();
 
         // Changelog da versão atual (obtido no startup pelo auto-updater).
         var changes = App.LatestChangelog;
@@ -963,7 +977,10 @@ public sealed partial class MainViewModel : ObservableObject
                 ? null
                 : await _collector.CollectBatteryAsync(ct);
 
-            var detected = await _backlight.DetectAsync(ct);
+            // Desktop não tem teclado próprio — não há o que detectar.
+            var detected = ChecklistMode == ChecklistMode.Desktop
+                ? KeyboardBacklight.Indisponivel
+                : await _backlight.DetectAsync(ct);
             _session.KeyboardBacklightDetected = detected;
             KeyboardBacklightDetected = detected switch
             {
@@ -988,6 +1005,9 @@ public sealed partial class MainViewModel : ObservableObject
             _serialNtb.Save(m.Serial, NtbCode);
 
             BuildHardwareFields(m);
+            AutopilotAutoLabel = string.IsNullOrWhiteSpace(m.AutopilotDetail)
+                ? FormatAutopilotFlag(m.Autopilot)
+                : $"{FormatAutopilotFlag(m.Autopilot)} — {m.AutopilotDetail}";
 
             IdentificationSummary =
                 $"Fabricante: {m.Manufacturer ?? "-"}\n" +
@@ -997,11 +1017,11 @@ public sealed partial class MainViewModel : ObservableObject
                 $"CPU: {m.Cpu ?? "-"}\n" +
                 $"RAM: {m.RamGb:F1} GB\n" +
                 $"OS: {m.Os} {m.OsVersion}\n" +
-                $"Resolução: {m.ScreenResolution}\n" +
+                (IsDesktop ? "" : $"Resolução: {m.ScreenResolution}\n") +
                 $"MAC: {m.MacAddress ?? "-"}\n" +
                 $"TPM: {m.Tpm} ({m.TpmVersion ?? "-"})\n" +
                 $"SecureBoot: {m.SecureBoot}\n" +
-                $"Autopilot (beta): {FormatAutopilotFlag(m.Autopilot)}\n" +
+                $"Autopilot: {FormatAutopilotFlag(m.Autopilot)}\n" +
                 $"Ativação: {m.WindowsActivation}";
 
             StorageRows.Clear();
@@ -2460,12 +2480,98 @@ public sealed partial class MainViewModel : ObservableObject
     /// expirou ou deu problema. As fotos já enviadas continuam no relatório.
     /// </summary>
     [RelayCommand]
-    private void RegenerarQrInspecao()
+    private async Task RegenerarQrInspecaoAsync()
     {
         StopInspectionPolling();
+        // A sessão nova tem outro token: o que já subiu pela sessão antiga
+        // precisa vir para dentro do relatório antes, senão fica órfão lá.
+        InspectionStatus = "Guardando as fotos já enviadas…";
+        var kept = await PullRemoteInspectionPhotosAsync();
         InspectionQr = null;
-        InspectionStatus = "Gerando um QR novo…";
+        InspectionStatus = kept > 0
+            ? $"{kept} foto(s) guardada(s) no relatório. Gerando um QR novo…"
+            : "Gerando um QR novo…";
         StartInspection(forceNew: true);
+    }
+
+    /// <summary>
+    /// Baixa para a sessão as fotos que o celular mandou pelo QR (elas ficam
+    /// no ERP/painel, ligadas ao token da sessão de inspeção) e as embute em
+    /// base64 no relatório — o mesmo caminho das fotos da webcam. Assim o
+    /// relatório carrega as fotos DENTRO dele, para o ERP e para o painel,
+    /// sem depender de o servidor cruzar o <c>inspection_slug</c> com a
+    /// sessão de fotos. Fotos já locais não são baixadas de novo; cada foto
+    /// é reduzida (ver PhotoShrinker) para o JSON não estourar o servidor.
+    /// </summary>
+    /// <returns>Quantas fotos novas foram trazidas.</returns>
+    private async Task<int> PullRemoteInspectionPhotosAsync()
+    {
+        var statusUrl = _inspStatusUrl;
+        if (string.IsNullOrWhiteSpace(statusUrl)) return 0;
+
+        var pulled = 0;
+        try
+        {
+            using var http = new System.Net.Http.HttpClient { Timeout = TimeSpan.FromSeconds(25) };
+            var json = await http.GetStringAsync(statusUrl).ConfigureAwait(false);
+            using var doc = System.Text.Json.JsonDocument.Parse(json);
+            if (!doc.RootElement.TryGetProperty("items", out var items)) return 0;
+
+            foreach (var el in items.EnumerateArray())
+            {
+                if (!(el.TryGetProperty("done", out var d) && d.ValueKind == System.Text.Json.JsonValueKind.True)) continue;
+                var key = el.TryGetProperty("key", out var k) ? k.GetString() : null;
+                if (string.IsNullOrWhiteSpace(key) || _session.InspectionPhotos.ContainsKey(key)) continue;
+
+                try
+                {
+                    // O painel antigo serve em /photo/; o ERP recebe em /foto/ e
+                    // pode servir em qualquer um dos dois — tenta ambos.
+                    byte[] bytes = Array.Empty<byte>();
+                    foreach (var seg in new[] { "photo", "foto" })
+                    {
+                        try
+                        {
+                            bytes = await http.GetByteArrayAsync($"{statusUrl}/{seg}/{Uri.EscapeDataString(key)}").ConfigureAwait(false);
+                            if (bytes.Length > 0) break;
+                        }
+                        catch (System.Net.Http.HttpRequestException) { /* tenta o outro caminho */ }
+                    }
+                    if (bytes.Length == 0) continue;
+                    var jpeg = Infrastructure.Inspection.PhotoShrinker.ToReportJpeg(bytes);
+                    string? note = null;
+                    if (el.TryGetProperty("note", out var n) && n.ValueKind == System.Text.Json.JsonValueKind.String)
+                        note = n.GetString();
+                    _session.InspectionPhotos[key] = new Domain.Models.InspectionPhoto(
+                        key, Convert.ToBase64String(jpeg), note, DateTime.UtcNow);
+                    pulled++;
+                    _logger.LogInformation("Foto {Key} do celular embutida no relatório ({Kb:0} KB)", key, jpeg.Length / 1024.0);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Foto {Key} do celular não pôde ser baixada para o relatório", key);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Não deu para consultar as fotos da inspeção em {Url}", statusUrl);
+        }
+
+        if (pulled > 0)
+        {
+            var disp = System.Windows.Application.Current?.Dispatcher;
+            if (disp is not null)
+            {
+                await disp.InvokeAsync(() =>
+                {
+                    foreach (var row in InspectionItems)
+                        if (_session.InspectionPhotos.ContainsKey(row.Key)) row.HasPhoto = true;
+                    RecountInspectionLocal();
+                });
+            }
+        }
+        return pulled;
     }
 
     /// <summary>Token da sessão de inspeção no ERP (null = fallback painel antigo).</summary>
@@ -2805,6 +2911,37 @@ public sealed partial class MainViewModel : ObservableObject
     /// <summary>Mostra as confirmações de teclado retroiluminado/numérico (N/A no Desktop).</summary>
     public bool ShowKeyboardChecks => ChecklistMode != ChecklistMode.Desktop;
 
+    /// <summary>Texto de apoio da seção "Testes que precisam do técnico", conforme o modo.</summary>
+    public string TechTestsHint => IsDesktop
+        ? "Desktop: só o teste de som precisa do técnico. Tela, teclado e mouse são periféricos externos e não entram no check — o que vale é o que sai das portas do gabinete."
+        : "Som, câmera, tela, teclado e touchpad requerem confirmação do técnico. O resultado entra na grade acima.";
+
+    /// <summary>Texto de apoio da etapa "Inputs e portas", conforme o modo.</summary>
+    public string PortsHint => IsDesktop
+        ? "Portas detectadas no gabinete — é o que se testa num desktop: USB, rede, áudio e saídas de vídeo. Verde = ativo (dispositivo plugado, link UP). Cinza = livre."
+        : "Portas detectadas no equipamento. Verde = ativo (dispositivo plugado, link UP, fone conectado, etc.). Cinza = livre. Teclado e touchpad são testados na etapa de testes.";
+
+    /// <summary>Itens do checklist físico de NOTEBOOK (Req. 17).</summary>
+    private static readonly string[] NotebookManualKeys =
+        { "carcaca", "tela", "teclado", "touchpad", "dobradicas", "usb", "hdmi", "carregador" };
+
+    /// <summary>
+    /// Itens do checklist físico de DESKTOP: gabinete e as conexões dele. Tela,
+    /// teclado, touchpad, dobradiças e carregador não existem num desktop —
+    /// antes eram enviados como "OK" em todo check de desktop, o que era mentira.
+    /// </summary>
+    private static readonly string[] DesktopManualKeys = { "carcaca", "usb", "hdmi" };
+
+    /// <summary>(Re)cria as linhas do checklist físico para o modo atual.</summary>
+    private void SeedManualItems()
+    {
+        ManualItems.Clear();
+        foreach (var key in ChecklistMode == ChecklistMode.Desktop ? DesktopManualKeys : NotebookManualKeys)
+        {
+            ManualItems.Add(new ManualItemRow(key));
+        }
+    }
+
     partial void OnChecklistModeChanged(ChecklistMode value)
     {
         OnPropertyChanged(nameof(HasPerformanceStep));
@@ -2814,6 +2951,9 @@ public sealed partial class MainViewModel : ObservableObject
         OnPropertyChanged(nameof(ShowBatteryCard));
         OnPropertyChanged(nameof(ShowFullTechTests));
         OnPropertyChanged(nameof(ShowKeyboardChecks));
+        OnPropertyChanged(nameof(TechTestsHint));
+        OnPropertyChanged(nameof(PortsHint));
+        SeedManualItems();
     }
 
     partial void OnNtbCodeChanged(string value)
@@ -2962,12 +3102,16 @@ public sealed partial class MainViewModel : ObservableObject
         KeyboardBacklightInvalid = requireKeyboardChecks && !KeyboardBacklightSim && !KeyboardBacklightNao;
         NumericKeypadInvalid = requireKeyboardChecks && !NumericKeypadSim && !NumericKeypadNao;
         TouchScreenInvalid = requireKeyboardChecks && !TouchScreenSim && !TouchScreenNao;
+        // Autopilot vale para notebook E desktop: a detecção automática só vê
+        // rastros, então a palavra final é do técnico.
+        AutopilotInvalid = !AutopilotSim && !AutopilotNao;
         // Inspeção física: fotos são OPCIONAIS — nunca bloqueiam a finalização.
         InspectionIncomplete = false;
 
-        if (KeyboardBacklightInvalid || NumericKeypadInvalid || TouchScreenInvalid)
+        if (KeyboardBacklightInvalid || NumericKeypadInvalid || TouchScreenInvalid || AutopilotInvalid)
         {
             var faltas = new System.Collections.Generic.List<string>();
+            if (AutopilotInvalid) faltas.Add("confirme se a máquina está com Autopilot");
             if (KeyboardBacklightInvalid) faltas.Add("confirme o teclado retroiluminado");
             if (NumericKeypadInvalid) faltas.Add("confirme o teclado numérico");
             if (TouchScreenInvalid) faltas.Add("confirme se a tela é touch");
@@ -2980,9 +3124,22 @@ public sealed partial class MainViewModel : ObservableObject
         ManualWarning = "";
 
         _session.GeneralNotes = GeneralNotes ?? "";
-        _session.KeyboardBacklight = KeyboardBacklightSim ? KeyboardBacklight.Sim : KeyboardBacklight.Nao;
-        _session.HasNumericKeypad = NumericKeypadSim;
-        _session.HasTouchScreen = TouchScreenSim;
+        if (requireKeyboardChecks)
+        {
+            _session.KeyboardBacklight = KeyboardBacklightSim ? KeyboardBacklight.Sim : KeyboardBacklight.Nao;
+            _session.HasNumericKeypad = NumericKeypadSim;
+            _session.HasTouchScreen = TouchScreenSim;
+        }
+        else
+        {
+            // Desktop: não existe teclado/tela próprios — vai como "não se
+            // aplica", e não como "Não" (que antes fazia o painel dizer que o
+            // desktop "não tem teclado numérico").
+            _session.KeyboardBacklight = KeyboardBacklight.Indisponivel;
+            _session.HasNumericKeypad = null;
+            _session.HasTouchScreen = null;
+        }
+        _session.AutopilotConfirmed = AutopilotSim ? true : AutopilotNao ? false : null;
         // Última rede de proteção antes do resumo: o que está na tela é o que
         // vai no laudo (NTB, localização, patrimônio e técnico).
         SyncIdentificationToSession();
@@ -3074,9 +3231,15 @@ public sealed partial class MainViewModel : ObservableObject
 
     private async Task SendReportAsync(Domain.Enums.FinalClassification finalClass)
     {
-        IsBusy = true; StatusMessage = "Salvando relatório...";
+        IsBusy = true; StatusMessage = "Anexando fotos da inspeção...";
         try
         {
+            // Fotos tiradas pelo celular (QR) ficam no servidor da inspeção;
+            // traz para dentro do relatório antes de montar o payload, senão
+            // elas dependem de o servidor cruzar o slug — e era aí que sumiam.
+            var pulled = await PullRemoteInspectionPhotosAsync();
+
+            StatusMessage = "Salvando relatório...";
             var report = _session.BuildReport(finalClass);
 
             var path = await _repo.SaveAsync(report, CancellationToken.None);
@@ -3087,6 +3250,13 @@ public sealed partial class MainViewModel : ObservableObject
             StatusMessage = string.Equals(savedDir.TrimEnd('\\'), exeDir, StringComparison.OrdinalIgnoreCase)
                 ? $"Relatório salvo: {Path.GetFileName(path)}"
                 : $"Pendrive indisponível — relatório salvo em {savedDir}";
+            var totalFotos = _session.InspectionPhotos.Count;
+            if (totalFotos > 0)
+            {
+                StatusMessage += pulled > 0
+                    ? $" • {totalFotos} foto(s) no relatório ({pulled} do celular)"
+                    : $" • {totalFotos} foto(s) no relatório";
+            }
 
             var payload = PayloadBuilder.Build(report);
             // Sempre arquiva localmente — independente de envio para a API.
@@ -3123,6 +3293,15 @@ public sealed partial class MainViewModel : ObservableObject
         ThrottleResult = "Não testado";
         BatteryDischargeResult = "Não testado";
         foreach (var m in ManualItems) m.Reset();
+        // As respostas Sim/Não são da máquina anterior — zera para o próximo
+        // check não sair com o teclado/Autopilot do notebook passado.
+        KeyboardBacklightSim = false; KeyboardBacklightNao = false;
+        NumericKeypadSim = false; NumericKeypadNao = false;
+        TouchScreenSim = false; TouchScreenNao = false;
+        AutopilotSim = false; AutopilotNao = false;
+        KeyboardBacklightInvalid = false; NumericKeypadInvalid = false;
+        TouchScreenInvalid = false; AutopilotInvalid = false;
+        AutopilotAutoLabel = "ainda não verificado";
         TechnicianName = "";
         NtbCode = "";
         LocationField = "";
@@ -3239,17 +3418,10 @@ public sealed partial class MainViewModel : ObservableObject
         // Aposentadoria do painel antigo: o relatório COMPLETO também vai pro
         // ERP (reenvio com o mesmo test_id substitui lá). Dual-write até o
         // painel antigo ser desligado — falha no ERP não bloqueia o fluxo.
-        try
-        {
-            var json = System.Text.Json.JsonSerializer.Serialize(payload);
-            await _erp.SendChecklistReportAsync(json, CancellationToken.None);
-            StatusMessage += " — salvo no ERP.";
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Checklist completo não subiu pro ERP (segue só no painel)");
-            StatusMessage += " — ERP indisponível (checklist só no painel antigo).";
-        }
+        var json = System.Text.Json.JsonSerializer.Serialize(payload);
+        var (erpOk, erpMsg) = await _erpReports.SendAsync(
+            payload.TestId, payload.Machine?.NtbCode, json, CancellationToken.None);
+        StatusMessage += erpOk ? " — salvo no ERP." : $" — {erpMsg}.";
 
         try
         {
@@ -3345,7 +3517,7 @@ public sealed partial class MainViewModel : ObservableObject
             ? m.Tpm.ToString()
             : $"{m.Tpm} • v{m.TpmVersion}"));
         SecurityFields.Add(new HardwareField("Secure Boot", m.SecureBoot.ToString()));
-        SecurityFields.Add(new HardwareField("Autopilot (beta)", string.IsNullOrWhiteSpace(m.AutopilotDetail)
+        SecurityFields.Add(new HardwareField("Autopilot", string.IsNullOrWhiteSpace(m.AutopilotDetail)
             ? FormatAutopilotFlag(m.Autopilot)
             : $"{FormatAutopilotFlag(m.Autopilot)} • {m.AutopilotDetail}"));
         // Durante o beta: quando o veredito acusa algo (Possível/Provável),
@@ -3435,7 +3607,15 @@ public sealed partial class MainViewModel : ObservableObject
         NetworkFields.Add(new HardwareField("MAC principal", m.MacAddress ?? "—"));
 
         DisplayFields.Clear();
-        DisplayFields.Add(new HardwareField("Resolução", m.ScreenResolution));
+        if (IsDesktop)
+        {
+            // A resolução lida é do monitor da bancada, não do equipamento.
+            DisplayFields.Add(new HardwareField("Monitor", "Não se aplica — desktop usa monitor externo"));
+        }
+        else
+        {
+            DisplayFields.Add(new HardwareField("Resolução", m.ScreenResolution));
+        }
         if (m.GraphicsDetails is { Count: > 0 } gpus)
         {
             for (var i = 0; i < gpus.Count; i++)

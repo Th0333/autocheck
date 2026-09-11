@@ -744,7 +744,7 @@
                             <StackPanel>
                                 <TextBlock Style="{StaticResource H2}" Text="Testes que precisam do técnico"/>
                                 <TextBlock Style="{StaticResource Subtle}" Margin="0,4,0,12"
-                                           Text="Som, câmera, tela, teclado e touchpad requerem confirmação do técnico. O resultado entra na grade acima."/>
+                                           Text="{Binding TechTestsHint}"/>
                                 <UniformGrid Columns="4">
                                     <UniformGrid.Resources>
                                         <Style TargetType="Button" BasedOn="{StaticResource BtnBase}">
@@ -1006,7 +1006,7 @@
                                 <StackPanel>
                                     <TextBlock Style="{StaticResource H2}" Text="Inputs e portas"/>
                                     <TextBlock Style="{StaticResource Subtle}" Margin="0,4,0,0" TextWrapping="Wrap"
-                                               Text="Portas detectadas no equipamento. Verde = ativo (dispositivo plugado, link UP, fone conectado, etc.). Cinza = livre. Teclado e touchpad são testados na etapa de testes."/>
+                                               Text="{Binding PortsHint}"/>
                                 </StackPanel>
                                 <Button Grid.Column="1" Content="↻ Atualizar" Style="{StaticResource BtnBase}"
                                         Command="{Binding RefreshPortsCommand}" VerticalAlignment="Center"/>
@@ -1075,6 +1075,30 @@
                                                    FontWeight="SemiBold" Foreground="{DynamicResource DangerFgBrush}" VerticalAlignment="Center"/>
                                     </StackPanel>
                                 </Border>
+
+                                <!-- Autopilot: a detecção automática só vê rastros locais; a palavra final é do técnico. -->
+                                <StackPanel Margin="0,0,0,18">
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Style="{StaticResource H2}" Text="Windows Autopilot"/>
+                                        <TextBlock Text="● obrigatório" Margin="10,0,0,0" VerticalAlignment="Center"
+                                                   FontWeight="SemiBold" FontSize="12" Foreground="{DynamicResource DangerFgBrush}"
+                                                   Visibility="{Binding AutopilotInvalid, Converter={StaticResource BoolVisConv}}"/>
+                                    </StackPanel>
+                                    <TextBlock Style="{StaticResource Subtle}" Margin="0,4,0,4" TextWrapping="Wrap">
+                                        <Run Text="Detecção automática:"/>
+                                        <Run FontWeight="SemiBold" Foreground="{DynamicResource Ink800Brush}" Text="{Binding AutopilotAutoLabel}"/>
+                                    </TextBlock>
+                                    <TextBlock Style="{StaticResource Subtle}" Margin="0,0,0,8" TextWrapping="Wrap"
+                                               Text="A detecção só enxerga rastros que ficaram no Windows. Uma máquina formatada do zero pode continuar presa ao Autopilot da empresa anterior sem deixar rastro nenhum — por isso ela não decide sozinha. Responda pelo que você viu: se a configuração inicial pediu login corporativo ou mostrou a empresa, é SIM."/>
+                                    <TextBlock Margin="0,0,0,6" FontWeight="SemiBold" Text="A máquina está com Autopilot?"/>
+                                    <Border Padding="6" CornerRadius="6" BorderThickness="2"
+                                            BorderBrush="{Binding AutopilotInvalid, Converter={StaticResource ErrorBrushConv}}">
+                                        <StackPanel Orientation="Horizontal">
+                                            <RadioButton Content="Sim" GroupName="Autopilot" IsChecked="{Binding AutopilotSim}"/>
+                                            <RadioButton Content="Não" GroupName="Autopilot" IsChecked="{Binding AutopilotNao}" Margin="16,0,0,0"/>
+                                        </StackPanel>
+                                    </Border>
+                                </StackPanel>
 
                                 <!-- Confirmações de teclado: ocultas no Desktop (teclado externo). -->
                                 <StackPanel Visibility="{Binding ShowKeyboardChecks, Converter={StaticResource BoolVisConv}}">
