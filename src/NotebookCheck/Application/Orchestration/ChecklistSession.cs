@@ -54,6 +54,9 @@ public sealed class ChecklistSession
         StressResult = null;
         FinalOverride = null;
         FinalOverrideReason = null;
+        AutopilotConfirmed = null;
+        HasNumericKeypad = null;
+        HasTouchScreen = null;
     }
 
     /// <summary>
@@ -87,6 +90,9 @@ public sealed class ChecklistSession
     /// <summary>Se a tela é sensível ao toque (touchscreen). null = não informado.</summary>
     public bool? HasTouchScreen { get; set; }
 
+    /// <summary>Técnico confirmou que a máquina está com Autopilot? null = não informado.</summary>
+    public bool? AutopilotConfirmed { get; set; }
+
     public FinalClassification? FinalOverride { get; set; }
     public string? FinalOverrideReason { get; set; }
 
@@ -98,6 +104,7 @@ public sealed class ChecklistSession
             Location = Location,
             KeyboardBacklight = KeyboardBacklight,
             KeyboardBacklightDetected = KeyboardBacklightDetected,
+            AutopilotConfirmed = AutopilotConfirmed,
         };
 
         return new ChecklistReport(

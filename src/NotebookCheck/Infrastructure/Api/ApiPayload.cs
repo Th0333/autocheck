@@ -101,6 +101,13 @@ public sealed class MachinePayload
     [JsonPropertyName("secure_boot")] public string SecureBoot { get; init; } = "";
     [JsonPropertyName("autopilot")] public string Autopilot { get; init; } = "";
     [JsonPropertyName("autopilot_detail")] public string? AutopilotDetail { get; init; }
+    /// <summary>Técnico confirmou na inspeção: a máquina está com Autopilot? (null = não respondeu)</summary>
+    [JsonPropertyName("autopilot_confirmed")] public bool? AutopilotConfirmed { get; init; }
+    /// <summary>
+    /// A detecção automática bateu com a confirmação do técnico? null quando a
+    /// detecção foi inconclusiva ("Possível"/"Indisponível") ou sem resposta.
+    /// </summary>
+    [JsonPropertyName("autopilot_detection_ok")] public bool? AutopilotDetectionOk { get; init; }
     [JsonPropertyName("windows_activation")] public string WindowsActivation { get; init; } = "";
     [JsonPropertyName("screen_resolution")] public string ScreenResolution { get; init; } = "";
     [JsonPropertyName("graphics_adapter")] public string? GraphicsAdapter { get; init; }

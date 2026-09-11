@@ -553,4 +553,40 @@ public class PayloadBuilderTests
 
         PayloadBuilder.MapBacklight(invalid).Should().Be("indisponivel");
     }
+
+    [Theory]
+    [InlineData(AvailabilityFlag.Registrado, true, true)]
+    [InlineData(AvailabilityFlag.Registrado, false, false)]
+    [InlineData(AvailabilityFlag.NaoRegistrado, false, true)]
+    [InlineData(AvailabilityFlag.NaoRegistrado, true, false)]
+    public void AutopilotDetectionOk_ConclusiveDetection_ComparesWithTechnician(AvailabilityFlag auto, bool confirmed, bool expected)
+    {
+        PayloadBuilder.AutopilotDetectionOk(auto, confirmed).Should().Be(expected);
+    }
+
+    [Theory]
+    [InlineData(AvailabilityFlag.NaoDeterminado)]
+    [InlineData(AvailabilityFlag.Indisponivel)]
+    public void AutopilotDetectionOk_InconclusiveDetection_IsNull(AvailabilityFlag auto)
+    {
+        PayloadBuilder.AutopilotDetectionOk(auto, true).Should().BeNull();
+    }
+
+    [Fact]
+    public void AutopilotDetectionOk_NoAnswer_IsNull()
+    {
+        PayloadBuilder.AutopilotDetectionOk(AvailabilityFlag.Registrado, null).Should().BeNull();
+    }
+
+    [Fact]
+    public void AppendAutopilotConfirmation_AppendsTechnicianVerdictToDetail()
+    {
+        PayloadBuilder.AppendAutopilotConfirmation("nenhum rastro local", AvailabilityFlag.NaoRegistrado, true)
+            .Should().Be("nenhum rastro local • técnico confirmou: COM Autopilot (detecção ERROU)");
+        PayloadBuilder.AppendAutopilotConfirmation("x", AvailabilityFlag.Registrado, true)
+            .Should().Be("x • técnico confirmou: COM Autopilot (detecção acertou)");
+        PayloadBuilder.AppendAutopilotConfirmation(null, AvailabilityFlag.NaoDeterminado, false)
+            .Should().Be("técnico confirmou: SEM Autopilot");
+        PayloadBuilder.AppendAutopilotConfirmation("x", AvailabilityFlag.Registrado, null).Should().Be("x");
+    }
 }

@@ -41,6 +41,30 @@ public class AutopilotStatus
     public string TenantId { get; set; } = "";
 
     /// <summary>
+    /// Id de registro devolvido pelo serviço ZTD da Microsoft e gravado pelo
+    /// OOBE em EstablishedCorrelations. Só existe quando o serviço reconheceu o
+    /// hardware hash — é o rastro local mais direto de registro no Autopilot.
+    /// </summary>
+    public string ZtdRegistrationId { get; set; } = "";
+
+    /// <summary>True quando pelo menos uma fonte trouxe evidência DIRETA.</summary>
+    public bool DirectEvidence { get; set; }
+
+    /// <summary>
+    /// True quando o OOBE consultou o serviço Autopilot da Microsoft e recebeu
+    /// "sem perfil" (AutopilotPolicyCache com ProfileAvailable = 0): naquela
+    /// data o hardware não estava registrado em tenant nenhum. É o único
+    /// sinal NEGATIVO com data que a máquina guarda.
+    /// </summary>
+    public bool ServiceReturnedNoProfile { get; set; }
+
+    /// <summary>Quando o serviço foi consultado (UTC), se o cache guardou a data.</summary>
+    public DateTime? ServiceQueriedAt { get; set; }
+
+    /// <summary>Quantas linhas de <see cref="Details"/> são evidência direta.</summary>
+    public int DirectEvidenceCount { get; set; }
+
+    /// <summary>
     /// Evidências encontradas (uma linha por achado), incluindo falhas de
     /// permissão — úteis para o técnico entender o veredito.
     /// </summary>

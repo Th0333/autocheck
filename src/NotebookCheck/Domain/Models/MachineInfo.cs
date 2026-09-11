@@ -62,4 +62,11 @@ public record MachineInfo(
     /// SystemFamily, ex.: "ThinkPad", "Latitude"). Null quando o OEM não
     /// preenche ou deixa placeholder.
     /// </summary>
-    string? Family = null);
+    string? Family = null,
+    /// <summary>
+    /// Confirmação do TÉCNICO na inspeção: a máquina está com Autopilot?
+    /// (true = sim, false = não, null = não respondeu). Existe porque a
+    /// detecção automática só enxerga rastros locais — quem viu o OOBE pedir
+    /// login corporativo sabe a resposta de verdade.
+    /// </summary>
+    bool? AutopilotConfirmed = null);

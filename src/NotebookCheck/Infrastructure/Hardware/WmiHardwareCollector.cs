@@ -333,28 +333,35 @@ public sealed class WmiHardwareCollector : IHardwareCollector
     }
 
     /// <summary>
-    /// Resumo legível do resultado do checker de Autopilot para UI/relatório,
-    /// ex.: "Confiança alta (85/100) • tenant contoso.com".
+    /// Resumo legível do resultado do checker de Autopilot para UI/relatório.
+    /// Fala em RASTROS, não em porcentagem: o antigo "Confiança baixa (0/100)"
+    /// era lido pelos técnicos como "0% de chance de ter Autopilot", o que é
+    /// falso — uma máquina formatada do zero não deixa rastro nenhum e ainda
+    /// assim pode estar presa no tenant do antigo dono.
+    /// Ex.: "2 evidências diretas • tenant contoso.com • Entra ID".
     /// </summary>
     private static string? BuildAutopilotDetail(AutopilotStatus? s)
     {
         if (s is null) return null;
         if (!s.AnySourceAvailable) return "Fontes indisponíveis";
 
-        var conf = s.Confidence switch
+        var text = s.Confidence switch
         {
-            "High" => "alta",
-            "Medium" => "média",
-            _ => "baixa",
+            "High" => s.DirectEvidenceCount > 1
+                ? $"{s.DirectEvidenceCount} evidências diretas"
+                : "evidência direta encontrada",
+            "Medium" => "sinais fortes, sem evidência direta",
+            _ => s.ServiceReturnedNoProfile
+                ? $"nenhum rastro local; o serviço Autopilot foi consultado{(s.ServiceQueriedAt is DateTime q ? $" em {q.ToLocalTime():dd/MM/yyyy}" : "")} e não devolveu perfil (confirme na inspeção)"
+                : "nenhum rastro local (não prova que está livre — confirme na inspeção)",
         };
-        var text = $"Confiança {conf} ({s.Score}/100)";
         var tenant = !string.IsNullOrWhiteSpace(s.TenantName) ? s.TenantName
                    : !string.IsNullOrWhiteSpace(s.TenantId) ? s.TenantId : null;
         if (tenant is not null) text += $" • tenant {tenant}";
+        if (!string.IsNullOrWhiteSpace(s.ZtdRegistrationId)) text += " • hardware hash reconhecido pelo serviço Autopilot";
         if (s.ProfileFileFound) text += " • arquivo de perfil no disco";
         if (s.AzureAdJoined) text += " • Entra ID";
         if (s.AutopilotEventsFound) text += " • eventos de Autopilot";
-        text += " • detecção em beta (verificação no tenant em desenvolvimento)";
         return text;
     }
 
@@ -1326,7 +1333,7 @@ if ($first) {
         AutopilotStatus? apInfo = null;
         try
         {
-            var checker = new AutopilotChecker(_wmi, _ps, _logger);
+            var checker = new AutopilotChecker(_wmi, _logger);
             apInfo = await checker.CheckAsync(token).ConfigureAwait(false);
             if (!apInfo.AnySourceAvailable)
             {

@@ -1,6 +1,10 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
+using System.Globalization;
 using System.Linq;
+using System.Text.Json;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
@@ -24,8 +28,11 @@ namespace NotebookCheck.Infrastructure.Hardware;
 ///   3. Event log Microsoft-Windows-ModernDeployment-Diagnostics-Provider/Autopilot
 ///      — registros só existem se o fluxo de Autopilot rodou nesta instalação.
 ///   4. Registro — perfil cloud-assigned (Provisioning\Diagnostics\Autopilot),
-///      HKLM\SOFTWARE\Microsoft\Windows\Autopilot, AutopilotPolicyCache e
-///      HKLM\SOFTWARE\Microsoft\Enrollments (enrollments MDM/Intune).
+///      correlação com o serviço ZTD (EstablishedCorrelations\ZtdRegistrationId,
+///      que só existe quando o serviço da Microsoft reconheceu o hardware hash),
+///      HKLM\SOFTWARE\Microsoft\Windows\Autopilot, AutopilotPolicyCache,
+///      HKLM\SOFTWARE\Microsoft\Enrollments (enrollments MDM/Intune) e
+///      Provisioning\OMADM\Accounts (contas de gerenciamento ativas).
 ///   5. ARQUIVO DE PERFIL — método para PCs mais antigos/provisionados:
 ///      o JSON do perfil baixado no OOBE ainda existe na máquina
 ///      (C:\Windows\ServiceState\wmansvc\AutopilotDDSZTDFile.json e
@@ -36,22 +43,26 @@ namespace NotebookCheck.Infrastructure.Hardware;
 /// Graph), que daria certeza do registro do hardware hash — será adicionada
 /// em versão futura; por ora a linha aparece em Details como aviso.
 ///
-/// Pontuação: +50 evidência direta de MDM/Autopilot • +25 AzureAdJoined •
-/// +15 eventos de Autopilot • +10 chaves de registro relevantes.
-/// 0–29 = Low, 30–69 = Medium, 70–100 = High.
+/// LIMITE IMPORTANTE: tudo isso são RASTROS locais. Uma máquina registrada
+/// no Autopilot do antigo dono e formatada do zero não deixa rastro nenhum —
+/// o registro vive no tenant, e só o OOBE com internet revela. Por isso a
+/// ausência de rastros NÃO prova que a máquina está livre; o veredito é
+/// "sem rastros", e o técnico confirma na inspeção (campo AutopilotConfirmed).
+///
+/// Pontuação (interna, para ordenar os vereditos): +50 evidência direta de
+/// MDM/Autopilot • +25 AzureAdJoined • +15 eventos de Autopilot • +10 chaves
+/// de registro relevantes. 0–29 = Low, 30–69 = Medium, 70–100 = High.
 /// Cada fonte é isolada em try/catch: falta de permissão ou ausência da fonte
 /// nunca derruba o checker — vira uma linha em Details.
 /// </summary>
 public sealed class AutopilotChecker
 {
     private readonly IWmiQueryRunner _wmi;
-    private readonly IPowerShellRunner _ps;
     private readonly ILogger _logger;
 
-    public AutopilotChecker(IWmiQueryRunner wmi, IPowerShellRunner ps, ILogger logger)
+    public AutopilotChecker(IWmiQueryRunner wmi, ILogger logger)
     {
         _wmi = wmi;
-        _ps = ps;
         _logger = logger;
     }
 
@@ -122,37 +133,28 @@ public sealed class AutopilotChecker
         }
 
         // ============================================================
-        // 2. REDUNDÂNCIA — dsregcmd /status
+        // 2. REDUNDÂNCIA — dsregcmd /status, executado DIRETO. Antes passava
+        //    pelo runner de PowerShell, que trata qualquer coisa no stderr
+        //    como erro — na bancada isto virava "falha ao executar" e a fonte
+        //    inteira era perdida (log de 18/08).
         // ============================================================
         try
         {
-            const string script = @"
-$out = & dsregcmd /status 2>$null | Out-String
-function Pick($pattern) {
-    if ($out -match $pattern) { return $matches[1].Trim() }
-    return ''
-}
-[pscustomobject]@{
-    AzureAdJoined   = (Pick 'AzureAdJoined\s*:\s*(YES|NO)')
-    DomainJoined    = (Pick 'DomainJoined\s*:\s*(YES|NO)')
-    WorkplaceJoined = (Pick 'WorkplaceJoined\s*:\s*(YES|NO)')
-    TenantName      = (Pick 'TenantName\s*:\s*(.+?)\r?\n')
-    TenantId        = (Pick 'TenantId\s*:\s*([0-9a-fA-F-]+)')
-    MdmUrl          = (Pick 'MdmUrl\s*:\s*(\S+)')
-    HasOutput       = ($out.Length -gt 0)
-}
-";
-            var rows = await _ps.InvokeAsync(script, null, TimeSpan.FromSeconds(15), ct).ConfigureAwait(false);
-            if (rows.Count > 0 && (rows[0].GetBool("HasOutput") ?? false))
+            var (_, output) = await RunAsync("dsregcmd.exe", "/status", TimeSpan.FromSeconds(15), ct).ConfigureAwait(false);
+            if (output.Length > 0)
             {
                 anySource = true;
-                var r = rows[0];
-                status.AzureAdJoined = Eq(r.GetString("AzureAdJoined"), "YES");
-                status.DomainJoined = Eq(r.GetString("DomainJoined"), "YES");
-                status.WorkplaceJoined = Eq(r.GetString("WorkplaceJoined"), "YES");
-                status.TenantName = r.GetString("TenantName") ?? "";
-                status.TenantId = r.GetString("TenantId") ?? "";
-                var mdmUrl = r.GetString("MdmUrl") ?? "";
+                string Pick(string pattern)
+                {
+                    var m = Regex.Match(output, pattern, RegexOptions.IgnoreCase);
+                    return m.Success ? m.Groups[1].Value.Trim() : "";
+                }
+                status.AzureAdJoined = Eq(Pick(@"AzureAdJoined\s*:\s*(YES|NO)"), "YES");
+                status.DomainJoined = Eq(Pick(@"DomainJoined\s*:\s*(YES|NO)"), "YES");
+                status.WorkplaceJoined = Eq(Pick(@"WorkplaceJoined\s*:\s*(YES|NO)"), "YES");
+                status.TenantName = Pick(@"TenantName\s*:\s*(.+?)\r?\n");
+                status.TenantId = Pick(@"TenantId\s*:\s*([0-9a-fA-F-]+)");
+                var mdmUrl = Pick(@"MdmUrl\s*:\s*(\S+)");
 
                 if (status.AzureAdJoined) details.Add($"dsregcmd: AzureAdJoined = YES{(status.TenantName.Length > 0 ? $" (tenant {status.TenantName})" : "")}.");
                 if (status.DomainJoined) details.Add("dsregcmd: DomainJoined = YES (domínio on-premises).");
@@ -163,7 +165,7 @@ function Pick($pattern) {
                     {
                         // MDM de DISPOSITIVO de verdade: AAD join + URL de MDM.
                         directMdmEvidence = true;
-                        details.Add($"dsregcmd: MDM URL configurada ({Trunc(mdmUrl, 60)}) com Entra ID join — gerenciamento do dispositivo.");
+                        details.Add($"dsregcmd: MDM URL configurada ({Trunc(mdmUrl, 60)}) com Entra ID join — gerenciamento do dispositivo (evidência direta).");
                     }
                     else
                     {
@@ -191,53 +193,56 @@ function Pick($pattern) {
         }
 
         // ============================================================
-        // 3. REDUNDÂNCIA — Event log do Autopilot
+        // 3. REDUNDÂNCIA — Event logs do Autopilot, via wevtutil (o runner de
+        //    PowerShell acusava erro quando o log não existia e a fonte era
+        //    perdida). O Windows tem DOIS canais: ModernDeployment (fluxo do
+        //    OOBE/ESP) e Provisioning (perfil baixado do serviço ZTD).
+        //    Qualquer um com registro = o fluxo de Autopilot já rodou aqui.
         // ============================================================
-        try
+        var eventLogs = new (string Name, string Short)[]
         {
-            const string script = @"
-$ErrorActionPreference = 'SilentlyContinue'
-$name = 'Microsoft-Windows-ModernDeployment-Diagnostics-Provider/Autopilot'
-$log = Get-WinEvent -ListLog $name -ErrorAction SilentlyContinue
-if ($log) {
-    $count = [long]($log.RecordCount)
-    $last = ''
-    if ($count -gt 0) {
-        $ev = Get-WinEvent -LogName $name -MaxEvents 1 -ErrorAction SilentlyContinue
-        if ($ev) { $last = $ev[0].TimeCreated.ToString('yyyy-MM-dd HH:mm') }
-    }
-    [pscustomobject]@{ Exists = $true; Count = $count; LastTime = [string]$last }
-} else {
-    [pscustomobject]@{ Exists = $false; Count = [long]0; LastTime = '' }
-}
-";
-            var rows = await _ps.InvokeAsync(script, null, TimeSpan.FromSeconds(10), ct).ConfigureAwait(false);
-            if (rows.Count > 0)
+            ("Microsoft-Windows-ModernDeployment-Diagnostics-Provider/Autopilot", "ModernDeployment"),
+            ("Microsoft-Windows-Provisioning-Diagnostics-Provider/AutoPilot", "Provisioning"),
+        };
+        foreach (var (logName, shortName) in eventLogs)
+        {
+            try
             {
+                var (exit, info) = await RunAsync("wevtutil.exe", $"gli \"{logName}\"", TimeSpan.FromSeconds(10), ct).ConfigureAwait(false);
+                if (exit != 0 || info.Length == 0)
+                {
+                    details.Add($"Event log do Autopilot ({shortName}) não existe nesta máquina.");
+                    continue;
+                }
                 anySource = true;
-                var exists = rows[0].GetBool("Exists") ?? false;
-                var count = rows[0].GetLong("Count") ?? 0;
-                var last = rows[0].GetString("LastTime") ?? "";
-
-                if (exists && count > 0)
+                var cm = Regex.Match(info, @"numberOfLogRecords:\s*(\d+)", RegexOptions.IgnoreCase);
+                var count = cm.Success ? long.Parse(cm.Groups[1].Value, CultureInfo.InvariantCulture) : 0;
+                if (count > 0)
                 {
                     status.AutopilotEventsFound = true;
-                    details.Add($"Event log do Autopilot: {count} evento(s){(last.Length > 0 ? $", último em {last}" : "")} — o fluxo de Autopilot já rodou nesta instalação.");
-                }
-                else if (exists)
-                {
-                    details.Add("Event log do Autopilot existe mas está vazio (fluxo nunca rodou nesta instalação).");
+                    var last = "";
+                    try
+                    {
+                        // /f:xml porque os rótulos do /f:text são localizados; o
+                        // atributo SystemTime é estável.
+                        var (_, xml) = await RunAsync("wevtutil.exe", $"qe \"{logName}\" /c:1 /rd:true /f:xml", TimeSpan.FromSeconds(10), ct).ConfigureAwait(false);
+                        var tm = Regex.Match(xml, @"SystemTime=['""]([^'""]+)['""]");
+                        if (tm.Success && DateTime.TryParse(tm.Groups[1].Value, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out var dt))
+                            last = dt.ToLocalTime().ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture);
+                    }
+                    catch { /* só perde a data */ }
+                    details.Add($"Event log do Autopilot ({shortName}): {count} evento(s){(last.Length > 0 ? $", último em {last}" : "")} — o fluxo de Autopilot já rodou nesta instalação.");
                 }
                 else
                 {
-                    details.Add("Event log do Autopilot não existe nesta máquina.");
+                    details.Add($"Event log do Autopilot ({shortName}) existe mas está vazio (fluxo nunca rodou nesta instalação).");
                 }
             }
-        }
-        catch (Exception ex)
-        {
-            details.Add("Event log do Autopilot: falha ao consultar.");
-            _logger.LogDebug(ex, "Autopilot: event log falhou");
+            catch (Exception ex)
+            {
+                details.Add($"Event log do Autopilot ({shortName}): falha ao consultar.");
+                _logger.LogDebug(ex, "Autopilot: event log {Log} falhou", logName);
+            }
         }
 
         // ============================================================
@@ -264,10 +269,54 @@ if ($log) {
                         if (string.IsNullOrEmpty(status.TenantName) && tenantDomain is not null) status.TenantName = tenantDomain;
                         details.Add($"Registro: perfil Autopilot cloud-assigned presente (tenant {tenantDomain ?? tenantId}) — evidência direta.");
                     }
-                    else if (diag.ValueCount > 0)
+                    else
                     {
-                        registryRelevant = true;
-                        details.Add($"Registro: Provisioning\\Diagnostics\\Autopilot com {diag.ValueCount} valor(es), sem tenant.");
+                        // Os valores CloudAssigned* existem VAZIOS em qualquer
+                        // Windows (sete deles, de fábrica). Contar "ValueCount > 0"
+                        // dava +10 para todo PC comum. Só contam quando o serviço
+                        // preencheu algum de verdade.
+                        var filled = diag.GetValueNames()
+                            .Where(n => n.StartsWith("CloudAssigned", StringComparison.OrdinalIgnoreCase))
+                            .Where(n => diag.GetValue(n) switch
+                            {
+                                string str => !string.IsNullOrWhiteSpace(str),
+                                int i => i != 0,
+                                _ => false,
+                            })
+                            .ToList();
+                        if (filled.Count > 0)
+                        {
+                            registryRelevant = true;
+                            details.Add($"Registro: perfil Autopilot com {filled.Count} campo(s) preenchido(s) ({string.Join(", ", filled.Take(4))}), sem tenant — sinal fraco.");
+                        }
+                        else
+                        {
+                            details.Add("Registro: Provisioning\\Diagnostics\\Autopilot só com os valores vazios de fábrica (0 pontos).");
+                        }
+                    }
+
+                    // 4a-ii. Correlação com o serviço ZTD: o OOBE grava aqui o
+                    //        ZtdRegistrationId devolvido pelo serviço da Microsoft
+                    //        quando ele RECONHECE o hardware hash. É o rastro mais
+                    //        direto que existe localmente de "este hardware está
+                    //        registrado em algum tenant".
+                    using var corr = diag.OpenSubKey("EstablishedCorrelations");
+                    if (corr is not null)
+                    {
+                        var ztd = corr.GetValue("ZtdRegistrationId") as string;
+                        var svc = corr.GetValue("AutopilotServiceCorrelationId") as string;
+                        if (IsRealTenant(ztd))
+                        {
+                            registryRelevant = true;
+                            directMdmEvidence = true;
+                            status.ZtdRegistrationId = ztd!.Trim('{', '}');
+                            details.Add($"Registro: ZtdRegistrationId {status.ZtdRegistrationId} — o serviço Autopilot da Microsoft reconheceu o hardware hash desta máquina (evidência direta).");
+                        }
+                        else if (!string.IsNullOrWhiteSpace(svc))
+                        {
+                            registryRelevant = true;
+                            details.Add("Registro: EstablishedCorrelations com id de correlação do serviço, sem ZtdRegistrationId (a máquina consultou o serviço; sinal fraco).");
+                        }
                     }
                 }
             }
@@ -301,14 +350,67 @@ if ($log) {
                 }
             }
 
-            // 4c. Cache de política do Autopilot.
+            // 4c. Cache de política do Autopilot. ATENÇÃO: a chave existe em
+            //     QUALQUER Windows cujo OOBE consultou o serviço — com
+            //     ProfileAvailable = 0 e tenant vazio quando a resposta foi "sem
+            //     perfil". Era isto que fazia todo PC comum pontuar 50 e sair
+            //     como "Possível/Provável". Só é evidência quando veio perfil
+            //     de verdade; sem perfil vira um sinal NEGATIVO com data: naquele
+            //     dia o serviço da Microsoft não reconheceu este hardware.
             using (var cache = Registry.LocalMachine.OpenSubKey(@"SOFTWARE\Microsoft\Provisioning\AutopilotPolicyCache"))
             {
-                if (cache is not null && (cache.ValueCount > 0 || cache.SubKeyCount > 0))
+                if (cache is not null)
                 {
-                    registryRelevant = true;
-                    directMdmEvidence = true;
-                    details.Add("Registro: AutopilotPolicyCache presente (perfil de Autopilot já foi baixado) — evidência direta.");
+                    var profileAvailable = cache.GetValue("ProfileAvailable") is int pa && pa != 0;
+                    var policyJson = cache.GetValue("PolicyJsonCache") as string;
+                    string? cacheTenant = null;
+                    DateTime? queriedAt = null;
+                    if (!string.IsNullOrWhiteSpace(policyJson))
+                    {
+                        try
+                        {
+                            using var doc = JsonDocument.Parse(policyJson);
+                            var root = doc.RootElement;
+                            if (root.TryGetProperty("AutopilotCreationDate", out var cd)
+                                && DateTime.TryParse(cd.GetString(), CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out var dt))
+                                queriedAt = dt;
+                            if (root.TryGetProperty("CloudAssignedAadServerData", out var aad) && aad.ValueKind == JsonValueKind.String)
+                            {
+                                using var inner = JsonDocument.Parse(aad.GetString() ?? "{}");
+                                if (inner.RootElement.TryGetProperty("ZeroTouchConfig", out var ztc))
+                                {
+                                    foreach (var f in new[] { "CloudAssignedTenantDomain", "CloudAssignedTenantUpn" })
+                                    {
+                                        if (ztc.TryGetProperty(f, out var v) && v.ValueKind == JsonValueKind.String
+                                            && !string.IsNullOrWhiteSpace(v.GetString()))
+                                        {
+                                            cacheTenant = v.GetString();
+                                            break;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        catch
+                        {
+                            // JSON ilegível — trata como "sem perfil"
+                        }
+                    }
+
+                    if (profileAvailable || cacheTenant is not null)
+                    {
+                        registryRelevant = true;
+                        directMdmEvidence = true;
+                        if (cacheTenant is not null && string.IsNullOrEmpty(status.TenantName)) status.TenantName = cacheTenant;
+                        details.Add($"Registro: AutopilotPolicyCache com perfil{(cacheTenant is not null ? $" do tenant {cacheTenant}" : "")} — o serviço Autopilot devolveu perfil para este hardware (evidência direta).");
+                    }
+                    else if (cache.ValueCount > 0 || cache.SubKeyCount > 0)
+                    {
+                        status.ServiceQueriedAt = queriedAt;
+                        status.ServiceReturnedNoProfile = true;
+                        var when = queriedAt is DateTime q ? $" em {q.ToLocalTime():dd/MM/yyyy}" : "";
+                        details.Add($"Registro: o OOBE consultou o serviço Autopilot{when} e NÃO recebeu perfil (ProfileAvailable = 0) — naquela data este hardware não estava registrado em nenhum tenant.");
+                    }
                 }
             }
 
@@ -389,6 +491,31 @@ if ($log) {
         {
             details.Add("Registro: falha ao ler chaves de Autopilot/Enrollments.");
             _logger.LogDebug(ex, "Autopilot: registro falhou");
+        }
+
+        // ============================================================
+        // 4e. Contas OMA-DM ativas (Provisioning\OMADM\Accounts). Cada subchave
+        //     é uma conta de gerenciamento (Intune, outro MDM) em uso — não
+        //     existe em máquina doméstica. Isolado do bloco 4 para uma falha
+        //     aqui não apagar o que já foi lido.
+        // ============================================================
+        try
+        {
+            using var omadm = Registry.LocalMachine.OpenSubKey(@"SOFTWARE\Microsoft\Provisioning\OMADM\Accounts");
+            if (omadm is not null)
+            {
+                var accounts = omadm.GetSubKeyNames();
+                if (accounts.Length > 0)
+                {
+                    registryRelevant = true;
+                    directMdmEvidence = true;
+                    details.Add($"Registro: {accounts.Length} conta(s) OMA-DM ativa(s) — a máquina está sendo gerenciada por MDM (evidência direta).");
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "Autopilot: OMADM falhou");
         }
 
         // ============================================================
@@ -480,6 +607,8 @@ if ($log) {
         status.Confidence = score >= 70 ? "High" : score >= 30 ? "Medium" : "Low";
         status.IsLikelyAutopilot = score >= 30;
         status.AnySourceAvailable = anySource;
+        status.DirectEvidence = directMdmEvidence;
+        status.DirectEvidenceCount = details.Count(d => d.Contains("evidência direta", StringComparison.OrdinalIgnoreCase));
 
         if (!anySource)
         {
@@ -499,6 +628,40 @@ if ($log) {
 
     private static bool Eq(string? a, string b) =>
         string.Equals(a ?? "", b, StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// Roda um utilitário do Windows e devolve (código de saída, stdout).
+    /// Sem PowerShell no meio: o runner de PS trata qualquer linha no stderr
+    /// como falha, e dsregcmd/wevtutil escrevem lá em situações normais.
+    /// </summary>
+    private static async Task<(int ExitCode, string Output)> RunAsync(string exe, string args, TimeSpan timeout, CancellationToken ct)
+    {
+        var psi = new ProcessStartInfo(exe, args)
+        {
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            UseShellExecute = false,
+            CreateNoWindow = true,
+        };
+        using var p = new Process { StartInfo = psi };
+        p.Start();
+        var stdout = p.StandardOutput.ReadToEndAsync();
+        var stderr = p.StandardError.ReadToEndAsync();
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        cts.CancelAfter(timeout);
+        try
+        {
+            await p.WaitForExitAsync(cts.Token).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+            try { p.Kill(entireProcessTree: true); } catch { /* já saiu */ }
+            throw new TimeoutException($"{exe} {args} excedeu {timeout.TotalSeconds:0}s");
+        }
+        var output = await stdout.ConfigureAwait(false);
+        _ = await stderr.ConfigureAwait(false);
+        return (p.ExitCode, output ?? "");
+    }
 
     private static string Trunc(string s, int max) =>
         s.Length <= max ? s : s.Substring(0, max) + "…";

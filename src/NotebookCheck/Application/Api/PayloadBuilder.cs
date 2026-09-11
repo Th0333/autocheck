@@ -113,7 +113,9 @@ public static class PayloadBuilder
         TpmVersion = m.TpmVersion,
         SecureBoot = MapAvailability(m.SecureBoot),
         Autopilot = MapAutopilot(m.Autopilot),
-        AutopilotDetail = m.AutopilotDetail,
+        AutopilotDetail = AppendAutopilotConfirmation(m.AutopilotDetail, m.Autopilot, m.AutopilotConfirmed),
+        AutopilotConfirmed = m.AutopilotConfirmed,
+        AutopilotDetectionOk = AutopilotDetectionOk(m.Autopilot, m.AutopilotConfirmed),
         WindowsActivation = MapAvailability(m.WindowsActivation),
         ScreenResolution = m.ScreenResolution,
         GraphicsAdapter = m.GraphicsAdapter,
@@ -256,6 +258,34 @@ public static class PayloadBuilder
         AvailabilityFlag.NaoRegistrado => "Improvável",
         _ => "Indisponível",
     };
+
+    /// <summary>
+    /// A detecção automática acertou? Só dá para julgar quando ela foi
+    /// conclusiva (Provável ou Improvável) E o técnico respondeu.
+    /// </summary>
+    public static bool? AutopilotDetectionOk(AvailabilityFlag auto, bool? confirmed)
+    {
+        if (confirmed is not bool c) return null;
+        return auto switch
+        {
+            AvailabilityFlag.Registrado => c,
+            AvailabilityFlag.NaoRegistrado => !c,
+            _ => null,
+        };
+    }
+
+    /// <summary>
+    /// Anexa a confirmação do técnico ao texto do detalhe, para o painel/ERP
+    /// mostrarem a resposta sem precisar conhecer os campos novos.
+    /// </summary>
+    public static string? AppendAutopilotConfirmation(string? detail, AvailabilityFlag auto, bool? confirmed)
+    {
+        if (confirmed is not bool c) return detail;
+        var ok = AutopilotDetectionOk(auto, confirmed);
+        var suffix = $"técnico confirmou: {(c ? "COM Autopilot" : "SEM Autopilot")}"
+                   + (ok is bool o ? (o ? " (detecção acertou)" : " (detecção ERROU)") : "");
+        return string.IsNullOrWhiteSpace(detail) ? suffix : $"{detail} • {suffix}";
+    }
 
     public static string MapAvailability(AvailabilityFlag f) => f switch
     {

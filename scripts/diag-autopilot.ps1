@@ -1,4 +1,4 @@
-# Diagnóstico do checker de Autopilot do NotebookCheck.
+﻿# Diagnóstico do checker de Autopilot do NotebookCheck.
 # Rode em QUALQUER PC (de preferência como administrador) para ver exatamente
 # o que cada fonte retorna e qual seria a pontuação — espelha a lógica do
 # AutopilotChecker.cs. Compatível com Windows PowerShell 5.1 e pwsh 7+.
@@ -41,14 +41,19 @@ if ($mdmUrl -and $aad) { $direct = $true; Write-Host "    => MDM URL + Entra ID 
 elseif ($mdmUrl) { Write-Host "    => MDM URL sem AAD join (conta de trabalho/MAM): NÃO conta" -ForegroundColor DarkYellow }
 
 # ----------------------------------------------------------------------
-Write-Host "[3] Event log do Autopilot" -ForegroundColor Yellow
-$log = Get-WinEvent -ListLog 'Microsoft-Windows-ModernDeployment-Diagnostics-Provider/Autopilot' -ErrorAction SilentlyContinue
-if ($log) {
-    Write-Host "    Log existe, RecordCount = $($log.RecordCount)"
-    if ($log.RecordCount -gt 0) { $score += 15; Write-Host "    => eventos encontrados: +15" -ForegroundColor Green }
-} else {
-    Write-Host "    Log não existe"
+Write-Host "[3] Event logs do Autopilot (ModernDeployment e Provisioning)" -ForegroundColor Yellow
+$events = $false
+foreach ($name in @('Microsoft-Windows-ModernDeployment-Diagnostics-Provider/Autopilot',
+                    'Microsoft-Windows-Provisioning-Diagnostics-Provider/AutoPilot')) {
+    $log = Get-WinEvent -ListLog $name -ErrorAction SilentlyContinue
+    if ($log) {
+        Write-Host "    $name : RecordCount = $($log.RecordCount)"
+        if ($log.RecordCount -gt 0) { $events = $true }
+    } else {
+        Write-Host "    $name : não existe"
+    }
 }
+if ($events) { $score += 15; Write-Host "    => eventos encontrados: +15" -ForegroundColor Green }
 
 # ----------------------------------------------------------------------
 Write-Host "[4] Registro" -ForegroundColor Yellow
@@ -63,12 +68,36 @@ if ($diag) {
     if ($realTenant) {
         $direct = $true; $registryRelevant = $true
         Write-Host "    Prov\Diag\Autopilot: tenant atribuído ($tdom $tid) => evidência DIRETA" -ForegroundColor Green
-    } elseif ($diag.ValueCount -gt 0) {
-        $registryRelevant = $true
-        Write-Host "    Prov\Diag\Autopilot: $($diag.ValueCount) valor(es), sem tenant (sinal fraco)"
     } else {
-        Write-Host "    Prov\Diag\Autopilot: existe vazio (padrão do Windows — 0 pontos)"
+        # Os sete valores CloudAssigned* existem VAZIOS de fábrica — só contam se preenchidos.
+        $filled = @($diag.GetValueNames() | Where-Object { $_ -like 'CloudAssigned*' } | Where-Object {
+            $v = $diag.GetValue($_); ($v -is [string] -and $v.Trim().Length -gt 0) -or ($v -is [int] -and $v -ne 0) })
+        if ($filled.Count -gt 0) {
+            $registryRelevant = $true
+            Write-Host "    Prov\Diag\Autopilot: $($filled.Count) campo(s) preenchido(s) ($($filled -join ', ')), sem tenant (sinal fraco)" -ForegroundColor DarkYellow
+        } else {
+            Write-Host "    Prov\Diag\Autopilot: só os valores vazios de fábrica (0 pontos)"
+        }
     }
+}
+
+# 4a-ii. Correlação com o serviço ZTD — ZtdRegistrationId só existe quando o
+#        serviço da Microsoft reconheceu o hardware hash (rastro mais direto).
+$corr = Get-Item 'HKLM:\SOFTWARE\Microsoft\Provisioning\Diagnostics\Autopilot\EstablishedCorrelations' -ErrorAction SilentlyContinue
+if ($corr) {
+    $ztd = $corr.GetValue('ZtdRegistrationId')
+    $svc = $corr.GetValue('AutopilotServiceCorrelationId')
+    if ($ztd -and ($ztd.ToString().Trim('{','}') -ne $zero) -and $ztd.ToString().Length -ge 8) {
+        $direct = $true; $registryRelevant = $true
+        Write-Host "    EstablishedCorrelations: ZtdRegistrationId = $ztd => evidência DIRETA (hardware hash reconhecido)" -ForegroundColor Green
+    } elseif ($svc) {
+        $registryRelevant = $true
+        Write-Host "    EstablishedCorrelations: só AutopilotServiceCorrelationId (consultou o serviço; sinal fraco)" -ForegroundColor DarkYellow
+    } else {
+        Write-Host "    EstablishedCorrelations: sem ZtdRegistrationId (valores: $($corr.GetValueNames() -join ', ')) => 0 pontos"
+    }
+} else {
+    Write-Host "    EstablishedCorrelations: ausente"
 }
 
 # 4b. Windows\Autopilot (DevicePreparation/EnrollmentStatusTracking vazias são padrão)
@@ -85,11 +114,30 @@ if ($ap) {
     else { Write-Host "    Windows\Autopilot: só estrutura padrão vazia (0 pontos)" }
 }
 
-# 4c. AutopilotPolicyCache
+# 4c. AutopilotPolicyCache — existe em QUALQUER Windows que consultou o serviço no OOBE.
+#     Só é evidência com ProfileAvailable = 1 ou tenant no JSON; sem perfil é sinal NEGATIVO datado.
 $cache = Get-Item 'HKLM:\SOFTWARE\Microsoft\Provisioning\AutopilotPolicyCache' -ErrorAction SilentlyContinue
-if ($cache -and ($cache.ValueCount -gt 0 -or $cache.SubKeyCount -gt 0)) {
-    $direct = $true; $registryRelevant = $true
-    Write-Host "    AutopilotPolicyCache: presente => evidência DIRETA" -ForegroundColor Green
+if ($cache) {
+    $pa = $cache.GetValue('ProfileAvailable')
+    $pj = $cache.GetValue('PolicyJsonCache')
+    $cacheTenant = ''; $queried = ''
+    if ($pj) {
+        try {
+            $j = $pj | ConvertFrom-Json
+            $queried = [string]$j.AutopilotCreationDate
+            if ($j.CloudAssignedAadServerData) {
+                $z = ($j.CloudAssignedAadServerData | ConvertFrom-Json).ZeroTouchConfig
+                if ($z.CloudAssignedTenantDomain) { $cacheTenant = $z.CloudAssignedTenantDomain }
+                elseif ($z.CloudAssignedTenantUpn) { $cacheTenant = $z.CloudAssignedTenantUpn }
+            }
+        } catch { }
+    }
+    if (($pa -eq 1) -or $cacheTenant) {
+        $direct = $true; $registryRelevant = $true
+        Write-Host "    AutopilotPolicyCache: perfil recebido ($cacheTenant) => evidência DIRETA" -ForegroundColor Green
+    } else {
+        Write-Host "    AutopilotPolicyCache: serviço consultado em $queried e NÃO devolveu perfil (ProfileAvailable=$pa) => sinal NEGATIVO, 0 pontos" -ForegroundColor DarkCyan
+    }
 } else {
     Write-Host "    AutopilotPolicyCache: ausente"
 }
@@ -119,6 +167,15 @@ foreach ($e in @($ens)) {
 }
 if ($found -eq 0) { Write-Host "    Enrollments: nenhum não-interno com dados (0 pontos)" }
 
+# 4e. Contas OMA-DM ativas (Intune/MDM em uso) — não existe em máquina doméstica.
+$omadm = Get-Item 'HKLM:\SOFTWARE\Microsoft\Provisioning\OMADM\Accounts' -ErrorAction SilentlyContinue
+if ($omadm -and $omadm.SubKeyCount -gt 0) {
+    $direct = $true; $registryRelevant = $true
+    Write-Host "    OMADM\Accounts: $($omadm.SubKeyCount) conta(s) => evidência DIRETA (gerenciado por MDM)" -ForegroundColor Green
+} else {
+    Write-Host "    OMADM\Accounts: nenhuma conta"
+}
+
 # ----------------------------------------------------------------------
 if ($direct) { $score += 50 }
 if ($registryRelevant) { $score += 10 }
@@ -129,5 +186,9 @@ Write-Host ""
 Write-Host "=== RESULTADO ===" -ForegroundColor Cyan
 Write-Host ("Evidência direta: {0}  |  Registro relevante: {1}" -f $direct, $registryRelevant)
 Write-Host ("PONTUAÇÃO: {0}/100  =>  {1}" -f $score, $conf) -ForegroundColor Cyan
+Write-Host ""
+Write-Host "LEMBRETE: isto são só RASTROS locais. Máquina formatada do zero pode estar"
+Write-Host "registrada no Autopilot do antigo dono sem deixar rastro nenhum — só o OOBE"
+Write-Host "com internet revela. Por isso o app pede a confirmação do técnico (Sim/Não)."
 Write-Host ""
 Write-Host "Envie esta saída completa para análise se o resultado parecer errado."
