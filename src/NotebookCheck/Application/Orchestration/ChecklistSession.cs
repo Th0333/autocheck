@@ -105,6 +105,12 @@ public sealed class ChecklistSession
             KeyboardBacklight = KeyboardBacklight,
             KeyboardBacklightDetected = KeyboardBacklightDetected,
             AutopilotConfirmed = AutopilotConfirmed,
+            // Desktop não tem tela própria: a resolução lida é do monitor da
+            // bancada. Antes ia "1920x1080" e o site mostrava o desktop como
+            // "tela Full HD". O monitor ligado vai em VideoOutputs.
+            ScreenResolution = Mode == ChecklistMode.Desktop
+                ? "Sem tela própria (desktop)"
+                : Machine.ScreenResolution,
         };
 
         return new ChecklistReport(

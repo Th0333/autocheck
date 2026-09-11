@@ -28,4 +28,9 @@ public record DisplayInfo(
     IReadOnlyList<string> ConnectedMonitors,
     IReadOnlyList<string>? GraphicsAdapters = null,
     /// <summary>Detalhes por adaptador (VRAM dedicada e versão do driver).</summary>
-    IReadOnlyList<GraphicsInfo>? GraphicsDetails = null);
+    IReadOnlyList<GraphicsInfo>? GraphicsDetails = null,
+    /// <summary>
+    /// Saídas de vídeo em uso, uma linha por monitor ligado, com o conector
+    /// (ex.: "HDMI — LG ULTRAGEAR 1920x1080", "Painel interno 1920x1080").
+    /// </summary>
+    IReadOnlyList<string>? VideoOutputs = null);

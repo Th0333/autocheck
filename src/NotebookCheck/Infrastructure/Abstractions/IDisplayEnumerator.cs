@@ -15,6 +15,13 @@ public interface IDisplayEnumerator
     /// A ordem segue o iterador retornado pela API nativa.
     /// </summary>
     IReadOnlyList<MonitorInfo> EnumerateMonitors();
+
+    /// <summary>
+    /// Saídas de vídeo EM USO (com monitor ligado): conector (HDMI, DisplayPort,
+    /// DVI, VGA, painel interno), nome do monitor e resolução. O Windows não
+    /// enumera porta vazia — só o que tem monitor do outro lado.
+    /// </summary>
+    IReadOnlyList<VideoOutputInfo> EnumerateOutputs();
 }
 
 /// <summary>Tipo de conexão de um monitor enumerado.</summary>
@@ -46,3 +53,28 @@ public readonly record struct MonitorInfo(
     int HeightPixels,
     bool IsPrimary,
     MonitorKind Kind);
+
+/// <summary>
+/// Uma saída de vídeo ativa, vista por <c>QueryDisplayConfig</c>.
+/// </summary>
+/// <param name="Connector">Rótulo do conector: "HDMI", "DisplayPort", "DVI", "VGA", "Painel interno"...</param>
+/// <param name="MonitorName">Nome amigável do monitor (EDID), ou "Monitor".</param>
+/// <param name="Width">Largura do modo ativo em pixels (0 = desconhecida).</param>
+/// <param name="Height">Altura do modo ativo em pixels (0 = desconhecida).</param>
+/// <param name="IsInternal">True para painel de notebook (LVDS/eDP/INTERNAL).</param>
+/// <param name="GdiDeviceName">Nome GDI (<c>\\.\DISPLAY1</c>) para cruzar com <see cref="MonitorInfo"/>.</param>
+public readonly record struct VideoOutputInfo(
+    string Connector,
+    string MonitorName,
+    int Width,
+    int Height,
+    bool IsInternal,
+    string GdiDeviceName)
+{
+    /// <summary>Texto para relatório/UI, ex.: "HDMI — LG ULTRAGEAR 1920x1080".</summary>
+    public string Describe()
+    {
+        var res = Width > 0 && Height > 0 ? $" {Width}x{Height}" : "";
+        return IsInternal ? $"Painel interno{res}" : $"{Connector} — {MonitorName}{res}";
+    }
+}

@@ -1069,6 +1069,10 @@ public sealed partial class MainViewModel : ObservableObject
         {
             Register("internet", "Internet", () => _engine.RunInternetAsync(probeUrl, ct));
             Register("usb", "Portas USB", () => _engine.RunUsbPortsAsync(ct));
+            // Mesma chave "hdmi" do notebook (o site já a conhece), mas o teste
+            // lista cada monitor ligado com o conector, que é o que se confere
+            // num gabinete.
+            Register("hdmi", "Saídas de vídeo", () => _engine.RunVideoOutputsAsync(ct));
         }
         else
         {
@@ -3607,14 +3611,22 @@ public sealed partial class MainViewModel : ObservableObject
         NetworkFields.Add(new HardwareField("MAC principal", m.MacAddress ?? "—"));
 
         DisplayFields.Clear();
+        var outputs = m.VideoOutputs ?? Array.Empty<string>();
         if (IsDesktop)
         {
-            // A resolução lida é do monitor da bancada, não do equipamento.
-            DisplayFields.Add(new HardwareField("Monitor", "Não se aplica — desktop usa monitor externo"));
+            // Desktop não tem tela própria: o que interessa é POR ONDE o monitor
+            // da bancada está ligado (HDMI/DP/DVI/VGA) e qual monitor é. O
+            // Windows só enumera saída com monitor ligado — porta vazia não
+            // aparece, por isso "em uso".
+            DisplayFields.Add(new HardwareField("Saídas de vídeo em uso",
+                outputs.Count == 0 ? "Nenhum monitor detectado nas saídas de vídeo" : string.Join("\n", outputs)));
         }
         else
         {
             DisplayFields.Add(new HardwareField("Resolução", m.ScreenResolution));
+            var external = outputs.Where(o => !o.StartsWith("Painel interno", StringComparison.OrdinalIgnoreCase)).ToList();
+            if (external.Count > 0)
+                DisplayFields.Add(new HardwareField("Monitor externo", string.Join("\n", external)));
         }
         if (m.GraphicsDetails is { Count: > 0 } gpus)
         {

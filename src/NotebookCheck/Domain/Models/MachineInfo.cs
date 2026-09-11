@@ -69,4 +69,9 @@ public record MachineInfo(
     /// detecção automática só enxerga rastros locais — quem viu o OOBE pedir
     /// login corporativo sabe a resposta de verdade.
     /// </summary>
-    bool? AutopilotConfirmed = null);
+    bool? AutopilotConfirmed = null,
+    /// <summary>
+    /// Saídas de vídeo em uso (conector + monitor + resolução). No desktop é
+    /// isto que descreve a tela — a máquina não tem painel próprio.
+    /// </summary>
+    IReadOnlyList<string>? VideoOutputs = null);

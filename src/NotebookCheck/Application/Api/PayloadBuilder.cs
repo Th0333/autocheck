@@ -120,6 +120,7 @@ public static class PayloadBuilder
         ScreenResolution = m.ScreenResolution,
         GraphicsAdapter = m.GraphicsAdapter,
         GraphicsAdapters = m.GraphicsAdapters?.ToList() ?? new List<string>(),
+        VideoOutputs = m.VideoOutputs is { Count: > 0 } vo ? vo.ToList() : null,
         WifiAdapterCount = m.WifiAdapterCount,
         EthernetAdapterCount = m.EthernetAdapterCount,
         BluetoothVersion = m.Bluetooth?.Version,

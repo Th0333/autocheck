@@ -709,13 +709,78 @@ try {
             if (total == 0)
                 return new TestResult("usb", AutoStatus.NaoTestado, "Nenhuma controladora USB detectada", DateTime.Now);
 
+            // Controladora não é porta: um desktop tem UMA controladora com dez
+            // portas. O que o técnico quer saber é quantos dispositivos estão
+            // respondendo agora — mesma contagem da etapa "Inputs e portas".
+            var devices = await CountUsbDevicesAsync(ct).ConfigureAwait(false);
+
             var parts = new List<string>();
             if (usb4 > 0) parts.Add($"{usb4}× USB4");
             if (usb3 > 0) parts.Add($"{usb3}× USB 3.x");
             if (usb2 > 0) parts.Add($"{usb2}× USB 2.0");
+            var controllers = string.Join(" • ", parts);
+            var detail = devices > 0
+                ? $"{devices} dispositivo(s) USB conectado(s) • controladora: {controllers}"
+                : $"Nenhum dispositivo USB conectado agora • controladora: {controllers}";
             // Só USB 2.0 num equipamento atual é sinal de atenção.
             var status = (usb4 > 0 || usb3 > 0) ? AutoStatus.OK : AutoStatus.Atencao;
-            return new TestResult("usb", status, string.Join(" • ", parts), DateTime.Now);
+            return new TestResult("usb", status, detail, DateTime.Now);
+        });
+
+    /// <summary>
+    /// Dispositivos USB conectados agora (raiz por VID+PID, sem hubs, sem o
+    /// rádio Bluetooth) — espelha o filtro do PortCollector.
+    /// </summary>
+    private async Task<int> CountUsbDevicesAsync(CancellationToken ct)
+    {
+        try
+        {
+            var rows = await _wmi.QueryAsync("root\\cimv2",
+                "SELECT Name, DeviceID, Service, PNPClass FROM Win32_PnPEntity WHERE DeviceID LIKE 'USB\\\\VID_%'",
+                TimeSpan.FromSeconds(5), ct).ConfigureAwait(false);
+            var vidPid = new System.Text.RegularExpressions.Regex(@"VID_([0-9A-F]{4})&PID_([0-9A-F]{4})",
+                System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+            var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var r in rows)
+            {
+                var id = r.GetString("DeviceID") ?? "";
+                var m = vidPid.Match(id);
+                if (!m.Success) continue;
+                var name = r.GetString("Name") ?? "";
+                var service = r.GetString("Service") ?? "";
+                var pnpClass = r.GetString("PNPClass") ?? "";
+                if (service.Equals("USBHUB3", StringComparison.OrdinalIgnoreCase)
+                    || service.Equals("USBHUB", StringComparison.OrdinalIgnoreCase)
+                    || service.Equals("usbccgp", StringComparison.OrdinalIgnoreCase)
+                    || service.Equals("BTHUSB", StringComparison.OrdinalIgnoreCase)
+                    || pnpClass.Equals("Bluetooth", StringComparison.OrdinalIgnoreCase)
+                    || name.IndexOf("Root Hub", StringComparison.OrdinalIgnoreCase) >= 0
+                    || name.IndexOf("Generic USB Hub", StringComparison.OrdinalIgnoreCase) >= 0
+                    || name.IndexOf("Bluetooth", StringComparison.OrdinalIgnoreCase) >= 0)
+                    continue;
+                seen.Add($"{m.Groups[1].Value}&{m.Groups[2].Value}");
+            }
+            return seen.Count;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "Contagem de dispositivos USB falhou");
+            return 0;
+        }
+    }
+
+    public Task<TestResult> RunVideoOutputsAsync(CancellationToken ct) =>
+        TryRunAsync("hdmi", async () =>
+        {
+            await Task.Yield();
+            var outputs = _displays.EnumerateOutputs().Where(o => !o.IsInternal).ToList();
+            if (outputs.Count == 0)
+            {
+                return new TestResult("hdmi", AutoStatus.NaoTestado,
+                    "Nenhum monitor ligado nas saídas de vídeo — conecte um por HDMI/DisplayPort para testar", DateTime.Now);
+            }
+            var detail = string.Join(" • ", outputs.Select(o => o.Describe()));
+            return new TestResult("hdmi", AutoStatus.OK, detail, DateTime.Now);
         });
 
     public Task<TestResult> RunRefreshRateAsync(CancellationToken ct) =>

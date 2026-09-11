@@ -112,6 +112,8 @@ public sealed class MachinePayload
     [JsonPropertyName("screen_resolution")] public string ScreenResolution { get; init; } = "";
     [JsonPropertyName("graphics_adapter")] public string? GraphicsAdapter { get; init; }
     [JsonPropertyName("graphics_adapters")] public List<string> GraphicsAdapters { get; init; } = new();
+    /// <summary>Saídas de vídeo em uso: "HDMI — LG ULTRAGEAR 1920x1080" (v1.9.4+).</summary>
+    [JsonPropertyName("video_outputs")] public List<string>? VideoOutputs { get; init; }
     [JsonPropertyName("network_adapters_wifi")] public int WifiAdapterCount { get; init; }
     [JsonPropertyName("network_adapters_ethernet")] public int EthernetAdapterCount { get; init; }
     [JsonPropertyName("bluetooth_version")] public string? BluetoothVersion { get; init; }

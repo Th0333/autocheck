@@ -196,7 +196,8 @@ public sealed class WmiHardwareCollector : IHardwareCollector
             Processor: processor,
             Memory: memory,
             GraphicsDetails: display.GraphicsDetails,
-            Family: family);
+            Family: family,
+            VideoOutputs: display.VideoOutputs);
     }
 
     /// <summary>
@@ -1546,6 +1547,18 @@ if ($x -and $x.SerialNumber) {
                 _logger.LogDebug(ex, "EnumerateMonitors falhou");
             }
 
+            // Saídas em uso com o conector (HDMI/DP/DVI/VGA) — é o que
+            // descreve a "tela" de um desktop.
+            var videoOutputs = new List<string>();
+            try
+            {
+                foreach (var o in _displays.EnumerateOutputs()) videoOutputs.Add(o.Describe());
+            }
+            catch (Exception ex)
+            {
+                _logger.LogDebug(ex, "EnumerateOutputs falhou");
+            }
+
             // Todos os adaptadores de vídeo via WMI + Win32_PnPEntity (cobre dGPU
             // desligada por Optimus/Switchable Graphics).
             var allAdapters = new List<string>();
@@ -1643,7 +1656,7 @@ if ($x -and $x.SerialNumber) {
                 }
             }
             primaryAdapter ??= allAdapters.FirstOrDefault();
-            return new DisplayInfo(resolution, primaryAdapter, monitorIds, allAdapters, gpuDetails);
+            return new DisplayInfo(resolution, primaryAdapter, monitorIds, allAdapters, gpuDetails, videoOutputs);
         }, ct);
     }
 

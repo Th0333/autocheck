@@ -85,8 +85,17 @@ public interface ITestEngine
     /// </summary>
     Task<TestResult> RunMicrophoneAsync(int seconds, CancellationToken ct);
 
-    /// <summary>Detecta as controladoras USB e classifica por versão (2.0/3.x/USB4).</summary>
+    /// <summary>
+    /// Portas USB: conta os dispositivos conectados agora e as controladoras
+    /// (classificadas por versão 2.0/3.x/USB4).
+    /// </summary>
     Task<TestResult> RunUsbPortsAsync(CancellationToken ct);
+
+    /// <summary>
+    /// Saídas de vídeo em uso (desktop): lista cada monitor ligado com o
+    /// conector (HDMI/DP/DVI/VGA) e a resolução. OK com pelo menos um.
+    /// </summary>
+    Task<TestResult> RunVideoOutputsAsync(CancellationToken ct);
 
     /// <summary>Detecta a taxa de atualização (Hz) da(s) tela(s).</summary>
     Task<TestResult> RunRefreshRateAsync(CancellationToken ct);
